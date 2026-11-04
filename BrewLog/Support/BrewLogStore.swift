@@ -45,7 +45,9 @@ class BrewLogStore: ObservableObject {
     }
     
     func deleteBean(at offsets: IndexSet) {
-        beans.remove(atOffsets: offsets)
+        for index in offsets.sorted(by: >) {
+            beans.remove(at: index)
+        }
         saveBeans()
     }
     
@@ -62,7 +64,9 @@ class BrewLogStore: ObservableObject {
     }
     
     func deleteEntry(at offsets: IndexSet) {
-        entries.remove(atOffsets: offsets)
+        for index in offsets.sorted(by: >) {
+            entries.remove(at: index)
+        }
         saveEntries()
     }
     

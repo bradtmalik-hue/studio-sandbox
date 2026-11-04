@@ -1,6 +1,6 @@
 import Foundation
 
-enum BrewLogTrendBucket: String, Codable {
+enum BrewLogTrendBucket: String, Codable, Hashable {
     case increase
     case decrease
     case stable
