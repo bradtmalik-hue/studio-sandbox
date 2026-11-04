@@ -10,15 +10,14 @@
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
 		AA0000000000000000000003 /* AppPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppPersistence.swift */; };
-		AA0000000000000000000004 /* DateText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* DateText.swift */; };
-		AA0000000000000000000005 /* CoffeeBean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* CoffeeBean.swift */; };
-		AA0000000000000000000006 /* BrewRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* BrewRecord.swift */; };
-		AA0000000000000000000007 /* BrewCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* BrewCalculator.swift */; };
-		AA0000000000000000000008 /* BeanInventoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* BeanInventoryView.swift */; };
-		AA0000000000000000000009 /* BrewLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* BrewLogView.swift */; };
-		AA0000000000000000000010 /* BrewSuggestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* BrewSuggestionView.swift */; };
-		AA0000000000000000000011 /* RemainingCupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* RemainingCupsView.swift */; };
-		AA0000000000000000000012 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* AppRootView.swift */; };
+		AA0000000000000000000004 /* AppBean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppBean.swift */; };
+		AA0000000000000000000005 /* AppBrewRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppBrewRecord.swift */; };
+		AA0000000000000000000006 /* AppBeanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppBeanStore.swift */; };
+		AA0000000000000000000007 /* AppBrewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppBrewStore.swift */; };
+		AA0000000000000000000008 /* AppBeanLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppBeanLibraryView.swift */; };
+		AA0000000000000000000009 /* AppBrewLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppBrewLogView.swift */; };
+		AA0000000000000000000010 /* AppBrewHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppBrewHistoryView.swift */; };
+		AA0000000000000000000011 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -26,15 +25,14 @@
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		BB0000000000000000000003 /* AppPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPersistence.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* DateText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateText.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* CoffeeBean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoffeeBean.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* BrewRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* BrewCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewCalculator.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* BeanInventoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanInventoryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* BrewLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* BrewSuggestionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewSuggestionView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* RemainingCupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemainingCupsView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000012 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppBean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBean.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppBrewRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewRecord.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppBeanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBeanStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* AppBrewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppBeanLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBeanLibraryView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppBrewLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewLogView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppBrewHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewHistoryView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -81,9 +79,10 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000005 /* CoffeeBean.swift */,
-				BB0000000000000000000006 /* BrewRecord.swift */,
-				BB0000000000000000000007 /* BrewCalculator.swift */,
+				BB0000000000000000000004 /* AppBean.swift */,
+				BB0000000000000000000005 /* AppBrewRecord.swift */,
+				BB0000000000000000000006 /* AppBeanStore.swift */,
+				BB0000000000000000000007 /* AppBrewStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -91,11 +90,10 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000008 /* BeanInventoryView.swift */,
-				BB0000000000000000000009 /* BrewLogView.swift */,
-				BB0000000000000000000010 /* BrewSuggestionView.swift */,
-				BB0000000000000000000011 /* RemainingCupsView.swift */,
-				BB0000000000000000000012 /* AppRootView.swift */,
+				BB0000000000000000000008 /* AppBeanLibraryView.swift */,
+				BB0000000000000000000009 /* AppBrewLogView.swift */,
+				BB0000000000000000000010 /* AppBrewHistoryView.swift */,
+				BB0000000000000000000011 /* AppRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -105,7 +103,6 @@
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
 				BB0000000000000000000003 /* AppPersistence.swift */,
-				BB0000000000000000000004 /* DateText.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -190,15 +187,14 @@
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
 				AA0000000000000000000003 /* AppPersistence.swift in Sources */,
-				AA0000000000000000000004 /* DateText.swift in Sources */,
-				AA0000000000000000000005 /* CoffeeBean.swift in Sources */,
-				AA0000000000000000000006 /* BrewRecord.swift in Sources */,
-				AA0000000000000000000007 /* BrewCalculator.swift in Sources */,
-				AA0000000000000000000008 /* BeanInventoryView.swift in Sources */,
-				AA0000000000000000000009 /* BrewLogView.swift in Sources */,
-				AA0000000000000000000010 /* BrewSuggestionView.swift in Sources */,
-				AA0000000000000000000011 /* RemainingCupsView.swift in Sources */,
-				AA0000000000000000000012 /* AppRootView.swift in Sources */,
+				AA0000000000000000000004 /* AppBean.swift in Sources */,
+				AA0000000000000000000005 /* AppBrewRecord.swift in Sources */,
+				AA0000000000000000000006 /* AppBeanStore.swift in Sources */,
+				AA0000000000000000000007 /* AppBrewStore.swift in Sources */,
+				AA0000000000000000000008 /* AppBeanLibraryView.swift in Sources */,
+				AA0000000000000000000009 /* AppBrewLogView.swift in Sources */,
+				AA0000000000000000000010 /* AppBrewHistoryView.swift in Sources */,
+				AA0000000000000000000011 /* AppRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

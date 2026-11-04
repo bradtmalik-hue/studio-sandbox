@@ -1,61 +1,68 @@
 import Foundation
 
-struct AppPersistence {
-    static let shared = AppPersistence()
+enum AppPersistenceError: LocalizedError {
+    case documentsDirectoryUnavailable
+    case fileNotFound(String)
 
-    private let fileManager: FileManager
-    private let directoryURL: URL
-
-    private var beansFileURL: URL {
-        directoryURL.appendingPathComponent("coffeeBeans.json")
-    }
-
-    private var recordsFileURL: URL {
-        directoryURL.appendingPathComponent("brewRecords.json")
-    }
-
-    init() {
-        fileManager = FileManager.default
-        directoryURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-    }
-
-    func loadBeans() -> [AppCoffeeBean] {
-        guard fileManager.fileExists(atPath: beansFileURL.path) else { return [] }
-        do {
-            let data = try Data(contentsOf: beansFileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode([AppCoffeeBean].self, from: data)
-        } catch {
-            return []
+    var errorDescription: String? {
+        switch self {
+        case .documentsDirectoryUnavailable:
+            return "无法访问文稿目录。"
+        case .fileNotFound(let fileName):
+            return "找不到本地文件：\(fileName)"
         }
     }
+}
 
-    func saveBeans(_ beans: [AppCoffeeBean]) throws {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(beans)
-        try data.write(to: beansFileURL)
+enum AppPersistence {
+    private enum FileName {
+        static let beans = "app_beans.json"
+        static let brewRecords = "app_brew_records.json"
     }
 
-    func loadRecords() -> [AppBrewRecord] {
-        guard fileManager.fileExists(atPath: recordsFileURL.path) else { return [] }
-        do {
-            let data = try Data(contentsOf: recordsFileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode([AppBrewRecord].self, from: data)
-        } catch {
-            return []
+    private static func documentsDirectory() throws -> URL {
+        guard let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw AppPersistenceError.documentsDirectoryUnavailable
         }
+        return directory
     }
 
-    func saveRecords(_ records: [AppBrewRecord]) throws {
+    static func fileURL(for fileName: String) throws -> URL {
+        let directory = try documentsDirectory()
+        return directory.appendingPathComponent(fileName)
+    }
+
+    static func loadBeans() throws -> [AppBean] {
+        try load([AppBean].self, from: FileName.beans)
+    }
+
+    static func saveBeans(_ beans: [AppBean]) throws {
+        try save(beans, to: FileName.beans)
+    }
+
+    static func loadBrewRecords() throws -> [AppBrewRecord] {
+        try load([AppBrewRecord].self, from: FileName.brewRecords)
+    }
+
+    static func saveBrewRecords(_ records: [AppBrewRecord]) throws {
+        try save(records, to: FileName.brewRecords)
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, from fileName: String) throws -> T {
+        let url = try fileURL(for: fileName)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw AppPersistenceError.fileNotFound(fileName)
+        }
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private static func save<T: Encodable>(_ value: T, to fileName: String) throws {
+        let url = try fileURL(for: fileName)
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(records)
-        try data.write(to: recordsFileURL)
+        let data = try encoder.encode(value)
+        try data.write(to: url)
     }
 }
