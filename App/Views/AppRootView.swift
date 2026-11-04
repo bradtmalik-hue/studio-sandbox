@@ -154,7 +154,7 @@ struct AppRootView: View {
                 case .brewLog:
                     AppBrewLogView()
                 case .suggestion:
-                    BrewSuggestionView()
+                    BrewSuggestionView(beans: store.coffeeBeans)
                 case .remainingCups:
                     AppRemainingCupsView()
                 }
