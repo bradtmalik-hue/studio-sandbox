@@ -156,7 +156,7 @@ struct AppRootView: View {
                 case .suggestion:
                     BrewSuggestionView(beans: store.coffeeBeans)
                 case .remainingCups:
-                    AppRemainingCupsView()
+                    AppRemainingCupsView(beans: store.coffeeBeans)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
