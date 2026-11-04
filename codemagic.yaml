@@ -1,65 +1,7 @@
 workflows:
-  compile-check:
-    name: Compile Check (no signing)
-    max_build_duration: 30
-    environment:
-      xcode: latest
+  probe:
+    name: Probe
+    instance_type: mac_mini_m2
+    max_build_duration: 5
     scripts:
-      - name: Compile
-        script: |
-          xcodebuild \
-            -project "BrewLog.xcodeproj" \
-            -scheme "BrewLog" \
-            -sdk iphoneos \
-            -configuration Release \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-    artifacts:
-      - build/Build/Products/Release-iphoneos/*.app
-
-  demo-capture:
-    name: Store Screenshots (simulator)
-    max_build_duration: 45
-    environment:
-      xcode: latest
-      vars:
-        BUNDLE_ID: com.example.app
-    scripts:
-      - name: Build for simulator
-        script: |
-          set -e
-          xcodebuild \
-            -project "BrewLog.xcodeproj" \
-            -scheme "BrewLog" \
-            -sdk iphonesimulator \
-            -configuration Release \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-      - name: Capture each screen
-        script: |
-          set -e
-          mkdir -p shots
-          DT=$(xcrun simctl list devicetypes | grep -o "iPhone 16 Pro Max" | head -1)
-          if [ -z "$DT" ]; then DT=$(xcrun simctl list devicetypes | grep -o "iPhone 16 Pro" | head -1); fi
-          if [ -z "$DT" ]; then DT=$(xcrun simctl list devicetypes | grep -o "iPhone 15 Pro Max" | head -1); fi
-          RT=$(xcrun simctl list runtimes | grep -o "com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]*" | tail -1)
-          DEV=$(xcrun simctl create Capture "$DT" "$RT")
-          xcrun simctl boot "$DEV" || true
-          xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/BrewLog.app"
-          xcrun simctl install "$DEV" "$APP"
-          xcrun simctl status_bar "$DEV" override --time "9:41" \
-            --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
-          N=1
-          for T in 0 1 2; do
-            xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
-            xcrun simctl launch "$DEV" "$BUNDLE_ID" -startTab "$T" || true
-            sleep 4
-            xcrun simctl io "$DEV" screenshot "shots/shot_$N.png"
-            N=$((N+1))
-          done
-          ls -la shots
-    artifacts:
-      - shots/*.png
+      - script: echo linked
