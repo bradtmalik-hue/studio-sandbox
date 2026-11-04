@@ -172,28 +172,31 @@ struct AppBrewLogView: View {
 
         guard bean.remainingGrams >= dose else {
             alertTitle = "豆子不足"
-            alertMessage = "当前剩余 \(bean.remainingGrams, specifier: "%.0f") g，本次需要 \(dose, specifier: "%.0f") g。"
+            alertMessage = "当前剩余 \(String(format: "%.0f", bean.remainingGrams)) g，本次需要 \(String(format: "%.0f", dose)) g。"
             showingAlert = true
             return
         }
 
         let record = AppBrewRecord(
             id: UUID(),
+            beanID: bean.id,
             date: Date(),
             dose: dose,
-            water: water,
-            temperature: temperature,
-            duration: duration,
-            beanID: bean.id,
+            waterAmount: water,
+            waterTemperature: temperature,
+            totalDuration: duration,
             isBest: isBest
         )
 
         brewStore.add(record)
-        beanStore.deductGrams(for: bean.id, grams: dose)
+
+        if let index = beanStore.beans.firstIndex(where: { $0.id == bean.id }) {
+            beanStore.beans[index].remainingGrams -= dose
+        }
 
         isBest = false
         alertTitle = "已保存"
-        alertMessage = "冲煮记录已保存，并扣减 \(dose, specifier: "%.0f") g 豆子。"
+        alertMessage = "冲煮记录已保存，并扣减 \(String(format: "%.0f", dose)) g 豆子。"
         showingAlert = true
     }
 }
