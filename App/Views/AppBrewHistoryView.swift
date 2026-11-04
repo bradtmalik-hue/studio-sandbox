@@ -6,6 +6,7 @@ struct AppBrewHistoryView: View {
     @EnvironmentObject var beanStore: AppBeanStore
 
     @State private var showBestOnly = false
+    @State private var bestOverrides: [UUID: Bool] = [:]
 
     private var allRecords: [AppBrewRecord] {
         brewStore.records.sorted { $0.date > $1.date }
@@ -13,13 +14,13 @@ struct AppBrewHistoryView: View {
 
     private var filteredRecords: [AppBrewRecord] {
         if showBestOnly {
-            return allRecords.filter(\.isBest)
+            return allRecords.filter { effectiveIsBest(for: $0) }
         }
         return allRecords
     }
 
     private var bestCount: Int {
-        allRecords.filter(\.isBest).count
+        allRecords.filter { effectiveIsBest(for: $0) }.count
     }
 
     var body: some View {
@@ -41,9 +42,11 @@ struct AppBrewHistoryView: View {
                     List {
                         Section {
                             ForEach(filteredRecords) { record in
+                                let isBest = effectiveIsBest(for: record)
                                 AppBrewHistoryRow(
                                     record: record,
-                                    beanName: beanName(for: record.beanID)
+                                    beanName: beanName(for: record.beanID),
+                                    isBest: isBest
                                 )
                                 .swipeActions {
                                     Button {
@@ -52,11 +55,11 @@ struct AppBrewHistoryView: View {
                                         }
                                     } label: {
                                         Label(
-                                            record.isBest ? "取消最佳" : "标记最佳",
-                                            systemImage: record.isBest ? "star.slash" : "star"
+                                            isBest ? "取消最佳" : "标记最佳",
+                                            systemImage: isBest ? "star.slash" : "star"
                                         )
                                     }
-                                    .tint(record.isBest ? Color.gray : Color.yellow)
+                                    .tint(isBest ? Color.gray : Color.yellow)
                                 }
                             }
                         } footer: {
@@ -90,17 +93,20 @@ struct AppBrewHistoryView: View {
         beanStore.beans.first(where: { $0.id == id })?.name ?? "未知豆子"
     }
 
+    private func effectiveIsBest(for record: AppBrewRecord) -> Bool {
+        bestOverrides[record.id] ?? record.isBest
+    }
+
     private func toggleBest(_ record: AppBrewRecord) {
-        guard let index = brewStore.records.firstIndex(where: { $0.id == record.id }) else {
-            return
-        }
-        brewStore.records[index].isBest.toggle()
+        let current = effectiveIsBest(for: record)
+        bestOverrides[record.id] = !current
     }
 }
 
 private struct AppBrewHistoryRow: View {
     let record: AppBrewRecord
     let beanName: String
+    let isBest: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -108,7 +114,7 @@ private struct AppBrewHistoryRow: View {
                 Text(beanName)
                     .font(.headline)
                 Spacer()
-                if record.isBest {
+                if isBest {
                     Image(systemName: "star.fill")
                         .foregroundStyle(Color.yellow)
                         .accessibilityLabel("已标记最佳一杯")
@@ -125,19 +131,19 @@ private struct AppBrewHistoryRow: View {
 
             HStack(spacing: 12) {
                 Label(
-                    "\(record.coffeeGrams.formatted(.number.precision(.fractionLength(1))))g",
+                    "\(record.dose.formatted(.number.precision(.fractionLength(1))))g",
                     systemImage: "circle.fill"
                 )
                 Label(
-                    "\(record.waterGrams.formatted(.number.precision(.fractionLength(1))))g",
+                    "\(record.waterAmount.formatted(.number.precision(.fractionLength(1))))g",
                     systemImage: "drop.fill"
                 )
                 Label(
-                    "\(record.temperature.formatted(.number.precision(.fractionLength(1))))°C",
+                    "\(record.waterTemperature.formatted(.number.precision(.fractionLength(1))))°C",
                     systemImage: "thermometer.medium"
                 )
                 Label(
-                    formatDuration(record.duration),
+                    formatDuration(record.totalDuration),
                     systemImage: "timer"
                 )
             }
