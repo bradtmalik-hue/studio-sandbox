@@ -8,8 +8,8 @@ workflows:
       - name: Compile
         script: |
           xcodebuild \
-            -project "SandboxProbe.xcodeproj" \
-            -scheme "SandboxProbe" \
+            -project "BrewLog.xcodeproj" \
+            -scheme "BrewLog" \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -30,8 +30,8 @@ workflows:
         script: |
           set -e
           xcodebuild \
-            -project "SandboxProbe.xcodeproj" \
-            -scheme "SandboxProbe" \
+            -project "BrewLog.xcodeproj" \
+            -scheme "BrewLog" \
             -sdk iphonesimulator \
             -configuration Release \
             -derivedDataPath build \
@@ -48,7 +48,7 @@ workflows:
           DEV=$(xcrun simctl create Capture "$DT" "$RT")
           xcrun simctl boot "$DEV" || true
           xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/SandboxProbe.app"
+          APP="build/Build/Products/Release-iphonesimulator/BrewLog.app"
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
