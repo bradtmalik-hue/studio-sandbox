@@ -119,3 +119,14 @@ struct BrewLogAddBeanSheet: View {
         }
     }
 }
+
+extension BrewLogStore {
+    func archiveBean(_ bean: BrewLogBean) {
+        beans = beans.map { existing in
+            guard existing.id == bean.id else { return existing }
+            var updated = existing
+            updated.isArchived = true
+            return updated
+        }
+    }
+}
