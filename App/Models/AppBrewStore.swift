@@ -73,7 +73,7 @@ class AppBrewStore: ObservableObject {
     }
 
     func parameters(for record: AppBrewRecord) -> (dose: Double, water: Double, temperature: Double, duration: TimeInterval) {
-        (dose: record.dose, water: record.water, temperature: record.temperature, duration: record.duration)
+        (dose: record.dose, water: record.waterAmount, temperature: record.waterTemperature, duration: record.totalDuration)
     }
 
     private func load() {
