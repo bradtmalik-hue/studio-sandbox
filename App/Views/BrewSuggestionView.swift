@@ -132,3 +132,17 @@ struct BrewSuggestionView: View {
         .background(Color(white: 0.95))
     }
 }
+
+extension AppBrewCalculator {
+    static func suggestion(for bean: AppCoffeeBean) -> (ratio: Double, temperature: Double, time: Int) {
+        let daysSinceRoast = Calendar.current.dateComponents([.day], from: bean.roastDate, to: Date()).day ?? 0
+        
+        if daysSinceRoast < 3 {
+            return (ratio: 15.5, temperature: 90, time: 150)
+        } else if daysSinceRoast <= 14 {
+            return (ratio: 15.0, temperature: 93, time: 165)
+        } else {
+            return (ratio: 14.5, temperature: 95, time: 180)
+        }
+    }
+}
