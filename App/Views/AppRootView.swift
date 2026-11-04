@@ -150,7 +150,7 @@ struct AppRootView: View {
             ZStack {
                 switch selectedTab {
                 case .beans:
-                    BeanInventoryView()
+                    BeanInventoryView(beans: store.coffeeBeans)
                 case .brewLog:
                     AppBrewLogView()
                 case .suggestion:
