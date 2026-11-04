@@ -5,23 +5,23 @@ struct BrewLogRootView: View {
 
     var body: some View {
         TabView {
-            BrewSessionView()
+            BrewLogSessionView()
                 .tabItem {
                     Label("冲一杯", systemImage: "cup.and.saucer.fill")
                 }
 
-            BeanListView()
+            BrewLogBeanListView()
                 .tabItem {
-                    Label("豆单", systemImage: "list.bullet")
+                    Label("豆单", systemImage: "list.bullet.clipboard")
                 }
 
-            StatsView()
+            BrewLogStatsView()
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.fill")
+                    Label("统计", systemImage: "chart.xyaxis.line")
                 }
         }
-        .environmentObject(store)
         .tint(.orange)
+        .environmentObject(store)
     }
 }
 

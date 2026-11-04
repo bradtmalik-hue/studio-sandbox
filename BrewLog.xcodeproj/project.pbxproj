@@ -9,30 +9,26 @@
 /* Begin PBXBuildFile section */
 		AA0000000000000000000001 /* BrewLogApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* BrewLogApp.swift */; };
 		AA0000000000000000000002 /* BrewLogTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* BrewLogTheme.swift */; };
-		AA0000000000000000000003 /* BrewLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* BrewLogStore.swift */; };
-		AA0000000000000000000004 /* BrewLogStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* BrewLogStatistics.swift */; };
-		AA0000000000000000000005 /* BrewLogApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* BrewLogApp.swift */; };
-		AA0000000000000000000006 /* BrewBean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* BrewBean.swift */; };
-		AA0000000000000000000007 /* BrewLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* BrewLogEntry.swift */; };
-		AA0000000000000000000008 /* BrewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* BrewSessionView.swift */; };
-		AA0000000000000000000009 /* BeanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* BeanListView.swift */; };
-		AA0000000000000000000010 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* StatsView.swift */; };
-		AA0000000000000000000011 /* BrewLogRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* BrewLogRootView.swift */; };
+		AA0000000000000000000003 /* BrewLogBean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* BrewLogBean.swift */; };
+		AA0000000000000000000004 /* BrewLogSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* BrewLogSession.swift */; };
+		AA0000000000000000000005 /* BrewLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* BrewLogStore.swift */; };
+		AA0000000000000000000006 /* BrewLogSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* BrewLogSessionView.swift */; };
+		AA0000000000000000000007 /* BrewLogBeanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* BrewLogBeanListView.swift */; };
+		AA0000000000000000000008 /* BrewLogStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* BrewLogStatsView.swift */; };
+		AA0000000000000000000009 /* BrewLogRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* BrewLogRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		BB0000000000000000000001 /* BrewLogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* BrewLogTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogTheme.swift; sourceTree = "<group>"; };
-		BB0000000000000000000003 /* BrewLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* BrewLogStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogStatistics.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* BrewLogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogApp.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* BrewBean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewBean.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* BrewLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogEntry.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* BrewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewSessionView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* BeanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanListView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* BrewLogRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* BrewLogBean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogBean.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* BrewLogSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogSession.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* BrewLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* BrewLogSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogSessionView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* BrewLogBeanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogBeanListView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* BrewLogStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogStatsView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* BrewLogRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewLogRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* BrewLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrewLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -79,8 +75,9 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000006 /* BrewBean.swift */,
-				BB0000000000000000000007 /* BrewLogEntry.swift */,
+				BB0000000000000000000003 /* BrewLogBean.swift */,
+				BB0000000000000000000004 /* BrewLogSession.swift */,
+				BB0000000000000000000005 /* BrewLogStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -88,10 +85,10 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000008 /* BrewSessionView.swift */,
-				BB0000000000000000000009 /* BeanListView.swift */,
-				BB0000000000000000000010 /* StatsView.swift */,
-				BB0000000000000000000011 /* BrewLogRootView.swift */,
+				BB0000000000000000000006 /* BrewLogSessionView.swift */,
+				BB0000000000000000000007 /* BrewLogBeanListView.swift */,
+				BB0000000000000000000008 /* BrewLogStatsView.swift */,
+				BB0000000000000000000009 /* BrewLogRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -100,9 +97,6 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000002 /* BrewLogTheme.swift */,
-				BB0000000000000000000003 /* BrewLogStore.swift */,
-				BB0000000000000000000004 /* BrewLogStatistics.swift */,
-				BB0000000000000000000005 /* BrewLogApp.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -186,15 +180,13 @@
 			files = (
 				AA0000000000000000000001 /* BrewLogApp.swift in Sources */,
 				AA0000000000000000000002 /* BrewLogTheme.swift in Sources */,
-				AA0000000000000000000003 /* BrewLogStore.swift in Sources */,
-				AA0000000000000000000004 /* BrewLogStatistics.swift in Sources */,
-				AA0000000000000000000005 /* BrewLogApp.swift in Sources */,
-				AA0000000000000000000006 /* BrewBean.swift in Sources */,
-				AA0000000000000000000007 /* BrewLogEntry.swift in Sources */,
-				AA0000000000000000000008 /* BrewSessionView.swift in Sources */,
-				AA0000000000000000000009 /* BeanListView.swift in Sources */,
-				AA0000000000000000000010 /* StatsView.swift in Sources */,
-				AA0000000000000000000011 /* BrewLogRootView.swift in Sources */,
+				AA0000000000000000000003 /* BrewLogBean.swift in Sources */,
+				AA0000000000000000000004 /* BrewLogSession.swift in Sources */,
+				AA0000000000000000000005 /* BrewLogStore.swift in Sources */,
+				AA0000000000000000000006 /* BrewLogSessionView.swift in Sources */,
+				AA0000000000000000000007 /* BrewLogBeanListView.swift in Sources */,
+				AA0000000000000000000008 /* BrewLogStatsView.swift in Sources */,
+				AA0000000000000000000009 /* BrewLogRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
