@@ -1,1 +1,7 @@
-请提供当前源码，以便修复编译错误。
+import SwiftUI
+
+struct BrewLogBrewView: View {
+    var body: some View {
+        EmptyView()
+    }
+}
