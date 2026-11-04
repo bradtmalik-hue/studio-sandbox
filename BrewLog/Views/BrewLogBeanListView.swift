@@ -1,64 +1,56 @@
 import SwiftUI
 
 struct BrewLogBeanListView: View {
-    @EnvironmentObject var store: BrewLogStore
-    @State private var showingAddSheet = false
-    @State private var editingBean: BrewLogBean?
-    @State private var showingEditSheet = false
+    @EnvironmentObject private var store: BrewLogStore
+    @State private var showingAddBeanSheet = false
+
+    private var activeBeans: [BrewLogBean] {
+        store.beans.filter { !$0.isArchived }
+    }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
-                ForEach(store.beans, id: \.name) { bean in
-                    Button {
-                        editingBean = bean
-                        showingEditSheet = true
-                    } label: {
-                        BeanRow(bean: bean)
+                if activeBeans.isEmpty {
+                    ContentUnavailableView(
+                        "No Beans",
+                        systemImage: "cup.and.saucer",
+                        description: Text("Add a coffee bean to start brewing.")
+                    )
+                } else {
+                    ForEach(activeBeans) { bean in
+                        BrewLogBeanRow(bean: bean, archiveAction: {
+                            store.archiveBean(bean)
+                        })
                     }
                 }
-                .onDelete(perform: deleteBeans)
             }
-            .navigationTitle("豆单")
+            .navigationTitle("Beans")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingAddSheet = true
+                        showingAddBeanSheet = true
                     } label: {
-                        Image(systemName: "plus")
+                        Label("Add Bean", systemImage: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddSheet) {
-                BeanFormView(mode: .add) { newBean in
-                    store.beans.append(newBean)
-                }
-            }
-            .sheet(isPresented: $showingEditSheet) {
-                if let bean = editingBean {
-                    BeanFormView(mode: .edit(bean)) { updatedBean in
-                        if let index = store.beans.firstIndex(where: { $0.name == bean.name }) {
-                            store.beans[index] = updatedBean
-                        }
-                    }
-                }
+            .sheet(isPresented: $showingAddBeanSheet) {
+                BrewLogAddBeanSheet()
+                    .environmentObject(store)
             }
         }
     }
-
-    private func deleteBeans(at offsets: IndexSet) {
-        store.beans.remove(atOffsets: offsets)
-    }
 }
 
-private struct BeanRow: View {
+struct BrewLogBeanRow: View {
     let bean: BrewLogBean
+    let archiveAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(bean.name)
                 .font(.headline)
-                .foregroundColor(.primary)
             if !bean.roaster.isEmpty {
                 Text(bean.roaster)
                     .font(.subheadline)
@@ -66,97 +58,64 @@ private struct BeanRow: View {
             }
             if !bean.notes.isEmpty {
                 Text(bean.notes)
-                    .font(.footnote)
+                    .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
         }
-        .padding(.vertical, 4)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                archiveAction()
+            } label: {
+                Label("Archive", systemImage: "archivebox")
+            }
+            .tint(.orange)
+        }
     }
 }
 
-private enum BeanFormMode {
-    case add
-    case edit(BrewLogBean)
-}
-
-private struct BeanFormView: View {
-    let mode: BeanFormMode
-    let onSave: (BrewLogBean) -> Void
-
+struct BrewLogAddBeanSheet: View {
+    @EnvironmentObject private var store: BrewLogStore
     @Environment(\.dismiss) private var dismiss
-
-    @State private var name: String = ""
-    @State private var roaster: String = ""
-    @State private var notes: String = ""
-
-    private var isEditing: Bool {
-        if case .edit = mode {
-            return true
-        }
-        return false
-    }
-
-    private var originalBean: BrewLogBean? {
-        if case .edit(let bean) = mode {
-            return bean
-        }
-        return nil
-    }
+    @State private var name = ""
+    @State private var roaster = ""
+    @State private var notes = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
-                Section(header: Text("名称")) {
-                    TextField("豆子名称", text: $name)
-                        .disabled(isEditing)
-                }
-                Section(header: Text("烘焙商")) {
-                    TextField("烘焙商", text: $roaster)
-                }
-                Section(header: Text("备注")) {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 100)
+                Section("Bean Details") {
+                    TextField("Name", text: $name)
+                    TextField("Roaster", text: $roaster)
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
                 }
             }
-            .navigationTitle(isEditing ? "编辑豆子" : "新增豆子")
+            .navigationTitle("New Bean")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
+                    Button("Cancel") {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        saveBean()
+                    Button("Save") {
+                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmedName.isEmpty else { return }
+                        let newBean = BrewLogBean(
+                            id: UUID(),
+                            name: trimmedName,
+                            roaster: roaster.trimmingCharacters(in: .whitespacesAndNewlines),
+                            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                            isArchived: false
+                        )
+                        store.addBean(newBean)
+                        dismiss()
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-            .onAppear {
-                if let bean = originalBean {
-                    name = bean.name
-                    roaster = bean.roaster
-                    notes = bean.notes
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
-    }
-
-    private func saveBean() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let finalName: String
-        if isEditing, let bean = originalBean {
-            finalName = bean.name
-        } else {
-            finalName = trimmedName
-        }
-        let newBean = BrewLogBean(
-            name: finalName,
-            roaster: roaster.trimmingCharacters(in: .whitespacesAndNewlines),
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        onSave(newBean)
-        dismiss()
     }
 }

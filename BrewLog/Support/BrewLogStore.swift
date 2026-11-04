@@ -1,135 +1,98 @@
 import Foundation
 import Combine
 
-class BrewLogStore: ObservableObject {
-    @Published var beans: [BrewBean] = []
-    @Published var entries: [BrewLogEntry] = []
-    
-    private let fileManager = FileManager.default
-    
-    private var beansFileURL: URL? {
-        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        return documentsDirectory.appendingPathComponent("brew_beans.json")
+final class BrewLogStore: ObservableObject {
+    @Published var beans: [BrewLogBean] = []
+    @Published var brews: [BrewLogBrew] = []
+
+    static let shared = BrewLogStore()
+
+    private let fileManager: FileManager
+    private let beansURL: URL
+    private let brewsURL: URL
+
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        self.beansURL = documentsURL.appendingPathComponent("BrewLogBeans.json")
+        self.brewsURL = documentsURL.appendingPathComponent("BrewLogBrews.json")
+        load()
     }
-    
-    private var entriesFileURL: URL? {
-        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        return documentsDirectory.appendingPathComponent("brew_log_entries.json")
-    }
-    
-    init() {
-        loadBeans()
-        loadEntries()
-    }
-    
-    // MARK: - Bean Management
-    
-    func addBean(_ bean: BrewBean) {
+
+    func addBean(_ bean: BrewLogBean) {
         beans.append(bean)
         saveBeans()
     }
-    
-    func updateBean(_ bean: BrewBean) {
-        guard let index = beans.firstIndex(where: { $0.id == bean.id }) else { return }
-        beans[index] = bean
+
+    func addBrew(_ brew: BrewLogBrew) {
+        brews.append(brew)
+        saveBrews()
+    }
+
+    func removeBeans(at offsets: IndexSet) {
+        beans.remove(atOffsets: offsets)
         saveBeans()
     }
-    
-    func deleteBean(_ bean: BrewBean) {
-        beans.removeAll { $0.id == bean.id }
-        saveBeans()
+
+    func removeBrews(at offsets: IndexSet) {
+        brews.remove(atOffsets: offsets)
+        saveBrews()
     }
-    
-    func deleteBean(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            beans.remove(at: index)
+
+    func saveBeans() {
+        do {
+            let data = try Self.encoder.encode(beans)
+            try data.write(to: beansURL)
+        } catch {
+            print("Failed to save beans: \(error)")
         }
-        saveBeans()
     }
-    
-    func deleteAllBeans() {
-        beans.removeAll()
-        saveBeans()
-    }
-    
-    // MARK: - Entry Management
-    
-    func addEntry(_ entry: BrewLogEntry) {
-        entries.append(entry)
-        saveEntries()
-    }
-    
-    func deleteEntry(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            entries.remove(at: index)
+
+    func saveBrews() {
+        do {
+            let data = try Self.encoder.encode(brews)
+            try data.write(to: brewsURL)
+        } catch {
+            print("Failed to save brews: \(error)")
         }
-        saveEntries()
     }
-    
-    func deleteAllEntries() {
-        entries.removeAll()
-        saveEntries()
+
+    private func load() {
+        loadBeans()
+        loadBrews()
     }
-    
-    // MARK: - Persistence
-    
+
     private func loadBeans() {
-        guard let url = beansFileURL,
-              fileManager.fileExists(atPath: url.path) else {
-            return
-        }
+        guard fileManager.fileExists(atPath: beansURL.path) else { return }
         do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            beans = try decoder.decode([BrewBean].self, from: data)
+            let data = try Data(contentsOf: beansURL)
+            let decoded = try Self.decoder.decode([BrewLogBean].self, from: data)
+            beans = decoded
         } catch {
-            print("BrewLogStore: failed to load beans from \(beansFileURL?.path ?? "unknown path"): \(error)")
+            print("Failed to load beans: \(error)")
         }
     }
-    
-    private func loadEntries() {
-        guard let url = entriesFileURL,
-              fileManager.fileExists(atPath: url.path) else {
-            return
-        }
+
+    private func loadBrews() {
+        guard fileManager.fileExists(atPath: brewsURL.path) else { return }
         do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            entries = try decoder.decode([BrewLogEntry].self, from: data)
+            let data = try Data(contentsOf: brewsURL)
+            let decoded = try Self.decoder.decode([BrewLogBrew].self, from: data)
+            brews = decoded
         } catch {
-            print("BrewLogStore: failed to load entries from \(entriesFileURL?.path ?? "unknown path"): \(error)")
-        }
-    }
-    
-    private func saveBeans() {
-        guard let url = beansFileURL else { return }
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(beans)
-            try data.write(to: url, options: .atomic)
-        } catch {
-            print("BrewLogStore: failed to save beans to \(url.path): \(error)")
-        }
-    }
-    
-    private func saveEntries() {
-        guard let url = entriesFileURL else { return }
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(entries)
-            try data.write(to: url, options: .atomic)
-        } catch {
-            print("BrewLogStore: failed to save entries to \(url.path): \(error)")
+            print("Failed to load brews: \(error)")
         }
     }
 }
