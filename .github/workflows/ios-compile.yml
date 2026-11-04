@@ -1,7 +1,36 @@
-name: ping
-on: push
+name: ios-compile
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
 jobs:
-  x:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
     steps:
-      - run: echo hi
+      - uses: actions/checkout@v4
+
+      - name: List projects
+        run: ls -la
+
+      - name: Build for simulator (no signing)
+        run: |
+          set -o pipefail
+          PROJ=$(ls -d *.xcodeproj | head -1)
+          SCHEME=$(basename "$PROJ" .xcodeproj)
+          echo "project=$PROJ scheme=$SCHEME"
+          xcodebuild \
+            -project "$PROJ" \
+            -scheme "$SCHEME" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee build.log | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
+          if ! grep -q "BUILD SUCCEEDED" build.log; then
+            echo "=== 编译错误 ==="
+            grep -E "error:" build.log | sort -u | head -40
+            exit 1
+          fi
