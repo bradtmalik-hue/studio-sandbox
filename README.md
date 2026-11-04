@@ -1,7 +1,7 @@
-# BrewLog
+# App
 
-记录每杯手冲的参数，下次照着冲
+每盆花该不该浇水，一眼看清
 
 Bundle ID: `com.example.app`
 
-Screens: 冲一杯, 豆单, 统计
+Screens: 我的植物, 记录一次, 该浇了
