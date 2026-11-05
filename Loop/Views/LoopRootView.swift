@@ -6,9 +6,7 @@ struct LoopRootView: View {
     @State private var selectedTab: Int
 
     init() {
-        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("loop-store.json")
-        _store = StateObject(wrappedValue: LoopStore(moments: [], conversations: [], fileURL: fileURL))
+        _store = StateObject(wrappedValue: LoopStore())
         _selectedTab = State(initialValue: LoopRootView.initialTab())
     }
 
@@ -26,7 +24,7 @@ struct LoopRootView: View {
                 }
                 .tag(1)
 
-            LoopComposeView()
+            LoopComposeView(moment: store)
                 .tabItem {
                     Label("New Moment", systemImage: "plus.circle.fill")
                 }
