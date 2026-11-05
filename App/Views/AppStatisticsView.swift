@@ -1,5 +1,35 @@
 import SwiftUI
 
+private struct AppStatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: icon)
+                .font(.headline)
+                .foregroundStyle(tint)
+
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.title2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(tint.opacity(0.12))
+        )
+    }
+}
+
 struct AppStatisticsView: View {
     @EnvironmentObject private var store: AppDataStore
     @State private var selectedMonth: Date = Date()
