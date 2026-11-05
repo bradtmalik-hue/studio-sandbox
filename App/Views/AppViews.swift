@@ -49,7 +49,7 @@ struct AppCheckInView: View {
                             durationMinutes: duration,
                             note: note
                         )
-                        store.add(record)
+                        store.records.append(record)
                         note = ""
                         duration = 30
                     } label: {
