@@ -1,7 +1,7 @@
 # App
 
-随手记下读到的好句子
+药品有效期和存放位置，一盒不漏
 
 Bundle ID: `com.example.app`
 
-Screens: 记一句, 按书翻看, 搜原句
+Screens: 药品列表, 添加一盒药, 临期提醒
