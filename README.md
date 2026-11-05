@@ -1,7 +1,7 @@
 # App
 
-记下每部看过的片子，回头看自己这一年
+随手记下孩子的身高体重，曲线自己长出来
 
 Bundle ID: `com.example.app`
 
-Screens: 记一部, 观影列表, 统计
+Screens: 记一笔, 成长曲线, 历史记录

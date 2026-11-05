@@ -1,96 +1,88 @@
+import Foundation
 import SwiftUI
 import Charts
 
 struct GrowthChartView: View {
-    let records: [AppGrowthRecord]
-    let month: Date
+    @EnvironmentObject private var store: AppGrowthStore
+    @State private var metric: GrowthMetric = .height
 
-    private var monthRecords: [AppGrowthRecord] {
-        records
-            .filter { Calendar.current.isDate($0.date, equalTo: month, toGranularity: .month) }
-            .sorted { $0.date < $1.date }
+    private var sortedRecords: [AppGrowthRecord] {
+        store.records.sorted { $0.date < $1.date }
     }
 
-    private var latestRecord: AppGrowthRecord? {
-        monthRecords.max(by: { $0.date < $1.date })
-    }
+    private var monthlyPoints: [MonthlyGrowthPoint] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: sortedRecords) { record -> Date in
+            calendar.dateInterval(of: .month, for: record.date)?.start ?? record.date
+        }
 
-    private var latestRecords: [AppGrowthRecord] {
-        guard let latest = latestRecord else { return [] }
-        return [latest]
+        let points = grouped.map { month, records in
+            let values = records.map { metric == .height ? $0.height : $0.weight }
+            let average = values.reduce(0.0, +) / Double(values.count)
+            return MonthlyGrowthPoint(month: month, value: average)
+        }
+
+        return points.sorted { $0.month < $1.month }
     }
 
     var body: some View {
-        Group {
-            if monthRecords.isEmpty {
-                ContentUnavailableView(
-                    "暂无曲线",
-                    systemImage: "chart.xyaxis.line",
-                    description: Text("这个月还没有身高体重记录，去「记一笔」添加吧。")
-                )
-            } else {
-                chart
-            }
-        }
-    }
+        NavigationStack {
+            Group {
+                if sortedRecords.isEmpty {
+                    ContentUnavailableView(
+                        "还没有成长记录",
+                        systemImage: "chart.xyaxis.line",
+                        description: Text("去「记一笔」添加身高体重，曲线会自动生成")
+                    )
+                } else {
+                    VStack(spacing: 16) {
+                        Picker("指标", selection: $metric) {
+                            Text("身高").tag(GrowthMetric.height)
+                            Text("体重").tag(GrowthMetric.weight)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal)
 
-    private var chart: some View {
-        let calendar = Calendar.current
-        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: month)) ?? month
-        let nextMonth = calendar.date(byAdding: .month, value: 1, to: start) ?? month
-        let end = nextMonth.addingTimeInterval(-1)
+                        Chart(monthlyPoints) { point in
+                            LineMark(
+                                x: .value("月份", point.month, unit: .month),
+                                y: .value(metric == .height ? "身高（厘米）" : "体重（公斤）", point.value)
+                            )
+                            .foregroundStyle(metric == .height ? Color.blue : Color.green)
+                            .interpolationMethod(.catmullRom)
 
-        return Chart {
-            ForEach(monthRecords) { record in
-                LineMark(
-                    x: .value("日期", record.date),
-                    y: .value("身高", record.heightCm),
-                    series: .value("系列", "身高")
-                )
-                .foregroundStyle(Color.blue)
-                .interpolationMethod(.catmullRom)
-            }
+                            PointMark(
+                                x: .value("月份", point.month, unit: .month),
+                                y: .value(metric == .height ? "身高（厘米）" : "体重（公斤）", point.value)
+                            )
+                            .foregroundStyle(metric == .height ? Color.blue : Color.green)
+                        }
+                        .chartYAxisLabel(metric == .height ? "厘米" : "公斤")
+                        .chartXAxisLabel("月份")
+                        .frame(height: 320)
+                        .padding()
 
-            ForEach(monthRecords) { record in
-                LineMark(
-                    x: .value("日期", record.date),
-                    y: .value("体重", record.weightKg),
-                    series: .value("系列", "体重")
-                )
-                .foregroundStyle(Color.pink)
-                .interpolationMethod(.catmullRom)
-            }
-
-            ForEach(latestRecords) { record in
-                PointMark(
-                    x: .value("日期", record.date),
-                    y: .value("身高", record.heightCm)
-                )
-                .foregroundStyle(Color.blue)
-                .symbolSize(80)
-                .annotation(position: .top, alignment: .center) {
-                    Text(String(format: "%.1f cm", record.heightCm))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-
-                PointMark(
-                    x: .value("日期", record.date),
-                    y: .value("体重", record.weightKg)
-                )
-                .foregroundStyle(Color.pink)
-                .symbolSize(80)
-                .annotation(position: .bottom, alignment: .center) {
-                    Text(String(format: "%.1f kg", record.weightKg))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        if let latest = sortedRecords.last {
+                            Text("最新记录：\(latest.date.formatted(date: .abbreviated, time: .omitted)) \(latest.height, specifier: "%.1f") cm / \(latest.weight, specifier: "%.1f") kg")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
+            .navigationTitle("成长曲线")
+            .background(Color(.systemGroupedBackground))
         }
-        .chartXScale(domain: start...end)
-        .chartYAxis {
-            AxisMarks(position: .leading)
-        }
-        .padding()
     }
+}
+
+private enum GrowthMetric: String {
+    case height, weight
+}
+
+private struct MonthlyGrowthPoint: Identifiable {
+    let month: Date
+    let value: Double
+
+    var id: Date { month }
 }
