@@ -1,26 +1,32 @@
+import Foundation
 import SwiftUI
+import Combine
 
 struct AppRootView: View {
-    @StateObject private var store = AppRunStore()
-    @State private var selectedTab: Int = AppRootView.initialTab()
+    @StateObject private var store = AppModels()
+    @State private var selectedTab: Int
+
+    init() {
+        _selectedTab = State(initialValue: AppRootView.initialTab())
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppAddRunView()
+            AppMedicationListView()
                 .tabItem {
-                    Label("记一次跑", systemImage: "figure.run")
+                    Label("药箱", systemImage: "pills")
                 }
                 .tag(0)
 
-            AppRunLogView()
+            AppAddMedicationView()
                 .tabItem {
-                    Label("跑步记录", systemImage: "list.bullet.rectangle.portrait")
+                    Label("加药", systemImage: "plus.circle.fill")
                 }
                 .tag(1)
 
-            AppWeeklyVolumeView()
+            AppReminderSettingsView()
                 .tabItem {
-                    Label("周跑量", systemImage: "chart.bar.xaxis")
+                    Label("提醒", systemImage: "bell.fill")
                 }
                 .tag(2)
         }
@@ -36,8 +42,4 @@ struct AppRootView: View {
         }
         return 0
     }
-}
-
-#Preview {
-    AppRootView()
 }

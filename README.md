@@ -1,7 +1,7 @@
 # App
 
-记一次跑，看八周跑量
+药品有效期和存放位置，快过期先提醒
 
 Bundle ID: `com.example.app`
 
-Screens: 记一次跑, 跑步记录, 周跑量趋势
+Screens: 药箱列表, 加药, 提醒设置
