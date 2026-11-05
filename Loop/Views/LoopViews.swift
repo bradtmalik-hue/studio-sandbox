@@ -173,8 +173,8 @@ struct LoopComposeView: View {
                         let moment = LoopMoment(
                             id: UUID(),
                             title: trimmedNote,
-                            date: Date(),
                             note: trimmedNote,
+                            date: Date(),
                             imageName: selectedImageName
                         )
                         store.add(moment)
