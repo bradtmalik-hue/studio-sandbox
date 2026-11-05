@@ -7,7 +7,7 @@ struct AppRootView: View {
     @State private var selectedTab: Int
 
     init() {
-        _store = State(initialValue: AppModels(id: UUID(), title: "", messages: [], createdAt: Date(), updatedAt: Date()))
+        _store = State(initialValue: AppModels())
         _selectedTab = State(initialValue: AppRootView.initialTab())
     }
 

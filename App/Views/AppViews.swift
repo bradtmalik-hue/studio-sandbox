@@ -12,8 +12,6 @@ struct AppMedication: Identifiable {
     let addedDate: Date
 }
 
-extension AppModels: ObservableObject {}
-
 struct AppMedicationListView: View {
     @EnvironmentObject var store: AppModels
     @State private var showAddMedication = false
