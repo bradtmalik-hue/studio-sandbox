@@ -17,7 +17,7 @@ struct AppRecordListView: View {
         }
         return sortedRecords.filter { record in
             record.note.localizedCaseInsensitiveContains(searchText) ||
-            record.category.rawValue.localizedCaseInsensitiveContains(searchText)
+            record.category.localizedCaseInsensitiveContains(searchText)
         }
     }
 
@@ -100,7 +100,7 @@ struct AppRecordRow: View {
                     .font(.body)
                     .foregroundStyle(.primary)
                 HStack {
-                    Text(record.category.rawValue)
+                    Text(record.category)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(record.date, style: .date)
@@ -122,11 +122,13 @@ struct AppRecordRow: View {
 
 // MARK: - 添加记录
 
+private let appDefaultCategories = ["餐饮", "交通", "购物", "娱乐", "其他"]
+
 struct AppAddRecordView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: AppStore
 
-    @State private var category: AppRecordCategory = AppRecordCategory.allCases.first!
+    @State private var category: String = appDefaultCategories[0]
     @State private var amountText: String = ""
     @State private var note: String = ""
     @State private var date = Date()
@@ -137,8 +139,8 @@ struct AppAddRecordView: View {
             Form {
                 Section("分类") {
                     Picker("分类", selection: $category) {
-                        ForEach(AppRecordCategory.allCases, id: \.self) { cat in
-                            Text(cat.rawValue).tag(cat)
+                        ForEach(appDefaultCategories, id: \.self) { cat in
+                            Text(cat).tag(cat)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -204,7 +206,7 @@ struct AppStatsView: View {
         store.records.isEmpty ? 0 : total / Double(store.records.count)
     }
 
-    private var categoriesWithRecords: [AppRecordCategory] {
+    private var categoriesWithRecords: [String] {
         Array(Set(store.records.map { $0.category }))
     }
 
@@ -279,7 +281,7 @@ struct AppStatsEmptyStateView: View {
 }
 
 struct AppCategoryStatRow: View {
-    let category: AppRecordCategory
+    let category: String
     let amount: Double
     let maxAmount: Double
 
@@ -290,7 +292,7 @@ struct AppCategoryStatRow: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack {
-                Label(category.rawValue, systemImage: "circle.fill")
+                Label(category, systemImage: "circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                 Spacer()
