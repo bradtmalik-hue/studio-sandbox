@@ -29,7 +29,7 @@ struct AppLensLibraryView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(lens.name)
                                         .font(.headline)
-                                    Text(lens.price, format: .currency(code: "CNY"))
+                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
@@ -38,7 +38,7 @@ struct AppLensLibraryView: View {
                                     Text(lens.condition)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text(lens.date, style: .date)
+                                    Text(lens.purchaseDate, style: .date)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -108,9 +108,9 @@ struct AppAddLensView: View {
                     Button("保存") {
                         let newLens = AppLens(
                             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            price: price,
+                            purchasePrice: price,
                             condition: condition,
-                            date: purchaseDate
+                            purchaseDate: purchaseDate
                         )
                         store.add(newLens)
                         dismiss()
@@ -126,7 +126,7 @@ struct AppInvestmentStatsView: View {
     @EnvironmentObject var store: AppStore
 
     private var totalInvestment: Double {
-        store.lenses.reduce(0) { $0 + $1.price }
+        store.lenses.reduce(0.0) { $0 + $1.purchasePrice }
     }
 
     private var averagePrice: Double {
@@ -134,11 +134,11 @@ struct AppInvestmentStatsView: View {
     }
 
     private var mostExpensive: AppLens? {
-        store.lenses.max(by: { $0.price < $1.price })
+        store.lenses.max(by: { $0.purchasePrice < $1.purchasePrice })
     }
 
     private var leastExpensive: AppLens? {
-        store.lenses.min(by: { $0.price < $1.price })
+        store.lenses.min(by: { $0.purchasePrice < $1.purchasePrice })
     }
 
     var body: some View {
@@ -189,7 +189,7 @@ struct AppInvestmentStatsView: View {
                                     Spacer()
                                     Text(lens.name)
                                         .foregroundColor(.secondary)
-                                    Text(lens.price, format: .currency(code: "CNY"))
+                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
                                         .foregroundColor(.secondary)
                                 }
                             }
@@ -199,7 +199,7 @@ struct AppInvestmentStatsView: View {
                                     Spacer()
                                     Text(lens.name)
                                         .foregroundColor(.secondary)
-                                    Text(lens.price, format: .currency(code: "CNY"))
+                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
                                         .foregroundColor(.secondary)
                                 }
                             }
