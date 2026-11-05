@@ -1,97 +1,96 @@
 import Foundation
-import SwiftUI
 import Combine
 
-struct AppImageItem: Identifiable, Codable, Equatable {
-    let id: UUID
-    var title: String
-    var imageName: String
-    var note: String
-    var isFavorite: Bool
-    var addedDate: Date
-    
-    init(
-        id: UUID = UUID(),
-        title: String = "",
-        imageName: String = "",
-        note: String = "",
-        isFavorite: Bool = false,
-        addedDate: Date = Date()
-    ) {
-        self.id = id
-        self.title = title
-        self.imageName = imageName
-        self.note = note
-        self.isFavorite = isFavorite
-        self.addedDate = addedDate
-    }
+enum AppImageLibrary {
+    static let sampleImageNames = ["sample1", "sample2", "sample3", "sample4"]
 }
 
-class AppStore: ObservableObject {
-    @Published var items: [AppImageItem] = []
+struct AppPhoto: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var imageName: String
+    var note: String = ""
+    var createdAt: Date = Date()
+}
+
+struct AppAlbum: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var name: String
+    var detail: String = ""
+    var coverImageName: String?
+    var photos: [AppPhoto] = []
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+}
+
+final class AppAlbumStore: ObservableObject {
+    @Published var albums: [AppAlbum] = []
     
-    private let fileName = "appImageItems.json"
+    private let fileURL: URL
     
     init() {
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        fileURL = documentsDirectory.appendingPathComponent("albums.json")
         load()
     }
     
-    func addItem(
-        title: String,
-        imageName: String,
-        note: String = "",
-        isFavorite: Bool = false
-    ) {
-        let newItem = AppImageItem(
-            title: title,
-            imageName: imageName,
-            note: note,
-            isFavorite: isFavorite,
-            addedDate: Date()
-        )
-        items.append(newItem)
+    func addAlbum(name: String, detail: String = "", coverImageName: String? = nil) {
+        let album = AppAlbum(name: name, detail: detail, coverImageName: coverImageName)
+        albums.append(album)
         save()
     }
     
-    func deleteItem(at offsets: IndexSet) {
-        items.remove(atOffsets: offsets)
+    func deleteAlbum(_ album: AppAlbum) {
+        albums.removeAll { $0.id == album.id }
         save()
     }
     
-    func toggleFavorite(_ item: AppImageItem) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index].isFavorite.toggle()
+    func updateAlbum(_ album: AppAlbum) {
+        guard let index = albums.firstIndex(where: { $0.id == album.id }) else { return }
+        var updatedAlbum = album
+        updatedAlbum.updatedAt = Date()
+        albums[index] = updatedAlbum
         save()
     }
     
-    func updateNote(_ item: AppImageItem, note: String) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index].note = note
+    func addPhoto(to albumID: UUID, imageName: String, note: String = "") {
+        guard let index = albums.firstIndex(where: { $0.id == albumID }) else { return }
+        let photo = AppPhoto(imageName: imageName, note: note)
+        albums[index].photos.append(photo)
+        albums[index].updatedAt = Date()
         save()
     }
     
-    private func save() {
-        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = directory.appendingPathComponent(fileName)
+    func removePhoto(from albumID: UUID, photoID: UUID) {
+        guard let index = albums.firstIndex(where: { $0.id == albumID }) else { return }
+        albums[index].photos.removeAll { $0.id == photoID }
+        albums[index].updatedAt = Date()
+        save()
+    }
+    
+    func album(with id: UUID) -> AppAlbum? {
+        albums.first(where: { $0.id == id })
+    }
+    
+    func save() {
         do {
             let encoder = JSONEncoder()
-            let data = try encoder.encode(items)
-            try data.write(to: url)
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(albums)
+            try data.write(to: fileURL)
         } catch {
-            print("保存失败: \(error)")
+            // 保存失败时静默处理
         }
     }
     
     private func load() {
-        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = directory.appendingPathComponent(fileName)
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
         do {
-            let data = try Data(contentsOf: url)
+            let data = try Data(contentsOf: fileURL)
             let decoder = JSONDecoder()
-            items = try decoder.decode([AppImageItem].self, from: data)
+            decoder.dateDecodingStrategy = .iso8601
+            albums = try decoder.decode([AppAlbum].self, from: data)
         } catch {
-            print("加载失败: \(error)")
+            albums = []
         }
     }
 }

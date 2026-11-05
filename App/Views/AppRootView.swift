@@ -1,37 +1,33 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @EnvironmentObject private var store: AppStore
-    @State private var selectedTab = AppRootView.initialTab()
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppCollectionView()
+            AppPhotoLibraryView()
                 .tabItem {
-                    Label("图集", systemImage: "photo.on.rectangle.angled")
+                    Label("图库", systemImage: "photo.on.rectangle.angled")
                 }
                 .tag(0)
 
-            AppAddImageView()
+            AppAlbumsView()
                 .tabItem {
-                    Label("添加", systemImage: "plus.circle")
+                    Label("相册", systemImage: "rectangle.stack.fill")
                 }
                 .tag(1)
 
-            AppSettingsView()
+            AppFavoritesView()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape")
+                    Label("收藏", systemImage: "heart.fill")
                 }
                 .tag(2)
         }
-        .preferredColorScheme(.light)
     }
 
     private static func initialTab() -> Int {
         let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
+        if let index = arguments.firstIndex(of: "-startTab"), index + 1 < arguments.count, let value = Int(arguments[index + 1]) {
             return value
         }
         return 0
