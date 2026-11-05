@@ -65,7 +65,7 @@ struct RecordFilmView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                StarRatingView(rating: $starRating)
+                AppStarRatingView(rating: $starRating)
             }
 
             DatePicker("看片日期", selection: $watchDate, displayedComponents: .date)

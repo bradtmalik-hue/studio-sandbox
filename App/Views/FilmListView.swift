@@ -44,7 +44,7 @@ struct FilmListView: View {
             .searchable(text: $searchText, prompt: "搜索片名")
             .sheet(item: $editingRecord) { record in
                 NavigationStack {
-                    FilmDetailEditView(record: record)
+                    AppFilmDetailEditView(originalRecord: record)
                         .environmentObject(store)
                 }
             }
