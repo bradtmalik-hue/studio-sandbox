@@ -72,17 +72,17 @@ struct AppCaptureView: View {
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedBook.isEmpty,
-              let pageInt = Int(trimmedPage),
+              Int(trimmedPage) != nil,
               !trimmedQuote.isEmpty else {
             showValidationAlert = true
             return
         }
 
         let quote = AppQuote(bookTitle: trimmedBook,
-                             pageNumber: pageInt,
-                             text: trimmedQuote,
+                             pageNumber: trimmedPage,
+                             quoteText: trimmedQuote,
                              note: trimmedNote,
-                             date: Date())
+                             createdAt: Date())
         store.add(quote)
         dismiss()
     }
