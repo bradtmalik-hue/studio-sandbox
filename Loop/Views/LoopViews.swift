@@ -1,65 +1,7 @@
 import SwiftUI
-import Combine
-import Foundation
-
-// MARK: - Moment Card
-
-struct LoopMomentCard: View {
-    let moment: LoopMoment
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let imageName = moment.imageName {
-                Image(imageName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: 220)
-                    .clipped()
-                    .cornerRadius(12)
-            }
-            Text(moment.text)
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(moment.createdAt, style: .date)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 8)
-    }
-}
-
-// MARK: - Message Bubble
-
-struct LoopMessageBubble: View {
-    let message: LoopMessage
-
-    var body: some View {
-        HStack {
-            if message.isFromMe {
-                Spacer(minLength: 40)
-            }
-            VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
-                Text(message.text)
-                    .padding(10)
-                    .background(message.isFromMe ? Color.blue : Color.gray.opacity(0.2))
-                    .foregroundStyle(message.isFromMe ? Color.white : Color.primary)
-                    .cornerRadius(16)
-                Text("\(message.isFromMe ? "Me" : "Them") • \(message.sentAt, style: .time)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            if !message.isFromMe {
-                Spacer(minLength: 40)
-            }
-        }
-    }
-}
-
-// MARK: - Moments Feed
 
 struct LoopMomentsView: View {
     @EnvironmentObject var store: LoopStore
-    @State private var showingCompose = false
 
     var body: some View {
         NavigationStack {
@@ -67,252 +9,140 @@ struct LoopMomentsView: View {
                 if store.moments.isEmpty {
                     ContentUnavailableView(
                         "No Moments Yet",
-                        systemImage: "bubble.left",
-                        description: Text("Share your first moment to start a conversation.")
+                        systemImage: "photo.on.rectangle.angled",
+                        description: Text("Share your first photo moment with your loop.")
                     )
                 } else {
-                    List(store.moments) { moment in
-                        NavigationLink(destination: LoopMomentDetailView(moment: moment)) {
-                            LoopMomentCard(moment: moment)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Share your moments, keep your loop")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(Array(store.moments.enumerated()), id: \.offset) { _, moment in
+                                LoopMomentCard(moment: moment)
+                                    .padding(.horizontal)
+                            }
                         }
+                        .padding(.top)
                     }
-                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Moments")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingCompose = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingCompose) {
-                LoopComposeView()
-            }
+            .environment(\.locale, Locale(identifier: "en_US"))
         }
     }
 }
 
-// MARK: - Conversations Inbox
+struct LoopMomentCard: View {
+    let moment: LoopMoment
 
-struct LoopConversationsView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(moment.imageName)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .clipped()
+                .cornerRadius(12)
+
+            Text(moment.caption)
+                .font(.body)
+                .multilineTextAlignment(.leading)
+
+            Text(moment.date, style: .date)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+        )
+    }
+}
+
+struct LoopChatsView: View {
     @EnvironmentObject var store: LoopStore
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.conversations.isEmpty {
+                if store.messages.isEmpty {
                     ContentUnavailableView(
-                        "No Conversations",
+                        "No Chats Yet",
                         systemImage: "bubble.left.and.bubble.right",
-                        description: Text("Conversations you start about moments will appear here.")
+                        description: Text("Start a quick chat with your close friends.")
                     )
                 } else {
-                    List(store.conversations) { conversation in
-                        NavigationLink(destination: LoopConversationDetailView(conversation: conversation)) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(momentText(for: conversation))
-                                    .font(.headline)
-                                if let last = conversation.messages.last {
-                                    Text(last.text)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                            .padding(.vertical, 4)
+                    List {
+                        ForEach(Array(store.messages.enumerated()), id: \.offset) { _, message in
+                            LoopMessageRow(message: message)
                         }
                     }
                     .listStyle(.plain)
                 }
             }
-            .navigationTitle("Conversations")
-        }
-    }
-
-    private func momentText(for conversation: LoopConversation) -> String {
-        if let moment = store.moments.first(where: { $0.id == conversation.momentID }) {
-            return moment.text
-        } else {
-            return "Moment"
+            .navigationTitle("Chats")
+            .environment(\.locale, Locale(identifier: "en_US"))
         }
     }
 }
 
-// MARK: - Compose New Moment
+struct LoopMessageRow: View {
+    let message: LoopMessage
 
-struct LoopComposeView: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "person.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(message.text)
+                    .font(.body)
+                Text(message.date, style: .time)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct LoopPeopleView: View {
     @EnvironmentObject var store: LoopStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @State private var selectedImageName = "sample1"
-    private let imageOptions = ["sample1", "sample2", "sample3", "sample4"]
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Moment") {
-                    TextField("What's on your mind?", text: $text, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-                Section("Image") {
-                    Picker("Image", selection: $selectedImageName) {
-                        ForEach(imageOptions, id: \.self) { name in
-                            Image(name)
-                                .resizable()
-                                .scaledToFit()
-                                .tag(name)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
-            .navigationTitle("New Moment")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Share") {
-                        store.moments.append(LoopMoment(id: UUID(), text: text, imageName: selectedImageName, createdAt: Date()))
-                        store.save()
-                        dismiss()
-                    }
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Moment Detail with Conversation
-
-struct LoopMomentDetailView: View {
-    @EnvironmentObject var store: LoopStore
-    let moment: LoopMoment
-    @State private var messageText = ""
-
-    private var conversation: LoopConversation? {
-        store.conversations.first(where: { $0.momentID == moment.id })
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let imageName = moment.imageName {
-                        Image(imageName)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: 260)
-                            .clipped()
-                            .cornerRadius(12)
-                    }
-                    Text(moment.text)
-                        .font(.title2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(moment.createdAt, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(16)
-
-                Divider()
-
-                if let conversation = conversation {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Conversation")
-                            .font(.headline)
-                        ForEach(conversation.messages) { message in
-                            LoopMessageBubble(message: message)
-                        }
-                    }
-
-                    HStack {
-                        TextField("Message", text: $messageText)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Send") {
-                            sendMessage(in: conversation)
-                        }
-                        .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                    .padding(.top, 8)
+            Group {
+                if store.members.isEmpty {
+                    ContentUnavailableView(
+                        "No Friends Yet",
+                        systemImage: "person.2.slash",
+                        description: Text("Invite close friends to your loop.")
+                    )
                 } else {
-                    VStack(spacing: 16) {
-                        ContentUnavailableView(
-                            "No Conversation Yet",
-                            systemImage: "bubble.left.and.bubble.right",
-                            description: Text("Start a conversation about this moment.")
-                        )
-                        Button("Start Conversation") {
-                            store.conversations.append(LoopConversation(id: UUID(), momentID: moment.id, participantName: "Me", createdAt: Date(), messages: []))
-                            store.save()
+                    List {
+                        ForEach(Array(store.members.enumerated()), id: \.offset) { _, member in
+                            HStack {
+                                Image(systemName: "person.crop.circle.fill")
+                                    .font(.title)
+                                    .foregroundStyle(.secondary)
+                                Text(member.name)
+                                    .font(.body)
+                                Spacer()
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
                     }
+                    .listStyle(.plain)
                 }
             }
-            .padding()
+            .navigationTitle("People")
+            .environment(\.locale, Locale(identifier: "en_US"))
         }
-        .navigationTitle("Moment")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func sendMessage(in conversation: LoopConversation) {
-        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if let index = store.conversations.firstIndex(where: { $0.id == conversation.id }) {
-            store.conversations[index].messages.append(LoopMessage(id: UUID(), text: messageText, sentAt: Date(), isFromMe: true))
-            store.save()
-        }
-        messageText = ""
-    }
-}
-
-// MARK: - Conversation Detail
-
-struct LoopConversationDetailView: View {
-    @EnvironmentObject var store: LoopStore
-    let conversation: LoopConversation
-    @State private var messageText = ""
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(conversation.messages) { message in
-                        LoopMessageBubble(message: message)
-                    }
-                }
-                .padding()
-            }
-            HStack {
-                TextField("Message", text: $messageText)
-                    .textFieldStyle(.roundedBorder)
-                Button("Send") {
-                    sendMessage()
-                }
-                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding()
-            .background(.thinMaterial)
-        }
-        .navigationTitle("Conversation")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func sendMessage() {
-        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if let index = store.conversations.firstIndex(where: { $0.id == conversation.id }) {
-            store.conversations[index].messages.append(LoopMessage(id: UUID(), text: messageText, sentAt: Date(), isFromMe: true))
-            store.save()
-        }
-        messageText = ""
     }
 }

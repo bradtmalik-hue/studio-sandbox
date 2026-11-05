@@ -1,7 +1,7 @@
-# App
+# Loop
 
-记好有效期，放哪儿一眼就找到
+Share your moments, keep your loop
 
-Bundle ID: `com.example.app`
+Bundle ID: `com.example.loop`
 
-Screens: 药箱首页, 加药页, 提醒页
+Screens: Feed, Post, Messages
