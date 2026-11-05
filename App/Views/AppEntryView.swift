@@ -81,7 +81,7 @@ struct AppEntryView: View {
             id: UUID()
         )
 
-        store.addRecord(record)
+        store.records.append(record)
 
         alertTitle = "已保存"
         alertMessage = "这条成长记录已经保存。"
