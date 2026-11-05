@@ -44,10 +44,11 @@ struct AppCheckInView: View {
                 Section {
                     Button {
                         let record = AppPracticeRecord(
-                            id: UUID(),
                             date: practiceDate,
                             durationMinutes: duration,
-                            note: note
+                            note: note,
+                            records: [],
+                            fileURL: store.fileURL
                         )
                         store.add(record)
                         note = ""
