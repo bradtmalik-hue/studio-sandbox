@@ -106,7 +106,7 @@ struct AppCaptureView: View {
             note: trimmedNote
         )
 
-        store.add(newQuote)
+        store.quotes.append(newQuote)
 
         quoteText = ""
         bookTitle = ""
