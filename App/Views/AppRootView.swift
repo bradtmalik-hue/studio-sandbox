@@ -1,36 +1,13 @@
-import Foundation
 import SwiftUI
-import Combine
+import Foundation
 
 struct AppRootView: View {
-    private let store: AppModels
+    @StateObject private var store: AppStore
     @State private var selectedTab: Int
 
-    init(store: AppModels) {
-        self.store = store
-        _selectedTab = State(initialValue: AppRootView.initialTab())
-    }
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            AppMedicationListView(medication: store)
-                .tabItem {
-                    Label("药箱", systemImage: "pills")
-                }
-                .tag(0)
-
-            AppAddMedicationView()
-                .tabItem {
-                    Label("加药", systemImage: "plus.circle.fill")
-                }
-                .tag(1)
-
-            AppReminderSettingsView()
-                .tabItem {
-                    Label("提醒", systemImage: "bell.fill")
-                }
-                .tag(2)
-        }
+    init() {
+        _store = StateObject(wrappedValue: AppStore())
+        _selectedTab = State(initialValue: Self.initialTab())
     }
 
     private static func initialTab() -> Int {
@@ -38,8 +15,31 @@ struct AppRootView: View {
         if let index = arguments.firstIndex(of: "-startTab"),
            index + 1 < arguments.count,
            let value = Int(arguments[index + 1]) {
-            return min(max(value, 0), 2)
+            return value
         }
         return 0
+    }
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            AppCaptureView()
+                .tabItem {
+                    Label("记一句", systemImage: "quote.bubble")
+                }
+                .tag(0)
+
+            AppBookshelfView()
+                .tabItem {
+                    Label("书架", systemImage: "books.vertical")
+                }
+                .tag(1)
+
+            AppSearchView()
+                .tabItem {
+                    Label("搜索", systemImage: "magnifyingglass")
+                }
+                .tag(2)
+        }
+        .environmentObject(store)
     }
 }

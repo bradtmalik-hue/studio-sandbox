@@ -1,7 +1,7 @@
 # App
 
-药品有效期和存放位置，快过期先提醒
+读到好句子，随手记一句
 
 Bundle ID: `com.example.app`
 
-Screens: 药箱列表, 加药, 提醒设置
+Screens: 记一句, 书架, 搜索
