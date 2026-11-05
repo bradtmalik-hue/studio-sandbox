@@ -171,10 +171,10 @@ struct AppAddMedicineView: View {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
         let medicine = AppMedicine(
             name: trimmedName,
-            expiryDate: expiryDate,
             storageSpot: trimmedLocation.isEmpty ? "未指定" : trimmedLocation,
-            notes: trimmedNotes,
-            reminderDays: reminderDaysBefore
+            expiryDate: expiryDate,
+            reminderDays: reminderDaysBefore,
+            notes: trimmedNotes
         )
         store.medicines.append(medicine)
         dismiss()
