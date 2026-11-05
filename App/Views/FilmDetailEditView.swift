@@ -12,7 +12,7 @@ struct AppFilmDetailEditView: View {
     init(record: AppFilmRecord) {
         self.originalRecord = record
         _title = State(initialValue: record.title)
-        _rating = State(initialValue: record.rating)
+        _rating = State(initialValue: record.starRating)
         _watchDate = State(initialValue: record.watchDate)
     }
 
@@ -123,7 +123,7 @@ struct AppFilmDetailEditView: View {
         let updated = AppFilmRecord(
             id: originalRecord.id,
             title: trimmedTitle,
-            rating: rating,
+            starRating: rating,
             watchDate: watchDate,
             createdAt: originalRecord.createdAt
         )

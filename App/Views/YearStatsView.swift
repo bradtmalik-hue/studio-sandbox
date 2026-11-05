@@ -23,7 +23,7 @@ struct YearStatsView: View {
 
     private var averageRating: Double {
         guard totalCount > 0 else { return 0 }
-        let total = selectedYearRecords.reduce(0) { $0 + $1.rating }
+        let total = selectedYearRecords.reduce(0) { $0 + $1.starRating }
         return Double(total) / Double(totalCount)
     }
 
