@@ -9,32 +9,18 @@
 /* Begin PBXBuildFile section */
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
-		AA0000000000000000000003 /* AppPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppPalette.swift */; };
-		AA0000000000000000000004 /* AppDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppDateFormatter.swift */; };
-		AA0000000000000000000005 /* AppQuote.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppQuote.swift */; };
-		AA0000000000000000000006 /* AppQuoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppQuoteStore.swift */; };
-		AA0000000000000000000007 /* AppCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppCaptureView.swift */; };
-		AA0000000000000000000008 /* AppBookShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppBookShelfView.swift */; };
-		AA0000000000000000000009 /* AppBookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppBookDetailView.swift */; };
-		AA0000000000000000000010 /* AppSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppSearchView.swift */; };
-		AA0000000000000000000011 /* AppTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppTimelineView.swift */; };
-		AA0000000000000000000012 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* AppRootView.swift */; };
+		AA0000000000000000000003 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppModels.swift */; };
+		AA0000000000000000000004 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppViews.swift */; };
+		AA0000000000000000000005 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
-		BB0000000000000000000003 /* AppPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPalette.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppDateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDateFormatter.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppQuote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppQuote.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppQuoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppQuoteStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCaptureView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppBookShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBookShelfView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppBookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBookDetailView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSearchView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* AppTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTimelineView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000012 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* AppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -81,8 +67,7 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000005 /* AppQuote.swift */,
-				BB0000000000000000000006 /* AppQuoteStore.swift */,
+				BB0000000000000000000003 /* AppModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -90,12 +75,8 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000007 /* AppCaptureView.swift */,
-				BB0000000000000000000008 /* AppBookShelfView.swift */,
-				BB0000000000000000000009 /* AppBookDetailView.swift */,
-				BB0000000000000000000010 /* AppSearchView.swift */,
-				BB0000000000000000000011 /* AppTimelineView.swift */,
-				BB0000000000000000000012 /* AppRootView.swift */,
+				BB0000000000000000000004 /* AppViews.swift */,
+				BB0000000000000000000005 /* AppRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -104,8 +85,6 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
-				BB0000000000000000000003 /* AppPalette.swift */,
-				BB0000000000000000000004 /* AppDateFormatter.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -189,16 +168,9 @@
 			files = (
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
-				AA0000000000000000000003 /* AppPalette.swift in Sources */,
-				AA0000000000000000000004 /* AppDateFormatter.swift in Sources */,
-				AA0000000000000000000005 /* AppQuote.swift in Sources */,
-				AA0000000000000000000006 /* AppQuoteStore.swift in Sources */,
-				AA0000000000000000000007 /* AppCaptureView.swift in Sources */,
-				AA0000000000000000000008 /* AppBookShelfView.swift in Sources */,
-				AA0000000000000000000009 /* AppBookDetailView.swift in Sources */,
-				AA0000000000000000000010 /* AppSearchView.swift in Sources */,
-				AA0000000000000000000011 /* AppTimelineView.swift in Sources */,
-				AA0000000000000000000012 /* AppRootView.swift in Sources */,
+				AA0000000000000000000003 /* AppModels.swift in Sources */,
+				AA0000000000000000000004 /* AppViews.swift in Sources */,
+				AA0000000000000000000005 /* AppRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,7 +1,7 @@
 # App
 
-随手记下读到的好句子
+记一次跑，看八周跑量
 
 Bundle ID: `com.example.app`
 
-Screens: 记一句, 按书翻看, 搜原句
+Screens: 记一次跑, 跑步记录, 周跑量趋势
