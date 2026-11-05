@@ -9,30 +9,32 @@
 /* Begin PBXBuildFile section */
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
-		AA0000000000000000000003 /* AppPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppPersistence.swift */; };
-		AA0000000000000000000004 /* AppBean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppBean.swift */; };
-		AA0000000000000000000005 /* AppBrewRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppBrewRecord.swift */; };
-		AA0000000000000000000006 /* AppBeanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppBeanStore.swift */; };
-		AA0000000000000000000007 /* AppBrewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppBrewStore.swift */; };
-		AA0000000000000000000008 /* AppBeanLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppBeanLibraryView.swift */; };
-		AA0000000000000000000009 /* AppBrewLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppBrewLogView.swift */; };
-		AA0000000000000000000010 /* AppBrewHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppBrewHistoryView.swift */; };
-		AA0000000000000000000011 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppRootView.swift */; };
+		AA0000000000000000000003 /* AppChartStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppChartStyle.swift */; };
+		AA0000000000000000000004 /* AppPercentileData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppPercentileData.swift */; };
+		AA0000000000000000000005 /* AppDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppDateFormatter.swift */; };
+		AA0000000000000000000006 /* AppGrowthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppGrowthRecord.swift */; };
+		AA0000000000000000000007 /* AppGrowthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppGrowthStore.swift */; };
+		AA0000000000000000000008 /* AppEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppEntryView.swift */; };
+		AA0000000000000000000009 /* AppGrowthChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppGrowthChartView.swift */; };
+		AA0000000000000000000010 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppHistoryView.swift */; };
+		AA0000000000000000000011 /* AppEditRecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppEditRecordView.swift */; };
+		AA0000000000000000000012 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* AppRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
-		BB0000000000000000000003 /* AppPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPersistence.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppBean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBean.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppBrewRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppBeanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBeanStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppBrewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppBeanLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBeanLibraryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppBrewLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewLogView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppBrewHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBrewHistoryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* AppChartStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppChartStyle.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppPercentileData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPercentileData.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppDateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDateFormatter.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppGrowthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthRecord.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* AppGrowthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntryView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppGrowthChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthChartView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppEditRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEditRecordView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -79,10 +81,8 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000004 /* AppBean.swift */,
-				BB0000000000000000000005 /* AppBrewRecord.swift */,
-				BB0000000000000000000006 /* AppBeanStore.swift */,
-				BB0000000000000000000007 /* AppBrewStore.swift */,
+				BB0000000000000000000006 /* AppGrowthRecord.swift */,
+				BB0000000000000000000007 /* AppGrowthStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -90,10 +90,11 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000008 /* AppBeanLibraryView.swift */,
-				BB0000000000000000000009 /* AppBrewLogView.swift */,
-				BB0000000000000000000010 /* AppBrewHistoryView.swift */,
-				BB0000000000000000000011 /* AppRootView.swift */,
+				BB0000000000000000000008 /* AppEntryView.swift */,
+				BB0000000000000000000009 /* AppGrowthChartView.swift */,
+				BB0000000000000000000010 /* AppHistoryView.swift */,
+				BB0000000000000000000011 /* AppEditRecordView.swift */,
+				BB0000000000000000000012 /* AppRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -102,7 +103,9 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
-				BB0000000000000000000003 /* AppPersistence.swift */,
+				BB0000000000000000000003 /* AppChartStyle.swift */,
+				BB0000000000000000000004 /* AppPercentileData.swift */,
+				BB0000000000000000000005 /* AppDateFormatter.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -186,15 +189,16 @@
 			files = (
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
-				AA0000000000000000000003 /* AppPersistence.swift in Sources */,
-				AA0000000000000000000004 /* AppBean.swift in Sources */,
-				AA0000000000000000000005 /* AppBrewRecord.swift in Sources */,
-				AA0000000000000000000006 /* AppBeanStore.swift in Sources */,
-				AA0000000000000000000007 /* AppBrewStore.swift in Sources */,
-				AA0000000000000000000008 /* AppBeanLibraryView.swift in Sources */,
-				AA0000000000000000000009 /* AppBrewLogView.swift in Sources */,
-				AA0000000000000000000010 /* AppBrewHistoryView.swift in Sources */,
-				AA0000000000000000000011 /* AppRootView.swift in Sources */,
+				AA0000000000000000000003 /* AppChartStyle.swift in Sources */,
+				AA0000000000000000000004 /* AppPercentileData.swift in Sources */,
+				AA0000000000000000000005 /* AppDateFormatter.swift in Sources */,
+				AA0000000000000000000006 /* AppGrowthRecord.swift in Sources */,
+				AA0000000000000000000007 /* AppGrowthStore.swift in Sources */,
+				AA0000000000000000000008 /* AppEntryView.swift in Sources */,
+				AA0000000000000000000009 /* AppGrowthChartView.swift in Sources */,
+				AA0000000000000000000010 /* AppHistoryView.swift in Sources */,
+				AA0000000000000000000011 /* AppEditRecordView.swift in Sources */,
+				AA0000000000000000000012 /* AppRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

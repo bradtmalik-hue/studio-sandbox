@@ -1,7 +1,7 @@
 # App
 
-豆子还剩多少，一冲就知道
+随手记下孩子的身高体重，曲线自己长出来
 
 Bundle ID: `com.example.app`
 
-Screens: 豆子库, 冲煮记录, 参数历史
+Screens: 记一笔, 成长曲线, 历史记录
