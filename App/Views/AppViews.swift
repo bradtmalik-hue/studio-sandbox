@@ -44,8 +44,9 @@ struct AppCheckInView: View {
                 Section {
                     Button {
                         let record = AppPracticeRecord(
+                            id: UUID(),
                             date: practiceDate,
-                            duration: duration,
+                            durationMinutes: duration,
                             note: note
                         )
                         store.add(record)
@@ -95,7 +96,7 @@ struct AppRecordsView: View {
                     )
                 } else {
                     List {
-                        ForEach(filteredRecords) { record in
+                        ForEach(filteredRecords, id: \.id) { record in
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(record.date, format: .dateTime.month().day().weekday())
@@ -107,7 +108,7 @@ struct AppRecordsView: View {
                                     }
                                 }
                                 Spacer()
-                                Text("\(Int(record.duration)) 分钟")
+                                Text("\(Int(record.durationMinutes)) 分钟")
                                     .font(.subheadline)
                                     .monospacedDigit()
                             }
@@ -139,7 +140,7 @@ struct AppStatisticsView: View {
     }
 
     private var totalDuration: Double {
-        monthRecords.reduce(0) { $0 + $1.duration }
+        monthRecords.reduce(0.0) { $0 + $1.durationMinutes }
     }
 
     private var totalCount: Int {
@@ -162,7 +163,7 @@ struct AppStatisticsView: View {
         let calendar = Calendar.current
         return monthRecords
             .filter { calendar.isDate($0.date, inSameDayAs: day) }
-            .reduce(0) { $0 + $1.duration }
+            .reduce(0.0) { $0 + $1.durationMinutes }
     }
 
     var body: some View {
