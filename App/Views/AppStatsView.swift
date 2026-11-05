@@ -21,8 +21,7 @@ struct AppStatsView: View {
             totalFilms: totalFilms,
             averageRating: averageRating,
             longestStreakWeeks: longestStreakWeeks,
-            monthlyCounts: monthlyCounts,
-            films: yearFilms
+            monthlyCounts: monthlyCounts
         )
     }
     
