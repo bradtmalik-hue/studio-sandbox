@@ -1,129 +1,202 @@
 import Foundation
 import Combine
 
-struct AppGrowthRecord: Identifiable, Codable {
-    let id: UUID
-    var date: Date
-    var height: Double
-    var weight: Double
-    var note: String?
-
-    init(id: UUID = UUID(), date: Date, height: Double, weight: Double, note: String? = nil) {
-        self.id = id
-        self.date = date
-        self.height = height
-        self.weight = weight
-        self.note = note
-    }
+struct AppMedicineItem: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var name: String
+    var category: String
+    var storageLocation: String
+    var expiryDate: Date
+    var quantity: Int = 1
+    var note: String = ""
+    var createdAt: Date = Date()
 }
 
-struct AppData: Codable {
-    var childName: String
-    var birthDate: Date
-    var records: [AppGrowthRecord]
-}
+final class AppMedicineStore: ObservableObject {
+    @Published private(set) var items: [AppMedicineItem] = []
 
-final class AppStore: ObservableObject {
-    @Published var childName: String = ""
-    @Published var birthDate: Date = Date()
-    @Published var records: [AppGrowthRecord] = []
+    private static let documentsDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    private static let defaultFileURL: URL = documentsDirectory.appendingPathComponent("home_medbox_items.json")
 
-    private static let fileName = "growth_records.json"
-    private var dataURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(Self.fileName)
-    }
+    private let fileURL: URL
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
 
-    init() {
+    init(fileURL: URL = AppMedicineStore.defaultFileURL) {
+        self.fileURL = fileURL
+        self.encoder = JSONEncoder()
+        self.encoder.dateEncodingStrategy = .iso8601
+        self.decoder = JSONDecoder()
+        self.decoder.dateDecodingStrategy = .iso8601
         load()
     }
 
-    func addRecord(_ record: AppGrowthRecord) {
-        records.append(record)
+    var sortedByExpiry: [AppMedicineItem] {
+        items.sorted { $0.expiryDate < $1.expiryDate }
+    }
+
+    var expiredItems: [AppMedicineItem] {
+        sortedByExpiry.filter { $0.expiryDate < Date() }
+    }
+
+    var expiringSoonItems: [AppMedicineItem] {
+        let now = Date()
+        let upcoming = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
+        return sortedByExpiry.filter { $0.expiryDate >= now && $0.expiryDate < upcoming }
+    }
+
+    var activeItems: [AppMedicineItem] {
+        sortedByExpiry.filter { $0.expiryDate >= Date() }
+    }
+
+    func item(with id: UUID) -> AppMedicineItem? {
+        items.first { $0.id == id }
+    }
+
+    func add(_ item: AppMedicineItem) {
+        items.append(item)
         save()
     }
 
-    func updateRecord(_ record: AppGrowthRecord) {
-        if let index = records.firstIndex(where: { $0.id == record.id }) {
-            records[index] = record
-            save()
-        }
-    }
-
-    func deleteRecord(_ record: AppGrowthRecord) {
-        records.removeAll { $0.id == record.id }
+    func update(_ item: AppMedicineItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[index] = item
         save()
     }
 
-    func deleteRecords(at offsets: IndexSet) {
-        records.remove(atOffsets: offsets)
+    func delete(_ item: AppMedicineItem) {
+        items.removeAll { $0.id == item.id }
         save()
     }
 
-    func save() {
-        let data = AppData(childName: childName, birthDate: birthDate, records: records)
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let jsonData = try encoder.encode(data)
-            try jsonData.write(to: dataURL)
-        } catch {
-            print("保存失败: \(error)")
+    func delete(at offsets: IndexSet) {
+        items.remove(atOffsets: offsets)
+        save()
+    }
+
+    func move(from source: IndexSet, to destination: Int) {
+        items.move(fromOffsets: source, toOffset: destination)
+        save()
+    }
+
+    func filteredItems(searchText: String) -> [AppMedicineItem] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return sortedByExpiry }
+        return sortedByExpiry.filter {
+            $0.name.localizedCaseInsensitiveContains(trimmed) ||
+            $0.category.localizedCaseInsensitiveContains(trimmed) ||
+            $0.storageLocation.localizedCaseInsensitiveContains(trimmed) ||
+            $0.note.localizedCaseInsensitiveContains(trimmed)
         }
     }
 
     private func load() {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        do {
-            let jsonData = try Data(contentsOf: dataURL)
-            let data = try decoder.decode(AppData.self, from: jsonData)
-            childName = data.childName
-            birthDate = data.birthDate
-            records = data.records
-        } catch {
-            childName = ""
-            birthDate = Date()
-            records = []
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        if let data = try? Data(contentsOf: fileURL),
+           let decoded = try? decoder.decode([AppMedicineItem].self, from: data) {
+            items = decoded
         }
+    }
+
+    private func save() {
+        guard let data = try? encoder.encode(items) else { return }
+        try? data.write(to: fileURL)
     }
 }
 
 enum DemoSeed {
     static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
-        let store = AppStore()
-        guard store.records.isEmpty else { return }
+        let store = AppMedicineStore()
+        guard store.items.isEmpty else { return }
 
-        store.childName = "小禾"
-        let birthDate = Calendar.current.date(byAdding: .year, value: -3, to: Date()) ?? Date()
-        store.birthDate = birthDate
-
-        let demoEntries: [(ageMonths: Int, height: Double, weight: Double)] = [
-            (0, 50.0, 3.4),
-            (2, 58.0, 5.5),
-            (4, 64.0, 7.0),
-            (6, 68.0, 8.0),
-            (9, 72.0, 9.0),
-            (12, 76.0, 10.0),
-            (15, 80.0, 10.8),
-            (18, 83.0, 11.5),
-            (21, 86.0, 12.0),
-            (24, 89.0, 12.5),
-            (30, 93.0, 13.2),
-            (36, 96.0, 14.0)
-        ]
-
-        store.records = demoEntries.map { entry in
-            let recordDate = Calendar.current.date(byAdding: .month, value: entry.ageMonths, to: birthDate) ?? Date()
-            return AppGrowthRecord(
-                date: recordDate,
-                height: entry.height,
-                weight: entry.weight,
-                note: nil
-            )
+        func makeDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
+            Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
         }
 
-        store.save()
+        let samples: [AppMedicineItem] = [
+            AppMedicineItem(
+                name: "布洛芬缓释胶囊",
+                category: "解热镇痛",
+                storageLocation: "客厅电视柜左侧药箱",
+                expiryDate: makeDate(2025, 8, 15),
+                quantity: 2,
+                note: "饭后服用"
+            ),
+            AppMedicineItem(
+                name: "阿莫西林胶囊",
+                category: "抗生素",
+                storageLocation: "主卧床头柜第二层",
+                expiryDate: makeDate(2025, 6, 30),
+                quantity: 1,
+                note: "注意过敏"
+            ),
+            AppMedicineItem(
+                name: "氯雷他定片",
+                category: "抗过敏",
+                storageLocation: "厨房冰箱门上药盒",
+                expiryDate: makeDate(2025, 11, 1),
+                quantity: 1,
+                note: "每日一次"
+            ),
+            AppMedicineItem(
+                name: "维生素D滴剂",
+                category: "维生素",
+                storageLocation: "儿童房抽屉药盒",
+                expiryDate: makeDate(2026, 1, 10),
+                quantity: 1,
+                note: "睡前滴"
+            ),
+            AppMedicineItem(
+                name: "云南白药气雾剂",
+                category: "外用药",
+                storageLocation: "卫生间镜柜上格",
+                expiryDate: makeDate(2025, 9, 12),
+                quantity: 1,
+                note: "跌打损伤"
+            ),
+            AppMedicineItem(
+                name: "碘伏消毒液",
+                category: "外用药",
+                storageLocation: "卫生间镜柜下格",
+                expiryDate: makeDate(2025, 10, 30),
+                quantity: 1,
+                note: "开封后密封保存"
+            ),
+            AppMedicineItem(
+                name: "感冒灵颗粒",
+                category: "感冒用药",
+                storageLocation: "客厅电视柜右侧抽屉",
+                expiryDate: makeDate(2025, 7, 20),
+                quantity: 3,
+                note: "每次一袋"
+            ),
+            AppMedicineItem(
+                name: "蒙脱石散",
+                category: "止泻药",
+                storageLocation: "厨房吊柜左侧",
+                expiryDate: makeDate(2025, 9, 25),
+                quantity: 2,
+                note: "空腹服用"
+            ),
+            AppMedicineItem(
+                name: "硝酸甘油片",
+                category: "急救用药",
+                storageLocation: "妈妈随身包夹层",
+                expiryDate: makeDate(2026, 3, 5),
+                quantity: 1,
+                note: "避光保存"
+            ),
+            AppMedicineItem(
+                name: "对乙酰氨基酚片",
+                category: "解热镇痛",
+                storageLocation: "书房书桌左下抽屉",
+                expiryDate: makeDate(2025, 12, 15),
+                quantity: 1,
+                note: "体温38.5℃以上使用"
+            )
+        ]
+
+        samples.forEach { store.add($0) }
     }
 }

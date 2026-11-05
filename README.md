@@ -1,7 +1,7 @@
 # App
 
-随手记下孩子的身高体重，曲线自己长出来
+记好有效期，放哪儿一眼就找到
 
 Bundle ID: `com.example.app`
 
-Screens: 记一笔, 成长曲线, 历史记录
+Screens: 药箱首页, 加药页, 提醒页

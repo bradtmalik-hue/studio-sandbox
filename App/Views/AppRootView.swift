@@ -1,51 +1,47 @@
-import Foundation
 import SwiftUI
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selectedTab: Int = Self.initialTab()
+    @StateObject private var store = AppMedicineStore()
+    @State private var selectedTab: Int
 
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            DashboardView()
-                .tabItem {
-                    Label("首页", systemImage: "house.fill")
-                }
-                .tag(0)
-
-            RecordListView()
-                .tabItem {
-                    Label("记录", systemImage: "list.bullet.rectangle")
-                }
-                .tag(1)
-
-            AddRecordView()
-                .tabItem {
-                    Label("添加", systemImage: "plus.circle.fill")
-                }
-                .tag(2)
-
-            ProfileView()
-                .tabItem {
-                    Label("我的", systemImage: "person.crop.circle")
-                }
-                .tag(3)
-        }
-        .environmentObject(store)
-        .tint(.blue)
+    init() {
+        _selectedTab = State(initialValue: Self.initialTab())
     }
 
     private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let tab = Int(arguments[index + 1]) {
-            return min(max(tab, 0), 3)
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
+            return min(max(v, 0), 2)
         }
         return 0
     }
-}
 
-#Preview {
-    AppRootView()
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            NavigationStack {
+                AppHomeView()
+            }
+            .tabItem {
+                Label("首页", systemImage: "house.fill")
+            }
+            .tag(0)
+
+            NavigationStack {
+                AppExpiryView()
+            }
+            .tabItem {
+                Label("有效期", systemImage: "calendar.badge.clock")
+            }
+            .tag(1)
+
+            NavigationStack {
+                AppStorageView()
+            }
+            .tabItem {
+                Label("存放位置", systemImage: "location.fill")
+            }
+            .tag(2)
+        }
+        .environmentObject(store)
+    }
 }

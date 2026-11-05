@@ -1,336 +1,263 @@
 import SwiftUI
 import Foundation
 
-// MARK: - Date Formatter
-private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .medium
-    formatter.timeStyle = .none
-    return formatter
-}()
+// MARK: - 主页视图
+struct AppHomeView: View {
+    @EnvironmentObject var store: AppMedicineStore
+    @State private var searchText = ""
 
-// MARK: - Root Tab View
-struct AppTabView: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        TabView {
-            DashboardView()
-                .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar.doc.horizontal")
-                }
-
-            RecordListView()
-                .tabItem {
-                    Label("Records", systemImage: "list.bullet")
-                }
-
-            ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.crop.circle")
-                }
+    var filteredItems: [AppMedicineItem] {
+        if searchText.isEmpty {
+            return store.items
+        }
+        return store.items.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.storageSpot.localizedCaseInsensitiveContains(searchText)
         }
     }
-}
-
-// MARK: - Dashboard View
-struct DashboardView: View {
-    @EnvironmentObject var store: AppStore
-
-    private var latestRecord: AppGrowthRecord? {
-        store.records.max(by: { $0.date < $1.date })
-    }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    if let record = latestRecord {
-                        metrics(for: record)
-                    } else {
-                        Text("No records yet. Add your first measurement.")
-                            .foregroundColor(.secondary)
+        NavigationStack {
+            Group {
+                if store.items.isEmpty {
+                    ContentUnavailableView(
+                        "还没有药品",
+                        systemImage: "pills.fill",
+                        description: Text("点击右上角添加第一盒药，记录有效期和存放位置。")
+                    )
+                } else {
+                    List(filteredItems) { item in
+                        NavigationLink(destination: AppMedicineDetailView(item: item)) {
+                            AppMedicineRowView(item: item)
+                        }
                     }
-                    GrowthChartView(records: store.records)
+                    .searchable(text: $searchText, prompt: "搜索药品名称或位置")
+                    .listStyle(.insetGrouped)
                 }
-                .padding()
             }
-            .navigationTitle("Dashboard")
+            .navigationTitle("家庭药箱")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: AddRecordView()) {
-                        Image(systemName: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink(destination: AppAddMedicineView()) {
+                        Label("添加", systemImage: "plus")
                     }
                 }
             }
         }
     }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(store.childName)
-                .font(.largeTitle)
-                .fontWeight(.bold)
-            Text("Born \(store.birthDate, formatter: dateFormatter)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private func metrics(for record: AppGrowthRecord) -> some View {
-        let age = ageString(for: record.date)
-        return HStack(spacing: 12) {
-            MetricCard(title: "Height", value: "\(record.height, specifier: "%.1f") cm", systemImage: "arrow.up.and.down")
-            MetricCard(title: "Weight", value: "\(record.weight, specifier: "%.2f") kg", systemImage: "scalemass")
-            MetricCard(title: "Age", value: age, systemImage: "calendar")
-        }
-    }
-
-    private func ageString(for date: Date) -> String {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: store.birthDate, to: date)
-        if let years = components.year, years > 0 {
-            return "\(years)y \(components.month ?? 0)m"
-        } else if let months = components.month, months > 0 {
-            return "\(months)m"
-        } else {
-            return "\(components.day ?? 0)d"
-        }
-    }
 }
 
-// MARK: - Metric Card
-struct MetricCard: View {
-    let title: String
-    let value: String
-    let systemImage: String
+// MARK: - 药品行视图
+struct AppMedicineRowView: View {
+    let item: AppMedicineItem
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.title2)
-                .fontWeight(.semibold)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
-    }
-}
-
-// MARK: - Growth Chart (simplified list)
-struct GrowthChartView: View {
-    let records: [AppGrowthRecord]
-
-    var sortedRecords: [AppGrowthRecord] {
-        records.sorted { $0.date < $1.date }
+    private var daysRemaining: Int {
+        Calendar.current.dateComponents([.day], from: Date(), to: item.expiryDate).day ?? 0
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Recent Measurements")
-                .font(.headline)
-            if sortedRecords.isEmpty {
-                Text("No measurements.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(sortedRecords.suffix(10), id: \.id) { record in
-                    HStack {
-                        Text(record.date, formatter: dateFormatter)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(record.height, specifier: "%.1f") cm")
-                            .font(.caption)
-                        Text("\(record.weight, specifier: "%.2f") kg")
-                            .font(.caption)
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
-    }
-}
-
-// MARK: - Record List View
-struct RecordListView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showingAddRecord = false
-
-    private var sortedRecords: [AppGrowthRecord] {
-        store.records.sorted { $0.date > $1.date }
-    }
-
-    var body: some View {
-        NavigationView {
-            List {
-                ForEach(sortedRecords, id: \.id) { record in
-                    RecordRowView(record: record)
-                }
-                .onDelete(perform: deleteRecords)
-            }
-            .navigationTitle("Records")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingAddRecord = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddRecord) {
-                AddRecordView()
-            }
-        }
-    }
-
-    func deleteRecords(at offsets: IndexSet) {
-        let recordsToDelete = offsets.map { sortedRecords[$0] }
-        store.records.removeAll { record in
-            recordsToDelete.contains { $0.id == record.id }
-        }
-    }
-}
-
-// MARK: - Record Row
-struct RecordRowView: View {
-    let record: AppGrowthRecord
-
-    var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.date, formatter: dateFormatter)
+                Text(item.name)
                     .font(.headline)
-                if let note = record.note, !note.isEmpty {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Text(item.storageSpot)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text("\(record.height, specifier: "%.1f") cm")
-                    .font(.subheadline)
-                Text("\(record.weight, specifier: "%.2f") kg")
-                    .font(.subheadline)
+                Text(item.expiryDate, format: .dateTime.day().month().year())
+                    .font(.caption)
+                if item.expiryDate < Date() {
+                    Label("已过期", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                } else if daysRemaining <= 30 {
+                    Text("剩 \(daysRemaining) 天")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else {
+                    Label("有效", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
             }
         }
         .padding(.vertical, 4)
     }
 }
 
-// MARK: - Add Record View
-struct AddRecordView: View {
-    @EnvironmentObject var store: AppStore
+// MARK: - 添加药品视图
+struct AppAddMedicineView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppMedicineStore
 
-    @State private var date = Date()
-    @State private var heightText = ""
-    @State private var weightText = ""
-    @State private var note = ""
+    @State private var name = ""
+    @State private var storageSpot = "家庭药箱"
+    @State private var expiryDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section("Measurement") {
-                    DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
-                    TextField("Height (cm)", text: $heightText)
-                        .keyboardType(.decimalPad)
-                    TextField("Weight (kg)", text: $weightText)
-                        .keyboardType(.decimalPad)
-                }
-                Section("Note") {
-                    TextField("Optional note", text: $note)
-                }
+        Form {
+            Section("药品信息") {
+                TextField("药品名称", text: $name)
+                TextField("存放位置", text: $storageSpot)
+                DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
             }
-            .navigationTitle("Add Record")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+            Section {
+                Button("保存") {
+                    let newItem = AppMedicineItem(name: name, storageSpot: storageSpot, expiryDate: expiryDate)
+                    store.add(newItem)
+                    dismiss()
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveRecord()
-                    }
-                    .disabled(!isValid)
-                }
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-    }
-
-    private var isValid: Bool {
-        guard let height = Double(heightText), let weight = Double(weightText) else {
-            return false
-        }
-        return height > 0 && weight > 0
-    }
-
-    private func saveRecord() {
-        guard let height = Double(heightText),
-              let weight = Double(weightText),
-              height > 0, weight > 0 else {
-            return
-        }
-        let record = AppGrowthRecord(
-            id: UUID(),
-            date: date,
-            height: height,
-            weight: weight,
-            note: note.isEmpty ? nil : note
-        )
-        store.records.append(record)
-        dismiss()
+        .navigationTitle("添加药品")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
-// MARK: - Profile View
-struct ProfileView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var childName = ""
-    @State private var birthDate = Date()
+// MARK: - 药品详情视图
+struct AppMedicineDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppMedicineStore
+    let item: AppMedicineItem
+
+    private var daysRemaining: Int {
+        Calendar.current.dateComponents([.day], from: Date(), to: item.expiryDate).day ?? 0
+    }
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section("Child Information") {
-                    TextField("Child Name", text: $childName)
-                    DatePicker("Birth Date", selection: $birthDate, in: ...Date(), displayedComponents: .date)
+        Form {
+            Section("药品信息") {
+                LabeledContent("名称", value: item.name)
+                LabeledContent("存放位置", value: item.storageSpot)
+                LabeledContent("有效期至") {
+                    Text(item.expiryDate, format: .dateTime.day().month().year())
                 }
             }
-            .navigationTitle("Profile")
-            .onAppear(perform: loadData)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveData()
-                    }
+
+            if item.expiryDate < Date() {
+                Section {
+                    Label("该药品已过期，请尽快处理。", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                }
+            } else if daysRemaining <= 30 {
+                Section {
+                    Label("剩余 \(daysRemaining) 天过期", systemImage: "clock.badge.exclamationmark")
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    store.delete(item)
+                    dismiss()
+                } label: {
+                    Text("删除药品")
                 }
             }
         }
+        .navigationTitle(item.name)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - 有效期提醒视图
+struct AppExpiryView: View {
+    @EnvironmentObject var store: AppMedicineStore
+
+    var expiredItems: [AppMedicineItem] {
+        store.items.filter { $0.expiryDate < Date() }
     }
 
-    private func loadData() {
-        childName = store.childName
-        birthDate = store.birthDate
+    var expiringSoonItems: [AppMedicineItem] {
+        store.items.filter { !($0.expiryDate < Date()) && daysUntilExpiry($0) <= 30 }
     }
 
-    private func saveData() {
-        store.childName = childName
-        store.birthDate = birthDate
+    private var validItems: [AppMedicineItem] {
+        store.items.filter { !($0.expiryDate < Date()) && daysUntilExpiry($0) > 30 }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if store.items.isEmpty {
+                    ContentUnavailableView(
+                        "暂无药品",
+                        systemImage: "pills",
+                        description: Text("添加药品后，这里会显示有效期提醒。")
+                    )
+                } else {
+                    List {
+                        if !expiredItems.isEmpty {
+                            Section("已过期") {
+                                ForEach(expiredItems) { item in
+                                    AppMedicineRowView(item: item)
+                                }
+                            }
+                        }
+                        if !expiringSoonItems.isEmpty {
+                            Section("即将过期（30 天内）") {
+                                ForEach(expiringSoonItems) { item in
+                                    AppMedicineRowView(item: item)
+                                }
+                            }
+                        }
+                        if !validItems.isEmpty {
+                            Section("有效期内") {
+                                ForEach(validItems) { item in
+                                    AppMedicineRowView(item: item)
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("有效期提醒")
+        }
+    }
+
+    private func daysUntilExpiry(_ item: AppMedicineItem) -> Int {
+        Calendar.current.dateComponents([.day], from: Date(), to: item.expiryDate).day ?? 0
+    }
+}
+
+// MARK: - 存放位置视图
+struct AppStorageView: View {
+    @EnvironmentObject var store: AppMedicineStore
+
+    private var groupedBySpot: [(spot: String, items: [AppMedicineItem])] {
+        let grouped = Dictionary(grouping: store.items, by: { $0.storageSpot })
+        return grouped.map { (spot: $0.key, items: $0.value) }
+            .sorted { $0.spot < $1.spot }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if store.items.isEmpty {
+                    ContentUnavailableView(
+                        "暂无存放记录",
+                        systemImage: "cabinet",
+                        description: Text("添加药品后，这里会按存放位置分类显示。")
+                    )
+                } else {
+                    List {
+                        ForEach(groupedBySpot, id: \.spot) { group in
+                            Section(group.spot) {
+                                ForEach(group.items) { item in
+                                    Text(item.name)
+                                        .font(.body)
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("存放位置")
+        }
     }
 }
