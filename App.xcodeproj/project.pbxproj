@@ -17,6 +17,8 @@
 		AA0000000000000000000008 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppHistoryView.swift */; };
 		AA0000000000000000000009 /* AppCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppCalendarView.swift */; };
 		AA0000000000000000000010 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppRootView.swift */; };
+		AA0000000000000000000011 /* AppLineChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppLineChartView.swift */; };
+		AA0000000000000000000012 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* NavigationView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +33,8 @@
 		BB0000000000000000000008 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000009 /* AppCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCalendarView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000010 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppLineChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLineChartView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -91,6 +95,8 @@
 				BB0000000000000000000008 /* AppHistoryView.swift */,
 				BB0000000000000000000009 /* AppCalendarView.swift */,
 				BB0000000000000000000010 /* AppRootView.swift */,
+				BB0000000000000000000011 /* AppLineChartView.swift */,
+				BB0000000000000000000012 /* NavigationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -191,6 +197,8 @@
 				AA0000000000000000000008 /* AppHistoryView.swift in Sources */,
 				AA0000000000000000000009 /* AppCalendarView.swift in Sources */,
 				AA0000000000000000000010 /* AppRootView.swift in Sources */,
+				AA0000000000000000000011 /* AppLineChartView.swift in Sources */,
+				AA0000000000000000000012 /* NavigationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

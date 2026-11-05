@@ -68,21 +68,11 @@ struct AppGrowthChartView: View {
     }
 
     private var heightChart: some View {
-        AppLineChartView(
-            title: "身高趋势",
-            points: monthlyData.map { AppChartPoint(month: $0.month, value: $0.averageHeight) },
-            lineColor: AppGrowthChartView.heightColor,
-            unit: "cm"
-        )
+        AppLineChartView()
     }
 
     private var weightChart: some View {
-        AppLineChartView(
-            title: "体重趋势",
-            points: monthlyData.map { AppChartPoint(month: $0.month, value: $0.averageWeight) },
-            lineColor: AppGrowthChartView.weightColor,
-            unit: "kg"
-        )
+        AppLineChartView()
     }
 
     private var latestSummary: some View {
@@ -108,7 +98,7 @@ struct AppGrowthChartView: View {
         var id: Date { month }
     }
 
-    private struct AppChartPoint: Identifiable {
+    fileprivate struct AppChartPoint: Identifiable {
         let month: Date
         let value: Double
 

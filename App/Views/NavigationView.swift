@@ -1,15 +1,19 @@
 import SwiftUI
 
-struct NavigationView: View {
+struct NavigationView<Content: View>: View {
+    private let content: Content
+
+    init() where Content == EmptyView {
+        self.content = EmptyView()
+    }
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "tray")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("请选择一项内容")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+        SwiftUI.NavigationStack {
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
