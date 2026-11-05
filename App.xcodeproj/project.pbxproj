@@ -10,16 +10,15 @@
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
 		AA0000000000000000000003 /* AppPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppPalette.swift */; };
-		AA0000000000000000000004 /* AppGrowthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppGrowthRecord.swift */; };
-		AA0000000000000000000005 /* AppGrowthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppGrowthStore.swift */; };
-		AA0000000000000000000006 /* AppEntryFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppEntryFormView.swift */; };
-		AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppGrowthChartView.swift */; };
-		AA0000000000000000000008 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppHistoryView.swift */; };
-		AA0000000000000000000009 /* AppCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppCalendarView.swift */; };
-		AA0000000000000000000010 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppRootView.swift */; };
-		AA0000000000000000000011 /* AppLineChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppLineChartView.swift */; };
-		AA0000000000000000000012 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* NavigationView.swift */; };
-		AA0000000000000000000013 /* AppGrowthLineChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* AppGrowthLineChartView.swift */; };
+		AA0000000000000000000004 /* AppDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppDateFormatter.swift */; };
+		AA0000000000000000000005 /* AppQuote.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppQuote.swift */; };
+		AA0000000000000000000006 /* AppQuoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppQuoteStore.swift */; };
+		AA0000000000000000000007 /* AppCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppCaptureView.swift */; };
+		AA0000000000000000000008 /* AppBookShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppBookShelfView.swift */; };
+		AA0000000000000000000009 /* AppBookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppBookDetailView.swift */; };
+		AA0000000000000000000010 /* AppSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppSearchView.swift */; };
+		AA0000000000000000000011 /* AppTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppTimelineView.swift */; };
+		AA0000000000000000000012 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* AppRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -27,16 +26,15 @@
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		BB0000000000000000000003 /* AppPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPalette.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppGrowthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppGrowthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppEntryFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntryFormView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppGrowthChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthChartView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCalendarView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* AppLineChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLineChartView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000012 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000013 /* AppGrowthLineChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthLineChartView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppDateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDateFormatter.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppQuote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppQuote.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppQuoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppQuoteStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* AppCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCaptureView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppBookShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBookShelfView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppBookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBookDetailView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSearchView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTimelineView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -83,8 +81,8 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000004 /* AppGrowthRecord.swift */,
-				BB0000000000000000000005 /* AppGrowthStore.swift */,
+				BB0000000000000000000005 /* AppQuote.swift */,
+				BB0000000000000000000006 /* AppQuoteStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -92,14 +90,12 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000006 /* AppEntryFormView.swift */,
-				BB0000000000000000000007 /* AppGrowthChartView.swift */,
-				BB0000000000000000000008 /* AppHistoryView.swift */,
-				BB0000000000000000000009 /* AppCalendarView.swift */,
-				BB0000000000000000000010 /* AppRootView.swift */,
-				BB0000000000000000000011 /* AppLineChartView.swift */,
-				BB0000000000000000000012 /* NavigationView.swift */,
-				BB0000000000000000000013 /* AppGrowthLineChartView.swift */,
+				BB0000000000000000000007 /* AppCaptureView.swift */,
+				BB0000000000000000000008 /* AppBookShelfView.swift */,
+				BB0000000000000000000009 /* AppBookDetailView.swift */,
+				BB0000000000000000000010 /* AppSearchView.swift */,
+				BB0000000000000000000011 /* AppTimelineView.swift */,
+				BB0000000000000000000012 /* AppRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -109,6 +105,7 @@
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
 				BB0000000000000000000003 /* AppPalette.swift */,
+				BB0000000000000000000004 /* AppDateFormatter.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -193,16 +190,15 @@
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
 				AA0000000000000000000003 /* AppPalette.swift in Sources */,
-				AA0000000000000000000004 /* AppGrowthRecord.swift in Sources */,
-				AA0000000000000000000005 /* AppGrowthStore.swift in Sources */,
-				AA0000000000000000000006 /* AppEntryFormView.swift in Sources */,
-				AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */,
-				AA0000000000000000000008 /* AppHistoryView.swift in Sources */,
-				AA0000000000000000000009 /* AppCalendarView.swift in Sources */,
-				AA0000000000000000000010 /* AppRootView.swift in Sources */,
-				AA0000000000000000000011 /* AppLineChartView.swift in Sources */,
-				AA0000000000000000000012 /* NavigationView.swift in Sources */,
-				AA0000000000000000000013 /* AppGrowthLineChartView.swift in Sources */,
+				AA0000000000000000000004 /* AppDateFormatter.swift in Sources */,
+				AA0000000000000000000005 /* AppQuote.swift in Sources */,
+				AA0000000000000000000006 /* AppQuoteStore.swift in Sources */,
+				AA0000000000000000000007 /* AppCaptureView.swift in Sources */,
+				AA0000000000000000000008 /* AppBookShelfView.swift in Sources */,
+				AA0000000000000000000009 /* AppBookDetailView.swift in Sources */,
+				AA0000000000000000000010 /* AppSearchView.swift in Sources */,
+				AA0000000000000000000011 /* AppTimelineView.swift in Sources */,
+				AA0000000000000000000012 /* AppRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

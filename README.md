@@ -1,7 +1,7 @@
 # App
 
-随手记下孩子的身高体重，曲线自己长出来
+随手记下读到的好句子
 
 Bundle ID: `com.example.app`
 
-Screens: 记一笔, 成长曲线, 历史记录
+Screens: 记一句, 按书翻看, 搜原句

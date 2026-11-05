@@ -1,46 +1,49 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppGrowthStore()
+    @StateObject private var store = AppQuoteStore()
     @State private var selectedTab = AppRootView.initialTab()
 
-    private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let tab = Int(args[index + 1]) {
-            return tab
-        }
-        return 0
-    }
-
-    private static let accentColor = Color(red: 0.05, green: 0.35, blue: 0.25)
+    private static let ink = Color(red: 0.16, green: 0.29, blue: 0.24)
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppEntryFormView()
+            AppCaptureView()
                 .tabItem {
-                    Label("记一笔", systemImage: "plus.circle.fill")
+                    Label("记一句", systemImage: "square.and.pencil")
                 }
                 .tag(0)
 
-            AppGrowthChartView()
+            AppBookShelfView()
                 .tabItem {
-                    Label("曲线", systemImage: "chart.line.uptrend.xyaxis")
+                    Label("书库", systemImage: "books.vertical")
                 }
                 .tag(1)
 
-            AppHistoryView()
+            AppSearchView()
                 .tabItem {
-                    Label("历史", systemImage: "list.bullet.rectangle")
+                    Label("搜索", systemImage: "magnifyingglass")
                 }
                 .tag(2)
 
-            AppCalendarView()
+            AppTimelineView()
                 .tabItem {
-                    Label("日历", systemImage: "calendar")
+                    Label("时间线", systemImage: "calendar")
                 }
                 .tag(3)
         }
-        .tint(AppRootView.accentColor)
+        .tint(AppRootView.ink)
         .environmentObject(store)
+    }
+
+    private static func initialTab() -> Int {
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-startTab"),
+           index + 1 < args.count,
+           let tab = Int(args[index + 1]) {
+            return tab
+        }
+        return 0
     }
 }

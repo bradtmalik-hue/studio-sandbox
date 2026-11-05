@@ -1,63 +1,56 @@
 import Foundation
 
 enum AppDateFormatter {
-    // MARK: - 私有格式化器
+    static let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "zh_CN")
+        calendar.timeZone = .current
+        return calendar
+    }()
     
-    /// 用于按月分组的唯一标识，如 "2025-05"
-    private static let monthKeyFormatter: DateFormatter = {
+    private static func makeFormatter(dateFormat: String) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
+        formatter.dateFormat = dateFormat
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
         return formatter
-    }()
-    
-    /// 用于历史记录的分组标题，如 "2025年5月"
-    private static let monthDisplayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy年M月"
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.timeZone = .current
-        return formatter
-    }()
-    
-    /// 用于图表 X 轴标签，如 "5月"
-    private static let axisLabelFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M月"
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.timeZone = .current
-        return formatter
-    }()
-    
-    /// 用于记录卡片上的日期显示，如 "2025年5月10日"
-    private static let dateDisplayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy年M月d日"
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.timeZone = .current
-        return formatter
-    }()
-    
-    // MARK: - 公开静态方法
-    
-    /// 生成用于按月分组的唯一标识
-    static func monthKey(from date: Date) -> String {
-        monthKeyFormatter.string(from: date)
     }
     
-    /// 生成用于历史记录分组标题的显示文本
-    static func monthDisplay(from date: Date) -> String {
-        monthDisplayFormatter.string(from: date)
+    static func startOfDay(for date: Date) -> Date {
+        calendar.startOfDay(for: date)
     }
     
-    /// 生成用于图表 X 轴标签的简短文本
-    static func axisLabel(from date: Date) -> String {
-        axisLabelFormatter.string(from: date)
+    static func dayKey(for date: Date) -> String {
+        makeFormatter(dateFormat: "yyyy-MM-dd").string(from: date)
     }
     
-    /// 生成记录卡片上完整日期显示的文本
-    static func dateDisplay(from date: Date) -> String {
-        dateDisplayFormatter.string(from: date)
+    static func isSameDay(_ lhs: Date, _ rhs: Date) -> Bool {
+        calendar.isDate(lhs, inSameDayAs: rhs)
+    }
+    
+    static func timelineTitle(for date: Date) -> String {
+        if calendar.isDateInToday(date) {
+            return "今天"
+        }
+        if calendar.isDateInYesterday(date) {
+            return "昨天"
+        }
+        return makeFormatter(dateFormat: "yyyy年M月d日").string(from: date)
+    }
+    
+    static func mediumDate(for date: Date) -> String {
+        makeFormatter(dateFormat: "yyyy年M月d日").string(from: date)
+    }
+    
+    static func shortDate(for date: Date) -> String {
+        makeFormatter(dateFormat: "M月d日").string(from: date)
+    }
+    
+    static func monthTitle(for date: Date) -> String {
+        makeFormatter(dateFormat: "yyyy年M月").string(from: date)
+    }
+    
+    static func shortTime(for date: Date) -> String {
+        makeFormatter(dateFormat: "HH:mm").string(from: date)
     }
 }

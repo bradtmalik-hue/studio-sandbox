@@ -1,84 +1,58 @@
 import SwiftUI
-import Foundation
 
 enum AppPalette {
     // MARK: - Colors
-    static let background = Color(red: 1.0, green: 1.0, blue: 1.0)
-    static let cardBackground = Color(red: 0.97, green: 0.98, blue: 0.97)
-    static let accent = Color(red: 0.07, green: 0.32, blue: 0.25)
-    static let accentDark = Color(red: 0.04, green: 0.22, blue: 0.17)
-    static let accentLight = Color(red: 0.86, green: 0.93, blue: 0.90)
-    static let textPrimary = Color(red: 0.15, green: 0.19, blue: 0.16)
-    static let textSecondary = Color(red: 0.42, green: 0.47, blue: 0.44)
-    static let separator = Color(red: 0.91, green: 0.93, blue: 0.91)
-    static let chartGrid = Color(red: 0.93, green: 0.95, blue: 0.93)
-    static let chartFill = Color(red: 0.07, green: 0.32, blue: 0.25).opacity(0.12)
-    static let shadow = Color.black.opacity(0.06)
+    static let background = Color.white
+    static let primary = Color(red: 0.05, green: 0.20, blue: 0.16)
+    static let primaryDark = Color(red: 0.03, green: 0.14, blue: 0.11)
+    static let primaryLight = Color(red: 0.85, green: 0.93, blue: 0.89)
+    static let ink = Color(red: 0.10, green: 0.10, blue: 0.12)
+    static let secondaryText = Color(red: 0.40, green: 0.42, blue: 0.45)
+    static let divider = Color(red: 0.92, green: 0.93, blue: 0.94)
 
-    // MARK: - Radius
+    // MARK: - Typography
+    static let heroTitle = Font.system(size: 34, weight: .heavy, design: .default)
+    static let largeTitle = Font.system(size: 28, weight: .bold, design: .default)
+    static let title = Font.system(size: 22, weight: .semibold, design: .default)
+    static let headline = Font.system(size: 17, weight: .semibold, design: .default)
+    static let body = Font.system(size: 16, weight: .regular, design: .default)
+    static let callout = Font.system(size: 14, weight: .regular, design: .default)
+    static let footnote = Font.system(size: 12, weight: .regular, design: .default)
+    static let caption = Font.system(size: 11, weight: .medium, design: .default)
+
+    // MARK: - Layout
     static let cornerRadius: CGFloat = 16
     static let smallCornerRadius: CGFloat = 10
+    static let cardPadding: CGFloat = 16
+    static let screenPadding: CGFloat = 20
+}
 
-    // MARK: - Fonts
-    static let largeTitle = Font.system(size: 34, weight: .bold, design: .rounded)
-    static let title = Font.system(size: 28, weight: .bold, design: .rounded)
-    static let title2 = Font.system(size: 22, weight: .semibold, design: .rounded)
-    static let headline = Font.system(size: 18, weight: .semibold, design: .rounded)
-    static let body = Font.system(size: 16, weight: .regular, design: .rounded)
-    static let subheadline = Font.system(size: 14, weight: .medium, design: .rounded)
-    static let caption = Font.system(size: 12, weight: .regular, design: .rounded)
-    static let numeric = Font.system(size: 20, weight: .bold, design: .rounded)
-    static let chartAnnotation = Font.system(size: 11, weight: .medium, design: .rounded)
-
-    // MARK: - Units
-    static let heightUnit = "cm"
-    static let weightUnit = "kg"
-
-    // MARK: - Formatting
-    static let heightFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 1
-        formatter.maximumFractionDigits = 1
-        return formatter
-    }()
-
-    static let weightFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter
-    }()
-
-    static let monthFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_Hans")
-        formatter.setLocalizedDateFormatFromTemplate("yyyyMMMM")
-        return formatter
-    }()
-
-    static let shortDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_Hans")
-        formatter.setLocalizedDateFormatFromTemplate("MMMd")
-        return formatter
-    }()
-
-    static let weekdayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_Hans")
-        formatter.setLocalizedDateFormatFromTemplate("EEE")
-        return formatter
-    }()
-
-    static func formattedHeight(_ value: Double) -> String {
-        let number = NSNumber(value: value)
-        return heightFormatter.string(from: number) ?? String(format: "%.1f", value)
+extension View {
+    func appBackground() -> some View {
+        self.background(AppPalette.background)
     }
 
-    static func formattedWeight(_ value: Double) -> String {
-        let number = NSNumber(value: value)
-        return weightFormatter.string(from: number) ?? String(format: "%.2f", value)
+    func appCardStyle() -> some View {
+        self
+            .padding(AppPalette.cardPadding)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: AppPalette.cornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+    }
+
+    func appPrimaryButtonStyle() -> some View {
+        self
+            .font(AppPalette.headline)
+            .foregroundColor(.white)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 24)
+            .background(AppPalette.primary)
+            .clipShape(RoundedRectangle(cornerRadius: AppPalette.smallCornerRadius, style: .continuous))
+    }
+
+    func appHeroTitleStyle() -> some View {
+        self
+            .font(AppPalette.heroTitle)
+            .foregroundColor(AppPalette.ink)
     }
 }
