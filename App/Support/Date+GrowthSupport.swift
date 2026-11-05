@@ -31,17 +31,24 @@ extension Date {
 
     /// 统一显示日期，如中文环境“2025年4月9日”。
     var appDisplayDate: String {
-        self.formatted(.dateTime.year().month().day())
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .none
+        return formatter.string(from: self)
     }
 
     /// 统一显示月份，如中文环境“2025年4月”。
     var appDisplayMonth: String {
-        self.formatted(.dateTime.year().month())
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("yMMMM")
+        return formatter.string(from: self)
     }
 
     /// 短月份显示，如中文环境“4月”，适合图表坐标轴。
     var appDisplayShortMonth: String {
-        self.formatted(.dateTime.month())
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMM")
+        return formatter.string(from: self)
     }
 
     /// 返回向前或向后移动指定数量月份的日期。

@@ -1,20 +1,6 @@
 import Foundation
 import Combine
 
-struct AppGrowthRecord: Identifiable, Codable {
-    let id: UUID
-    var date: Date
-    var heightCm: Double
-    var weightKg: Double
-
-    init(id: UUID = UUID(), date: Date, heightCm: Double, weightKg: Double) {
-        self.id = id
-        self.date = date
-        self.heightCm = heightCm
-        self.weightKg = weightKg
-    }
-}
-
 struct AppGrowthMonthGroup: Identifiable {
     let id: String
     let monthStart: Date

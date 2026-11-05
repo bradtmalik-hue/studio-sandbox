@@ -29,11 +29,7 @@ struct GrowthChartView: View {
         NavigationStack {
             Group {
                 if sortedRecords.isEmpty {
-                    ContentUnavailableView(
-                        "还没有成长记录",
-                        systemImage: "chart.xyaxis.line",
-                        description: Text("去「记一笔」添加身高体重，曲线会自动生成")
-                    )
+                    ContentUnavailableView()
                 } else {
                     VStack(spacing: 16) {
                         Picker("指标", selection: $metric) {
