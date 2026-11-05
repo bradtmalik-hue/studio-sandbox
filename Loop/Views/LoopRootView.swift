@@ -1,38 +1,36 @@
 import SwiftUI
-import Foundation
 
 struct LoopRootView: View {
+    @StateObject private var store = LoopStore()
     @State private var selectedTab: Int = LoopRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
             LoopMomentsView()
                 .tabItem {
-                    Label("Moments", systemImage: "camera.fill")
+                    Label("Moments", systemImage: "list.bullet.rectangle")
                 }
                 .tag(0)
 
-            LoopChatsView()
+            LoopAddMomentView()
                 .tabItem {
-                    Label("Chats", systemImage: "bubble.left.and.bubble.right.fill")
+                    Label("Add", systemImage: "plus.circle.fill")
                 }
                 .tag(1)
 
-            LoopPeopleView()
+            LoopSummaryView()
                 .tabItem {
-                    Label("People", systemImage: "person.2.fill")
+                    Label("Summary", systemImage: "chart.bar.xaxis")
                 }
                 .tag(2)
         }
-        .tint(.primary)
+        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return min(max(value, 0), 2)
+        let args = ProcessInfo.processInfo.arguments
+        if let idx = args.firstIndex(of: "-startTab"), idx + 1 < args.count, let tab = Int(args[idx + 1]) {
+            return tab
         }
         return 0
     }
