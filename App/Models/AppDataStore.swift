@@ -19,7 +19,16 @@ final class AppDataStore: ObservableObject {
     init() {
         let docDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         fileURL = docDir.appendingPathComponent("CarCareLogData.json")
-        vehicleProfile = AppVehicleProfile(make: "未设置", model: "", year: 2024, currentOdometer: 0, maintenanceIntervalKM: 10000)
+        vehicleProfile = AppVehicleProfile(
+            id: UUID(),
+            name: "未设置",
+            brand: "",
+            model: "",
+            initialOdometer: 0,
+            maintenanceIntervalKm: 10000,
+            fuelType: "汽油",
+            createdAt: Date()
+        )
         fuelRecords = []
         maintenanceRecords = []
         load()
@@ -63,12 +72,16 @@ final class AppDataStore: ObservableObject {
     }
 
     func deleteFuelRecord(at offsets: IndexSet) {
-        fuelRecords.remove(atOffsets: offsets)
+        for index in offsets.sorted(by: >) {
+            fuelRecords.remove(at: index)
+        }
         save()
     }
 
     func deleteMaintenanceRecord(at offsets: IndexSet) {
-        maintenanceRecords.remove(atOffsets: offsets)
+        for index in offsets.sorted(by: >) {
+            maintenanceRecords.remove(at: index)
+        }
         save()
     }
 
@@ -97,9 +110,9 @@ final class AppDataStore: ObservableObject {
         let monthFuelRecords = fuelRecords.filter { $0.date >= start && $0.date < end }
         let monthMaintenanceRecords = maintenanceRecords.filter { $0.date >= start && $0.date < end }
 
-        let fuelAmount = monthFuelRecords.reduce(0) { $0 + $1.amount }
-        let maintenanceAmount = monthMaintenanceRecords.reduce(0) { $0 + $1.amount }
-        let fuelLiters = monthFuelRecords.reduce(0) { $0 + $1.liters }
+        let fuelAmount = monthFuelRecords.reduce(0.0) { $0 + $1.cost }
+        let maintenanceAmount = monthMaintenanceRecords.reduce(0.0) { $0 + $1.amount }
+        let fuelLiters = monthFuelRecords.reduce(0.0) { $0 + $1.liters }
 
         var distanceTraveled: Double = 0
         if let minOdo = monthFuelRecords.map(\.odometer).min(),
@@ -147,7 +160,7 @@ final class AppDataStore: ObservableObject {
                 totalLiters += record.liters
             }
         }
-        let efficiency = totalDistance > 0 ? (totalLiters / totalDistance) * 100 : 0
+        let efficiency = totalDistance > 0 ? (totalLiters / totalDistance) * 100 : 0.0
         return IntervalFuelEfficiency(litersUsed: totalLiters, distanceKM: totalDistance, litersPer100KM: efficiency)
     }
 
@@ -159,14 +172,14 @@ final class AppDataStore: ObservableObject {
     }
 
     func costPerKilometer() -> CostPerKilometer {
-        let fuelCost = fuelRecords.reduce(0) { $0 + $1.amount }
-        let maintenanceCost = maintenanceRecords.reduce(0) { $0 + $1.amount }
+        let fuelCost = fuelRecords.reduce(0.0) { $0 + $1.cost }
+        let maintenanceCost = maintenanceRecords.reduce(0.0) { $0 + $1.amount }
         let totalCost = fuelCost + maintenanceCost
 
-        var totalDistance = vehicleProfile.currentOdometer
+        var totalDistance = vehicleProfile.initialOdometer
         if totalDistance <= 0 {
             let fuelOdo = fuelRecords.map(\.odometer)
-            let maintOdo = maintenanceRecords.map(\.odometer)
+            let maintOdo = maintenanceRecords.map(\.mileage)
             if let minFuel = fuelOdo.min(), let maxFuel = fuelOdo.max() {
                 totalDistance = maxFuel - minFuel
             } else if let minMaint = maintOdo.min(), let maxMaint = maintOdo.max() {
@@ -174,7 +187,7 @@ final class AppDataStore: ObservableObject {
             }
         }
 
-        let c = totalDistance > 0 ? totalCost / totalDistance : 0
+        let c = totalDistance > 0 ? totalCost / totalDistance : 0.0
         return CostPerKilometer(totalCost: totalCost, totalDistance: totalDistance, costPerKilometer: c)
     }
 
@@ -187,15 +200,17 @@ final class AppDataStore: ObservableObject {
     }
 
     func maintenanceReminder() -> MaintenanceReminder {
-        let sortedMaintenance = maintenanceRecords.sorted { $0.odometer > $1.odometer }
-        let lastMaintenanceOdometer = sortedMaintenance.first?.odometer ?? 0
-        let interval = vehicleProfile.maintenanceIntervalKM
+        let sortedMaintenance = maintenanceRecords.sorted(by: { (a: AppMaintenanceRecord, b: AppMaintenanceRecord) -> Bool in
+            a.mileage > b.mileage
+        })
+        let lastMaintenanceOdometer = sortedMaintenance.first?.mileage ?? 0
+        let interval = vehicleProfile.maintenanceIntervalKm
         let nextOdo = lastMaintenanceOdometer + interval
 
         let currentOdo = max(
-            vehicleProfile.currentOdometer,
+            vehicleProfile.initialOdometer,
             fuelRecords.map(\.odometer).max() ?? 0,
-            maintenanceRecords.map(\.odometer).max() ?? 0
+            maintenanceRecords.map(\.mileage).max() ?? 0
         )
         let remaining = nextOdo - currentOdo
         return MaintenanceReminder(
