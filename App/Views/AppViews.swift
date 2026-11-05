@@ -126,7 +126,7 @@ struct AppAddRecordView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: AppStore
 
-    @State private var category: AppRecordCategory = .other
+    @State private var category: AppRecordCategory = AppRecordCategory.allCases.first!
     @State private var amountText: String = ""
     @State private var note: String = ""
     @State private var date = Date()
