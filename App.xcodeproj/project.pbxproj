@@ -17,6 +17,7 @@
 		AA0000000000000000000008 /* AppFilmEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppFilmEditorView.swift */; };
 		AA0000000000000000000009 /* AppStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppStatsView.swift */; };
 		AA0000000000000000000010 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppRootView.swift */; };
+		AA0000000000000000000011 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* NavigationView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +32,7 @@
 		BB0000000000000000000008 /* AppFilmEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilmEditorView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000009 /* AppStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatsView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000010 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -91,6 +93,7 @@
 				BB0000000000000000000008 /* AppFilmEditorView.swift */,
 				BB0000000000000000000009 /* AppStatsView.swift */,
 				BB0000000000000000000010 /* AppRootView.swift */,
+				BB0000000000000000000011 /* NavigationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -191,6 +194,7 @@
 				AA0000000000000000000008 /* AppFilmEditorView.swift in Sources */,
 				AA0000000000000000000009 /* AppStatsView.swift in Sources */,
 				AA0000000000000000000010 /* AppRootView.swift in Sources */,
+				AA0000000000000000000011 /* NavigationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

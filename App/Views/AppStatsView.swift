@@ -5,10 +5,31 @@ import Foundation
 struct AppStatsView: View {
     @EnvironmentObject var store: AppFilmStore
     
+    private var yearStatistics: AppYearStatistics {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let yearFilms = store.films.filter { calendar.component(.year, from: $0.watchDate) == currentYear }
+        let totalFilms = yearFilms.count
+        let averageRating = totalFilms > 0 ? yearFilms.map(\.rating).reduce(0.0, +) / Double(totalFilms) : 0
+        let monthlyCounts = (1...12).map { month in
+            yearFilms.filter { calendar.component(.month, from: $0.watchDate) == month }.count
+        }
+        let sortedByDateDescending = yearFilms.sorted { $0.watchDate > $1.watchDate }
+        let longestStreakWeeks = Self.longestStreakWeeks(in: sortedByDateDescending, calendar: calendar)
+        return AppYearStatistics(
+            year: currentYear,
+            totalFilms: totalFilms,
+            averageRating: averageRating,
+            longestStreakWeeks: longestStreakWeeks,
+            monthlyCounts: monthlyCounts,
+            films: yearFilms
+        )
+    }
+    
     var body: some View {
         NavigationStack {
             Group {
-                if store.yearStatistics.totalFilms == 0 {
+                if yearStatistics.totalFilms == 0 {
                     emptyState
                 } else {
                     statsContent
@@ -42,8 +63,8 @@ struct AppStatsView: View {
                 }
                 
                 HStack(spacing: 16) {
-                    AppStatCard(title: "总片数", value: "\(store.yearStatistics.totalFilms)", icon: "film")
-                    AppStatCard(title: "平均星级", value: String(format: "%.1f", store.yearStatistics.averageRating), icon: "star.fill")
+                    AppStatCard(title: "总片数", value: "\(yearStatistics.totalFilms)", icon: "film")
+                    AppStatCard(title: "平均星级", value: String(format: "%.1f", yearStatistics.averageRating), icon: "star.fill")
                 }
                 
                 streakCard
@@ -59,7 +80,7 @@ struct AppStatsView: View {
                 .foregroundColor(.primary)
             Text("连续观影周")
             Spacer()
-            Text("\(store.yearStatistics.streakWeeks) 周")
+            Text("\(yearStatistics.longestStreakWeeks) 周")
                 .fontWeight(.semibold)
         }
         .padding()
@@ -73,7 +94,7 @@ struct AppStatsView: View {
                 .font(.headline)
             HStack(alignment: .bottom, spacing: 6) {
                 ForEach(0..<12, id: \.self) { month in
-                    let count = store.yearStatistics.monthlyCounts[month]
+                    let count = yearStatistics.monthlyCounts[month]
                     VStack {
                         Text("\(count)")
                             .font(.caption2)
@@ -95,9 +116,32 @@ struct AppStatsView: View {
     }
     
     private func height(for count: Int) -> CGFloat {
-        let maxCount = max(store.yearStatistics.monthlyCounts.max() ?? 1, 1)
+        let maxCount = max(yearStatistics.monthlyCounts.max() ?? 1, 1)
         if count == 0 { return 8 }
         return max(20, CGFloat(count) / CGFloat(maxCount) * 100)
+    }
+    
+    private static func longestStreakWeeks(in films: [AppFilmRecord], calendar: Calendar) -> Int {
+        let weekStarts = Set(films.compactMap { calendar.dateInterval(of: .weekOfYear, for: $0.watchDate)?.start })
+        let sortedWeeks = weekStarts.sorted()
+        guard let first = sortedWeeks.first else { return 0 }
+        
+        var longest = 1
+        var current = 1
+        var previous = first
+        
+        for week in sortedWeeks.dropFirst() {
+            if let next = calendar.date(byAdding: .weekOfYear, value: 1, to: previous),
+               calendar.isDate(next, inSameDayAs: week) {
+                current += 1
+                longest = max(longest, current)
+            } else {
+                current = 1
+            }
+            previous = week
+        }
+        
+        return longest
     }
 }
 
