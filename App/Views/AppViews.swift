@@ -1,6 +1,8 @@
 import SwiftUI
 import Combine
 
+extension AppModels: ObservableObject {}
+
 // MARK: - 药箱列表页
 struct AppMedication: Identifiable {
     let id: UUID
