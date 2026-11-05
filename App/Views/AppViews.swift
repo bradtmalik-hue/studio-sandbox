@@ -2,6 +2,18 @@ import SwiftUI
 import Combine
 
 // MARK: - 药箱列表页
+struct AppMedication: Identifiable {
+    let id: UUID
+    let name: String
+    let expirationDate: Date
+    let location: String
+    let quantity: Int
+    let notes: String
+    let addedDate: Date
+}
+
+extension AppModels: ObservableObject {}
+
 struct AppMedicationListView: View {
     @EnvironmentObject var store: AppModels
     @State private var showAddMedication = false
@@ -182,15 +194,7 @@ struct AppAddMedicationView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let med = AppMedication(
-                            id: UUID(),
-                            name: trimmedName,
-                            expirationDate: expirationDate,
-                            location: location.isEmpty ? (store.locations.first ?? "药箱") : location,
-                            quantity: quantity,
-                            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
-                            addedDate: Date()
-                        )
+                        let med = AppMedication()
                         store.addMedication(med)
                         dismiss()
                     }
