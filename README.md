@@ -1,7 +1,7 @@
-# BattleLog
+# Loop
 
-记录每局战绩
+Share your moments, keep your loop
 
-Bundle ID: `com.example.battlelog`
+Bundle ID: `com.example.loop`
 
-Screens: 记录, 统计, 设置
+Screens: Feed, Post, Messages

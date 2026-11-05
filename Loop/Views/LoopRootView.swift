@@ -1,46 +1,67 @@
 import SwiftUI
 
 struct LoopRootView: View {
-    @StateObject private var store = LoopStore()
-    @State private var selectedTab: Int = LoopRootView.initialTab()
+    @StateObject private var store: LoopStore
+    @State private var selectedTab: Int
+
+    init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        var initialTab = 0
+        if let index = arguments.firstIndex(of: "-startTab"), index + 1 < arguments.count, let value = Int(arguments[index + 1]) {
+            initialTab = value
+        }
+        initialTab = min(max(initialTab, 0), 2)
+        _store = StateObject(wrappedValue: LoopStore())
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LoopMomentsView()
+                LoopTimelineView()
             }
             .tabItem {
-                Label("Moments", systemImage: "photo.stack")
+                Label("Timeline", systemImage: "calendar.day.timeline.left")
             }
             .tag(0)
 
             NavigationStack {
-                LoopLoopView()
+                LoopComposeView()
             }
             .tabItem {
-                Label("Loop", systemImage: "arrow.triangle.2.circlepath")
+                Label("New Moment", systemImage: "square.and.pencil")
             }
             .tag(1)
 
             NavigationStack {
-                LoopProfileView()
+                LoopAboutView()
             }
             .tabItem {
-                Label("Profile", systemImage: "person.crop.circle")
+                Label("About", systemImage: "info.circle")
             }
             .tag(2)
         }
         .environmentObject(store)
+        .tint(.gray)
     }
+}
 
-    private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"),
-           index + 1 < args.count,
-           let value = Int(args[index + 1]),
-           (0...2).contains(value) {
-            return value
+struct LoopAboutView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "repeat.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary)
+            Text("Loop")
+                .font(.largeTitle.weight(.semibold))
+            Text("Share your moments, keep your loop")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Spacer()
         }
-        return 0
+        .padding()
+        .navigationTitle("About")
     }
 }
