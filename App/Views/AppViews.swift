@@ -250,9 +250,10 @@ struct AppWeeklyVolumeView: View {
             if let weekStart = calendar.date(byAdding: .weekOfYear, value: -weekOffset, to: today),
                let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: weekStart)?.start {
                 let endOfWeek = calendar.date(byAdding: .day, value: 6, to: startOfWeek) ?? startOfWeek
-                let runsForWeek = store.runs.filter { $0.date >= startOfWeek && $0.date <= endOfWeek }
-                let volumeKm = runsForWeek.reduce(0.0) { $0 + $1.distanceKm }
-                result.append(AppWeeklyVolume(weekStart: startOfWeek, volumeKm: volumeKm, runs: runsForWeek))
+                let volumeKm = store.runs
+                    .filter { $0.date >= startOfWeek && $0.date <= endOfWeek }
+                    .reduce(0.0) { $0 + $1.distanceKm }
+                result.append(AppWeeklyVolume(weekStart: startOfWeek, volumeKm: volumeKm))
             }
         }
         return result.sorted { $0.weekStart < $1.weekStart }
