@@ -164,7 +164,7 @@ struct PlantWaterReminderListView: View {
     }
 
     private func nextWateringDate(for plant: PlantWaterReminderPlant) -> Date {
-        plant.lastWateredDate.addingTimeInterval(Double(plant.wateringIntervalDays) * 24 * 60 * 60)
+        plant.nextWateringDate ?? Date.distantPast
     }
 
     private func waterPlant(_ plant: PlantWaterReminderPlant) {
@@ -183,13 +183,13 @@ struct PlantWaterReminderRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(plant.name)
                     .font(.headline)
-                if let species = plant.species, !species.isEmpty {
-                    Text(species)
+                if !plant.species.isEmpty {
+                    Text(plant.species)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                if let location = plant.location, !location.isEmpty {
-                    Label(location, systemImage: "mappin.and.ellipse")
+                if !plant.location.isEmpty {
+                    Label(plant.location, systemImage: "mappin.and.ellipse")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -204,8 +204,8 @@ struct PlantWaterReminderRow: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if let notes = plant.notes, !notes.isEmpty {
-                    Text(notes)
+                if !plant.notes.isEmpty {
+                    Text(plant.notes)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -216,7 +216,7 @@ struct PlantWaterReminderRow: View {
     }
 
     private var nextWateringDate: Date {
-        plant.lastWateredDate.addingTimeInterval(Double(plant.wateringIntervalDays) * 24 * 60 * 60)
+        plant.nextWateringDate ?? Date()
     }
 }
 
@@ -304,10 +304,28 @@ struct PlantWaterReminderEditView: View {
                 wateringIntervalDays: wateringIntervalDays,
                 lastWateredDate: lastWateredDate,
                 notes: notes,
-                location: location
+                location: location,
+                iconName: "leaf"
             )
             store.add(newPlant)
         }
         dismiss()
+    }
+}
+
+// MARK: - Store Convenience Methods
+extension PlantWaterReminderStore {
+    func add(_ plant: PlantWaterReminderPlant) {
+        plants.append(plant)
+    }
+
+    func update(_ plant: PlantWaterReminderPlant) {
+        if let index = plants.firstIndex(where: { $0.id == plant.id }) {
+            plants[index] = plant
+        }
+    }
+
+    func delete(_ plant: PlantWaterReminderPlant) {
+        plants.removeAll { $0.id == plant.id }
     }
 }
