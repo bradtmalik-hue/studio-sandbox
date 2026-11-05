@@ -7,19 +7,19 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppEntryFormView(store: store)
+            AppEntryFormView()
                 .tabItem {
                     Label("记一笔", systemImage: "plus.circle.fill")
                 }
                 .tag(0)
 
-            GrowthCurveView(store: store)
+            GrowthCurveView()
                 .tabItem {
                     Label("成长曲线", systemImage: "chart.xyaxis.line")
                 }
                 .tag(1)
 
-            HistoryListView(store: store)
+            HistoryListView()
                 .tabItem {
                     Label("历史记录", systemImage: "list.bullet.rectangle")
                 }
