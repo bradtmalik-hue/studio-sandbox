@@ -1,141 +1,157 @@
 import Foundation
 import Combine
 
-struct AppQuote: Identifiable, Codable, Equatable {
+struct AppMedicine: Identifiable, Codable, Equatable {
     var id: UUID
-    var text: String
-    var bookTitle: String
-    var author: String
-    var page: Int
-    var note: String
-    var createdAt: Date
-    var tags: [String]
+    var name: String
+    var storageSpot: String
+    var expiryDate: Date
+    var reminderDays: Int
+    var notes: String
 
     init(
         id: UUID = UUID(),
-        text: String,
-        bookTitle: String,
-        author: String = "",
-        page: Int = 0,
-        note: String = "",
-        createdAt: Date = Date(),
-        tags: [String] = []
+        name: String = "",
+        storageSpot: String = "",
+        expiryDate: Date = Date(),
+        reminderDays: Int = 14,
+        notes: String = ""
     ) {
         self.id = id
-        self.text = text
-        self.bookTitle = bookTitle
-        self.author = author
-        self.page = page
-        self.note = note
-        self.createdAt = createdAt
-        self.tags = tags
+        self.name = name
+        self.storageSpot = storageSpot
+        self.expiryDate = expiryDate
+        self.reminderDays = reminderDays
+        self.notes = notes
+    }
+
+    var daysUntilExpiry: Int {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfExpiry = calendar.startOfDay(for: expiryDate)
+        return calendar.dateComponents([.day], from: startOfToday, to: startOfExpiry).day ?? 0
+    }
+
+    var isExpired: Bool {
+        daysUntilExpiry < 0
+    }
+
+    var isExpiringSoon: Bool {
+        daysUntilExpiry >= 0 && daysUntilExpiry <= reminderDays
     }
 }
 
-struct AppBook: Identifiable, Equatable {
-    let id: String
-    var title: String
-    var author: String
-    var quoteCount: Int
+struct AppReminderSettings: Codable, Equatable {
+    var defaultReminderDays: Int
+    var expiryRemindersEnabled: Bool
 
-    init(title: String, author: String, quoteCount: Int) {
-        self.title = title
-        self.author = author
-        self.id = title + "|" + author
-        self.quoteCount = quoteCount
+    init(defaultReminderDays: Int = 14, expiryRemindersEnabled: Bool = true) {
+        self.defaultReminderDays = defaultReminderDays
+        self.expiryRemindersEnabled = expiryRemindersEnabled
     }
 }
 
 final class AppStore: ObservableObject {
-    @Published var quotes: [AppQuote] = []
+    @Published var medicines: [AppMedicine] = []
+    @Published var reminderSettings: AppReminderSettings = AppReminderSettings()
 
-    private static let dataFileName = "app_quotes.json"
+    private let medicinesFileName = "medicines.json"
+    private let settingsFileName = "reminderSettings.json"
 
-    static var dataFileURL: URL {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return dir.appendingPathComponent(dataFileName)
+    private var documentsDirectory: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    private var medicinesFileURL: URL {
+        documentsDirectory.appendingPathComponent(medicinesFileName)
+    }
+
+    private var settingsFileURL: URL {
+        documentsDirectory.appendingPathComponent(settingsFileName)
     }
 
     init() {
-        load()
+        loadMedicines()
+        loadReminderSettings()
     }
 
-    // MARK: - 数据操作
-
-    func addQuote(_ quote: AppQuote) {
-        quotes.append(quote)
-        save()
+    func addMedicine(_ medicine: AppMedicine) {
+        medicines.append(medicine)
+        saveMedicines()
     }
 
-    func updateQuote(_ quote: AppQuote) {
-        guard let index = quotes.firstIndex(where: { $0.id == quote.id }) else { return }
-        quotes[index] = quote
-        save()
-    }
-
-    func deleteQuote(_ quote: AppQuote) {
-        quotes.removeAll { $0.id == quote.id }
-        save()
-    }
-
-    func deleteQuotes(at offsets: IndexSet) {
-        for offset in offsets.sorted(by: >) {
-            if offset < quotes.count {
-                quotes.remove(at: offset)
-            }
+    func updateMedicine(_ medicine: AppMedicine) {
+        guard let index = medicines.firstIndex(where: { $0.id == medicine.id }) else {
+            return
         }
-        save()
+        medicines[index] = medicine
+        saveMedicines()
     }
 
-    // MARK: - 书架
+    func deleteMedicine(_ medicine: AppMedicine) {
+        medicines.removeAll { $0.id == medicine.id }
+        saveMedicines()
+    }
 
-    var books: [AppBook] {
-        let grouped = Dictionary(grouping: quotes) { $0.bookTitle }
-        return grouped.map { title, quotes in
-            let author = quotes.first?.author ?? ""
-            return AppBook(title: title, author: author, quoteCount: quotes.count)
+    func deleteMedicines(at offsets: IndexSet) {
+        medicines.remove(atOffsets: offsets)
+        saveMedicines()
+    }
+
+    func updateReminderSettings(_ settings: AppReminderSettings) {
+        reminderSettings = settings
+        saveReminderSettings()
+    }
+
+    func setDefaultReminderDays(_ days: Int) {
+        reminderSettings.defaultReminderDays = days
+        saveReminderSettings()
+    }
+
+    func setExpiryRemindersEnabled(_ enabled: Bool) {
+        reminderSettings.expiryRemindersEnabled = enabled
+        saveReminderSettings()
+    }
+
+    private func loadMedicines() {
+        guard FileManager.default.fileExists(atPath: medicinesFileURL.path) else {
+            return
         }
-        .sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
-    }
-
-    func quotes(forBook title: String) -> [AppQuote] {
-        quotes.filter { $0.bookTitle == title }
-            .sorted { $0.createdAt > $1.createdAt }
-    }
-
-    // MARK: - 搜索
-
-    func searchQuotes(_ query: String) -> [AppQuote] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        let terms = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().split(separator: " ")
-        return quotes.filter { quote in
-            let haystack = "\(quote.text) \(quote.bookTitle) \(quote.author) \(quote.note) \(quote.tags.joined(separator: " "))".lowercased()
-            return terms.allSatisfy { haystack.contains($0) }
-        }
-        .sorted { $0.createdAt > $1.createdAt }
-    }
-
-    // MARK: - 本地存储
-
-    private func save() {
         do {
-            let data = try JSONEncoder().encode(quotes)
-            try data.write(to: Self.dataFileURL)
+            let data = try Data(contentsOf: medicinesFileURL)
+            medicines = try JSONDecoder().decode([AppMedicine].self, from: data)
         } catch {
-            // 保存失败时静默处理；实际场景可暴露错误
+            medicines = []
         }
     }
 
-    private func load() {
-        let url = Self.dataFileURL
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
+    private func saveMedicines() {
         do {
-            let data = try Data(contentsOf: url)
-            quotes = try JSONDecoder().decode([AppQuote].self, from: data)
+            let data = try JSONEncoder().encode(medicines)
+            try data.write(to: medicinesFileURL)
         } catch {
-            quotes = []
+            // 无法保存时忽略，避免崩溃
+        }
+    }
+
+    private func loadReminderSettings() {
+        guard FileManager.default.fileExists(atPath: settingsFileURL.path) else {
+            return
+        }
+        do {
+            let data = try Data(contentsOf: settingsFileURL)
+            reminderSettings = try JSONDecoder().decode(AppReminderSettings.self, from: data)
+        } catch {
+            reminderSettings = AppReminderSettings()
+        }
+    }
+
+    private func saveReminderSettings() {
+        do {
+            let data = try JSONEncoder().encode(reminderSettings)
+            try data.write(to: settingsFileURL)
+        } catch {
+            // 无法保存时忽略，避免崩溃
         }
     }
 }

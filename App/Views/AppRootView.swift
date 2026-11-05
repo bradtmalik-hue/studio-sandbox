@@ -1,13 +1,29 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store: AppStore
-    @State private var selectedTab: Int
+    @EnvironmentObject var store: AppStore
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
-    init() {
-        _store = StateObject(wrappedValue: AppStore())
-        _selectedTab = State(initialValue: Self.initialTab())
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            AppMedicineListView()
+                .tabItem {
+                    Label("药箱", systemImage: "pills.fill")
+                }
+                .tag(0)
+
+            AppAddMedicineView()
+                .tabItem {
+                    Label("添加", systemImage: "plus.circle.fill")
+                }
+                .tag(1)
+
+            AppReminderSettingsView()
+                .tabItem {
+                    Label("提醒", systemImage: "bell.badge.fill")
+                }
+                .tag(2)
+        }
     }
 
     private static func initialTab() -> Int {
@@ -15,31 +31,13 @@ struct AppRootView: View {
         if let index = arguments.firstIndex(of: "-startTab"),
            index + 1 < arguments.count,
            let value = Int(arguments[index + 1]) {
-            return value
+            return min(max(value, 0), 2)
         }
         return 0
     }
+}
 
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            AppCaptureView()
-                .tabItem {
-                    Label("记一句", systemImage: "quote.bubble")
-                }
-                .tag(0)
-
-            AppBookshelfView()
-                .tabItem {
-                    Label("书架", systemImage: "books.vertical")
-                }
-                .tag(1)
-
-            AppSearchView()
-                .tabItem {
-                    Label("搜索", systemImage: "magnifyingglass")
-                }
-                .tag(2)
-        }
-        .environmentObject(store)
-    }
+#Preview {
+    AppRootView()
+        .environmentObject(AppStore())
 }

@@ -1,296 +1,219 @@
 import SwiftUI
+import Combine
+import Foundation
 
-struct AppCaptureView: View {
+// 药箱列表页面
+struct AppMedicineListView: View {
     @EnvironmentObject var store: AppStore
-
-    @State private var quoteText = ""
-    @State private var bookTitle = ""
-    @State private var author = ""
-    @State private var pageText = ""
-    @State private var note = ""
-    @State private var showingEmptyAlert = false
-    @State private var showingSavedAlert = false
-
-    @FocusState private var focusedField: Field?
-
-    private enum Field: Hashable {
-        case quote
-        case bookTitle
-        case author
-        case page
-        case note
+    @State private var showingAddSheet = false
+    @State private var searchText = ""
+    
+    var body: some View {
+        NavigationStack {
+            Group {
+                if store.medicines.isEmpty {
+                    ContentUnavailableView(
+                        "药箱是空的",
+                        systemImage: "pills",
+                        description: Text("点击右上角 + 添加药品，开始管理有效期和存放位置")
+                    )
+                } else {
+                    List {
+                        ForEach(filteredMedicines) { medicine in
+                            AppMedicineRow(medicine: medicine)
+                        }
+                        .onDelete(perform: deleteMedicines)
+                    }
+                    .searchable(text: $searchText, prompt: "搜索药品名称或位置")
+                }
+            }
+            .navigationTitle("药箱")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("添加药品")
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddMedicineView()
+                    .environmentObject(store)
+            }
+        }
     }
+    
+    private var filteredMedicines: [AppMedicine] {
+        if searchText.isEmpty {
+            return sortedMedicines
+        } else {
+            return sortedMedicines.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                $0.storageLocation.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
+    private var sortedMedicines: [AppMedicine] {
+        store.medicines.sorted { $0.expiryDate < $1.expiryDate }
+    }
+    
+    private func deleteMedicines(at offsets: IndexSet) {
+        let idsToDelete = offsets.map { filteredMedicines[$0].id }
+        store.medicines.removeAll { idsToDelete.contains($0.id) }
+    }
+}
 
+// 药品行视图
+struct AppMedicineRow: View {
+    let medicine: AppMedicine
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(medicine.name)
+                    .font(.headline)
+                Spacer()
+                Text(medicine.expiryDate, format: .dateTime.year().month().day())
+                    .font(.subheadline)
+                    .foregroundStyle(expiryColor)
+            }
+            HStack {
+                Label(medicine.storageLocation, systemImage: "location")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isExpiringSoon {
+                    Text("快过期")
+                        .font(.caption2)
+                        .padding(4)
+                        .background(Color.orange.opacity(0.2), in: Capsule())
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+    
+    private var isExpiringSoon: Bool {
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: medicine.expiryDate).day ?? 0
+        return days >= 0 && days <= 30
+    }
+    
+    private var expiryColor: Color {
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: medicine.expiryDate).day ?? 0
+        if days < 0 { return .red }
+        if days <= 30 { return .orange }
+        return .primary
+    }
+}
+
+// 加药页面
+struct AppAddMedicineView: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var name = ""
+    @State private var expiryDate = Date()
+    @State private var storageLocation = ""
+    @State private var notes = ""
+    @State private var reminderDaysBefore: Int = 7
+    
+    private let reminderOptions = [0, 3, 7, 14, 30]
+    
     var body: some View {
         NavigationStack {
             Form {
-                Section("句子") {
-                    TextEditor(text: $quoteText)
-                        .focused($focusedField, equals: .quote)
-                        .frame(minHeight: 120)
-                        .overlay(alignment: .topLeading) {
-                            if quoteText.isEmpty {
-                                Text("读到好句子，随手记一句")
-                                    .foregroundStyle(.secondary)
-                                    .padding(.top, 8)
-                                    .padding(.leading, 4)
-                                    .allowsHitTesting(false)
+                Section("药品信息") {
+                    TextField("药品名称", text: $name)
+                    DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
+                    TextField("存放位置", text: $storageLocation)
+                }
+                
+                Section("备注") {
+                    TextField("备注（可选）", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+                
+                Section("提醒") {
+                    Picker("提前提醒", selection: $reminderDaysBefore) {
+                        ForEach(reminderOptions, id: \.self) { days in
+                            if days == 0 {
+                                Text("不提醒").tag(days)
+                            } else {
+                                Text("提前 \(days) 天").tag(days)
                             }
                         }
-                }
-
-                Section("出处") {
-                    TextField("书名", text: $bookTitle)
-                        .focused($focusedField, equals: .bookTitle)
-                    TextField("作者", text: $author)
-                        .focused($focusedField, equals: .author)
-                    TextField("页码", text: $pageText)
-                        .focused($focusedField, equals: .page)
-                        .keyboardType(.numberPad)
-                }
-
-                Section("笔记（可选）") {
-                    TextEditor(text: $note)
-                        .focused($focusedField, equals: .note)
-                        .frame(minHeight: 80)
-                }
-
-                Section {
-                    Button {
-                        saveQuote()
-                    } label: {
-                        Text("保存句子")
-                            .frame(maxWidth: .infinity)
-                            .fontWeight(.semibold)
                     }
                 }
             }
-            .navigationTitle("记一句")
-            .alert("句子内容不能为空", isPresented: $showingEmptyAlert) {
-                Button("好", role: .cancel) { }
-            }
-            .alert("已保存", isPresented: $showingSavedAlert) {
-                Button("好", role: .cancel) { }
-            } message: {
-                Text("这句已放进你的书架")
-            }
+            .navigationTitle("添加药品")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("完成") {
-                        focusedField = nil
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        addMedicine()
                     }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
     }
-
-    private func saveQuote() {
-        let trimmedQuote = quoteText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuote.isEmpty else {
-            showingEmptyAlert = true
-            return
-        }
-
-        let trimmedBookTitle = bookTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPage = pageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        let page = Int(trimmedPage) ?? 0
-
-        let newQuote = AppQuote(
-            text: trimmedQuote,
-            bookTitle: trimmedBookTitle,
-            author: trimmedAuthor,
-            page: page,
-            note: trimmedNote
+    
+    private func addMedicine() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedLocation = storageLocation.trimmingCharacters(in: .whitespaces)
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
+        let medicine = AppMedicine(
+            name: trimmedName,
+            expiryDate: expiryDate,
+            storageLocation: trimmedLocation.isEmpty ? "未指定" : trimmedLocation,
+            notes: trimmedNotes,
+            reminderDaysBefore: reminderDaysBefore
         )
-
-        store.quotes.append(newQuote)
-
-        quoteText = ""
-        bookTitle = ""
-        author = ""
-        pageText = ""
-        note = ""
-        showingSavedAlert = true
+        store.add(medicine)
+        dismiss()
     }
 }
 
-struct AppBookshelfView: View {
+// 提醒设置页面
+struct AppReminderSettingsView: View {
     @EnvironmentObject var store: AppStore
-
-    private struct AppBookGroup: Identifiable {
-        let id: String
-        let title: String
-        let author: String
-        let count: Int
-    }
-
-    private var groups: [AppBookGroup] {
-        let grouped = Dictionary(grouping: store.quotes) { quote in
-            quote.bookTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        return grouped.keys.compactMap { rawTitle in
-            let displayTitle = rawTitle.isEmpty ? "未命名书籍" : rawTitle
-            guard let quotes = grouped[rawTitle] else { return nil }
-            let author = quotes.first?.author ?? ""
-            return AppBookGroup(
-                id: displayTitle,
-                title: displayTitle,
-                author: author,
-                count: quotes.count
-            )
-        }
-        .sorted {
-            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-        }
-    }
-
+    
     var body: some View {
         NavigationStack {
-            Group {
-                if store.quotes.isEmpty {
-                    ContentUnavailableView(
-                        "书架还空着",
-                        systemImage: "books.vertical",
-                        description: Text("保存句子后，书名会自动出现在这里")
-                    )
-                } else {
-                    List {
-                        ForEach(groups) { group in
-                            NavigationLink {
-                                AppBookQuotesView(bookTitle: group.title)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(group.title)
-                                        .font(.headline)
-                                    Text(group.author.isEmpty ? "未知作者" : group.author)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Text("\(group.count) 句")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .padding(.vertical, 4)
+            Form {
+                Section {
+                    Toggle("启用过期提醒", isOn: $store.reminderSettings.notificationsEnabled)
+                    if store.reminderSettings.notificationsEnabled {
+                        Picker("默认提前天数", selection: $store.reminderSettings.defaultDaysBefore) {
+                            ForEach([3, 7, 14, 30], id: \.self) { days in
+                                Text("提前 \(days) 天").tag(days)
                             }
                         }
                     }
+                } header: {
+                    Text("提醒")
+                } footer: {
+                    Text("当药品接近有效期时，App 会提醒你。需要系统通知权限才能接收提醒。")
+                }
+                
+                Section("关于") {
+                    LabeledContent("应用名称", value: "Home MedBox")
+                    LabeledContent("版本", value: "1.0")
                 }
             }
-            .navigationTitle("书架")
+            .navigationTitle("提醒设置")
         }
     }
 }
 
-struct AppBookQuotesView: View {
-    @EnvironmentObject var store: AppStore
-
-    let bookTitle: String
-
-    private var quotes: [AppQuote] {
-        if bookTitle == "未命名书籍" {
-            return store.quotes.filter {
-                $0.bookTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            }
-        } else {
-            return store.quotes.filter { $0.bookTitle == bookTitle }
-        }
-    }
-
-    var body: some View {
-        List {
-            ForEach(quotes) { quote in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(quote.text)
-                        .font(.body)
-
-                    if !quote.note.isEmpty {
-                        Text(quote.note)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack {
-                        if !quote.author.isEmpty {
-                            Text(quote.author)
-                        }
-                        if quote.page > 0 {
-                            Text("第 \(quote.page) 页")
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                }
-                .padding(.vertical, 4)
-            }
-        }
-        .navigationTitle(bookTitle)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct AppSearchView: View {
-    @EnvironmentObject var store: AppStore
-
-    @State private var searchText = ""
-
-    private var filteredQuotes: [AppQuote] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return store.quotes
-        }
-
-        return store.quotes.filter { quote in
-            quote.text.localizedCaseInsensitiveContains(trimmed) ||
-            quote.bookTitle.localizedCaseInsensitiveContains(trimmed) ||
-            quote.author.localizedCaseInsensitiveContains(trimmed) ||
-            quote.note.localizedCaseInsensitiveContains(trimmed)
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if filteredQuotes.isEmpty {
-                    ContentUnavailableView(
-                        "没有找到相关句子",
-                        systemImage: "magnifyingglass",
-                        description: Text("换个关键词试试")
-                    )
-                } else {
-                    List {
-                        ForEach(filteredQuotes) { quote in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(quote.text)
-                                    .font(.body)
-
-                                HStack {
-                                    Text(quote.bookTitle)
-                                    if !quote.author.isEmpty {
-                                        Text("· \(quote.author)")
-                                    }
-                                    if quote.page > 0 {
-                                        Text("· 第 \(quote.page) 页")
-                                    }
-                                }
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                                if !quote.note.isEmpty {
-                                    Text(quote.note)
-                                        .font(.callout)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-            }
-            .searchable(text: $searchText, prompt: "搜索句子、书名或作者")
-            .navigationTitle("搜索")
-        }
-    }
+#Preview {
+    AppMedicineListView()
+        .environmentObject(AppStore())
 }
