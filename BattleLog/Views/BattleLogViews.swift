@@ -1,403 +1,307 @@
 import SwiftUI
 import Foundation
 
-private extension Color {
-    static let battleLogBackground = Color(red: 0.07, green: 0.08, blue: 0.10)
-    static let battleLogCard = Color(red: 0.12, green: 0.13, blue: 0.15)
-}
+// MARK: - BattleResult 扩展
+extension BattleResult {
+    var displayName: String {
+        switch self {
+        case .win: return "胜利"
+        case .lose: return "失败"
+        case .draw: return "平局"
+        }
+    }
 
-private func resultShortName(_ result: BattleLogResult) -> String {
-    switch result {
-    case .win: return "胜"
-    case .loss: return "负"
-    case .draw: return "平"
+    var color: Color {
+        switch self {
+        case .win: return .green
+        case .lose: return .red
+        case .draw: return .orange
+        }
     }
 }
 
-private func resultDisplayName(_ result: BattleLogResult) -> String {
-    switch result {
-    case .win: return "胜利"
-    case .loss: return "失败"
-    case .draw: return "平局"
+// MARK: - BattleLogStore 扩展：提供便捷方法
+extension BattleLogStore {
+    func addBattleRecord(gameName: String, date: Date, result: BattleResult, kills: Int, deaths: Int, assists: Int, notes: String) {
+        let record = BattleRecord(gameName: gameName, date: date, result: result, kills: kills, deaths: deaths, assists: assists, notes: notes)
+        records.append(record)
+        persistRecords()
+    }
+
+    func updateBattleRecord(id: UUID, gameName: String, date: Date, result: BattleResult, kills: Int, deaths: Int, assists: Int, notes: String) {
+        if let index = records.firstIndex(where: { $0.id == id }) {
+            records[index].gameName = gameName
+            records[index].date = date
+            records[index].result = result
+            records[index].kills = kills
+            records[index].deaths = deaths
+            records[index].assists = assists
+            records[index].notes = notes
+            persistRecords()
+        }
+    }
+
+    func deleteBattleRecord(at offsets: IndexSet) {
+        records.remove(atOffsets: offsets)
+        persistRecords()
+    }
+
+    private func persistRecords() {
+        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("battleLogRecords.json")
+        do {
+            let data = try JSONEncoder().encode(records)
+            try data.write(to: fileURL)
+        } catch {
+            print("保存失败: \(error)")
+        }
     }
 }
 
-private func resultColor(_ result: BattleLogResult) -> Color {
-    switch result {
-    case .win: return .green
-    case .loss: return .red
-    case .draw: return .orange
-    }
-}
-
-struct BattleLogDashboardView: View {
+// MARK: - 列表页
+struct BattleLogListView: View {
     @EnvironmentObject var store: BattleLogStore
     @State private var showingAdd = false
-
-    private var totalMatches: Int {
-        store.matches.count
-    }
-
-    private var winRate: Double {
-        guard totalMatches > 0 else { return 0 }
-        let wins = store.matches.filter { $0.result == .win }.count
-        return Double(wins) / Double(totalMatches)
-    }
-
-    private var totalScore: Int {
-        store.matches.reduce(0) { $0 + $1.score }
-    }
-
-    private var recentMatches: [BattleLogMatch] {
-        Array(store.matches.suffix(5).reversed())
-    }
+    @State private var selectedRecord: BattleRecord?
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.battleLogBackground.ignoresSafeArea()
-
-                ScrollView {
-                    VStack(spacing: 20) {
-                        HStack(spacing: 12) {
-                            StatCard(title: "总对局", value: "\(totalMatches)", color: .white)
-                            StatCard(title: "胜率", value: String(format: "%.0f%%", winRate * 100), color: .green)
-                        }
-
-                        HStack(spacing: 12) {
-                            StatCard(title: "累计得分", value: "\(totalScore)", color: .orange)
-                            StatCard(title: "最近状态", value: recentFormText, color: .blue)
-                        }
-
-                        if store.matches.isEmpty {
-                            ContentUnavailableView(
-                                "还没有战绩",
-                                systemImage: "gamecontroller.fill",
-                                description: Text("点击右上角 + 记录第一局游戏结果")
-                            )
-                        } else {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("最近对局")
-                                    .font(.headline)
-
-                                ForEach(recentMatches) { match in
-                                    BattleLogMatchRowView(match: match)
-                                }
-                            }
-                        }
-
-                        Button {
-                            showingAdd = true
-                        } label: {
-                            Label("新增战绩", systemImage: "plus.circle.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundStyle(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                        }
-                    }
-                    .padding()
+            Group {
+                if store.records.isEmpty {
+                    BattleLogEmptyView()
+                } else {
+                    list
                 }
             }
-            .navigationTitle("战况总览")
+            .navigationTitle("战绩记录")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showingAdd = true
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("添加战绩")
                 }
             }
             .sheet(isPresented: $showingAdd) {
-                BattleLogAddMatchView()
+                BattleLogEditView(record: nil)
+                    .environmentObject(store)
+            }
+            .sheet(item: $selectedRecord) { record in
+                BattleLogEditView(record: record)
+                    .environmentObject(store)
             }
         }
         .preferredColorScheme(.dark)
     }
 
-    private var recentFormText: String {
-        guard !recentMatches.isEmpty else { return "暂无" }
-        let wins = recentMatches.filter { $0.result == .win }.count
-        return "\(wins)胜\(recentMatches.count - wins)负"
-    }
-}
-
-struct BattleLogHistoryView: View {
-    @EnvironmentObject var store: BattleLogStore
-    @State private var filter: BattleLogResult?
-
-    private var filteredMatches: [BattleLogMatch] {
-        guard let filter else { return store.matches }
-        return store.matches.filter { $0.result == filter }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.battleLogBackground.ignoresSafeArea()
-
-                if store.matches.isEmpty {
-                    ContentUnavailableView(
-                        "还没有战绩",
-                        systemImage: "list.bullet.clipboard",
-                        description: Text("新增一局后，这里会按时间列出所有对局")
-                    )
-                } else {
-                    List {
-                        Picker("筛选结果", selection: $filter) {
-                            Text("全部").tag(nil as BattleLogResult?)
-                            ForEach([BattleLogResult.win, .loss, .draw], id: \.self) { result in
-                                Text(resultDisplayName(result)).tag(result as BattleLogResult?)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .listRowBackground(Color.clear)
-
-                        ForEach(filteredMatches) { match in
-                            BattleLogMatchRowView(match: match)
-                                .listRowBackground(Color.clear)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+    var list: some View {
+        List {
+            ForEach(store.records) { record in
+                Button {
+                    selectedRecord = record
+                } label: {
+                    BattleLogRow(record: record)
                 }
             }
-            .navigationTitle("对局记录")
+            .onDelete(perform: delete)
         }
-        .preferredColorScheme(.dark)
+        .listStyle(.insetGrouped)
+    }
+
+    func delete(at offsets: IndexSet) {
+        store.deleteBattleRecord(at: offsets)
     }
 }
 
-struct BattleLogAddMatchView: View {
-    @EnvironmentObject var store: BattleLogStore
-    @Environment(\.dismiss) var dismiss
+// MARK: - 空状态
+struct BattleLogEmptyView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "trophy")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+            Text("还没有战绩记录")
+                .font(.title2)
+                .fontWeight(.semibold)
+            Text("点击右上角 + 添加第一局战绩")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+}
 
-    @State private var result: BattleLogResult = .win
-    @State private var scoreText = ""
-    @State private var opponent = ""
-    @State private var date = Date()
-    @State private var notes = ""
+// MARK: - 行视图
+struct BattleLogRow: View {
+    let record: BattleRecord
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(record.gameName)
+                    .font(.headline)
+                Text(record.date, style: .date)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(record.result.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(record.result.color)
+                Text("\(record.kills)/\(record.deaths)/\(record.assists)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 编辑/添加页
+struct BattleLogEditView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: BattleLogStore
+
+    let record: BattleRecord?
+
+    @State private var gameName: String
+    @State private var date: Date
+    @State private var result: BattleResult
+    @State private var kills: Int
+    @State private var deaths: Int
+    @State private var assists: Int
+    @State private var notes: String
+
+    init(record: BattleRecord?) {
+        self.record = record
+        _gameName = State(initialValue: record?.gameName ?? "")
+        _date = State(initialValue: record?.date ?? Date())
+        _result = State(initialValue: record?.result ?? .win)
+        _kills = State(initialValue: record?.kills ?? 0)
+        _deaths = State(initialValue: record?.deaths ?? 0)
+        _assists = State(initialValue: record?.assists ?? 0)
+        _notes = State(initialValue: record?.notes ?? "")
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.battleLogBackground.ignoresSafeArea()
-
-                Form {
+            Form {
+                Section("游戏名称") {
+                    TextField("例如：英雄联盟", text: $gameName)
+                }
+                Section("日期") {
+                    DatePicker("日期", selection: $date, displayedComponents: .date)
+                }
+                Section("结果") {
                     Picker("结果", selection: $result) {
-                        ForEach([BattleLogResult.win, .loss, .draw], id: \.self) { result in
-                            Text(resultDisplayName(result)).tag(result)
+                        ForEach(BattleResult.allCases, id: \.self) { r in
+                            Text(r.displayName).tag(r)
                         }
                     }
                     .pickerStyle(.segmented)
-
-                    TextField("我方得分", text: $scoreText)
-                        .keyboardType(.numberPad)
-
-                    TextField("对手名称", text: $opponent)
-
-                    DatePicker("日期", selection: $date, displayedComponents: .date)
-
-                    TextField("备注（可选）", text: $notes, axis: .vertical)
                 }
-                .scrollContentBackground(.hidden)
+                Section("数据") {
+                    Stepper("击杀: \(kills)", value: $kills)
+                    Stepper("死亡: \(deaths)", value: $deaths)
+                    Stepper("助攻: \(assists)", value: $assists)
+                }
+                Section("备注") {
+                    TextField("可选备注", text: $notes)
+                }
             }
-            .navigationTitle("新增战绩")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(record == nil ? "添加战绩" : "编辑战绩")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        saveMatch()
+                        save()
                     }
-                    .disabled(!isFormValid)
+                    .disabled(gameName.isEmpty)
                 }
             }
         }
         .preferredColorScheme(.dark)
     }
 
-    private var isFormValid: Bool {
-        guard let score = Int(scoreText), score >= 0 else { return false }
-        return !opponent.isEmpty
-    }
-
-    private func saveMatch() {
-        guard let score = Int(scoreText), !opponent.isEmpty else { return }
-        let match = BattleLogMatch(date: date, result: result, score: score, opponent: opponent, notes: notes)
-        store.add(match)
+    func save() {
+        if let record = record {
+            store.updateBattleRecord(id: record.id, gameName: gameName, date: date, result: result, kills: kills, deaths: deaths, assists: assists, notes: notes)
+        } else {
+            store.addBattleRecord(gameName: gameName, date: date, result: result, kills: kills, deaths: deaths, assists: assists, notes: notes)
+        }
         dismiss()
     }
 }
 
+// MARK: - 统计页
 struct BattleLogStatsView: View {
     @EnvironmentObject var store: BattleLogStore
 
-    private var total: Int {
-        store.matches.count
-    }
+    var totalGames: Int { store.records.count }
+    private var winCount: Int { store.records.filter { $0.result == .win }.count }
+    var winRate: Double { totalGames > 0 ? Double(winCount) / Double(totalGames) : 0 }
 
-    private var wins: Int {
-        store.matches.filter { $0.result == .win }.count
-    }
-
-    private var losses: Int {
-        store.matches.filter { $0.result == .loss }.count
-    }
-
-    private var draws: Int {
-        store.matches.filter { $0.result == .draw }.count
-    }
-
-    private var winRate: Double {
-        guard total > 0 else { return 0 }
-        return Double(wins) / Double(total)
-    }
-
-    private var averageScore: Double {
-        guard total > 0 else { return 0 }
-        let sum = store.matches.reduce(0) { $0 + $1.score }
-        return Double(sum) / Double(total)
-    }
-
-    private var bestScore: Int {
-        store.matches.map(\.score).max() ?? 0
+    private var totalKills: Int { store.records.reduce(0) { $0 + $1.kills } }
+    private var totalDeaths: Int { store.records.reduce(0) { $0 + $1.deaths } }
+    private var totalAssists: Int { store.records.reduce(0) { $0 + $1.assists } }
+    private var kda: Double {
+        if totalDeaths == 0 { return Double(totalKills + totalAssists) }
+        return Double(totalKills + totalAssists) / Double(totalDeaths)
     }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.battleLogBackground.ignoresSafeArea()
-
-                if store.matches.isEmpty {
-                    ContentUnavailableView(
-                        "暂无统计数据",
-                        systemImage: "chart.bar.xaxis",
-                        description: Text("新增几局战绩后，这里会展示胜率和表现趋势")
-                    )
-                } else {
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            StatCard(
-                                title: "总胜率",
-                                value: String(format: "%.0f%%", winRate * 100),
-                                color: .green
-                            )
-
-                            HStack(spacing: 12) {
-                                StatCard(title: "胜", value: "\(wins)", color: .green)
-                                StatCard(title: "负", value: "\(losses)", color: .red)
-                                StatCard(title: "平", value: "\(draws)", color: .orange)
-                            }
-
-                            StatCard(
-                                title: "平均得分",
-                                value: String(format: "%.1f", averageScore),
-                                color: .blue
-                            )
-
-                            StatCard(
-                                title: "最高得分",
-                                value: "\(bestScore)",
-                                color: .purple
-                            )
-
-                            winRateBar
-                        }
-                        .padding()
+            ScrollView {
+                VStack(spacing: 20) {
+                    HStack(spacing: 16) {
+                        BattleLogStatCard(title: "总场次", value: "\(totalGames)", systemImage: "gamecontroller")
+                        BattleLogStatCard(title: "胜率", value: "\(Int(winRate * 100))%", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    HStack(spacing: 16) {
+                        BattleLogStatCard(title: "总击杀", value: "\(totalKills)", systemImage: "scope")
+                        BattleLogStatCard(title: "总死亡", value: "\(totalDeaths)", systemImage: "heart.slash")
+                    }
+                    HStack(spacing: 16) {
+                        BattleLogStatCard(title: "总助攻", value: "\(totalAssists)", systemImage: "hands.sparkles")
+                        BattleLogStatCard(title: "KDA", value: String(format: "%.2f", kda), systemImage: "person.3")
                     }
                 }
+                .padding()
             }
-            .navigationTitle("表现趋势")
+            .navigationTitle("统计")
         }
         .preferredColorScheme(.dark)
     }
-
-    private var winRateBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("胜率进度")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.12))
-                    Capsule()
-                        .fill(Color.green)
-                        .frame(width: geometry.size.width * winRate)
-                }
-            }
-            .frame(height: 12)
-        }
-    }
 }
 
-struct BattleLogMatchRowView: View {
-    let match: BattleLogMatch
-
-    var body: some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(resultColor(match.result).opacity(0.18))
-                .frame(width: 46, height: 46)
-                .overlay(
-                    Text(resultShortName(match.result))
-                        .font(.headline)
-                        .foregroundStyle(resultColor(match.result))
-                )
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(match.opponent.isEmpty ? "未命名对手" : match.opponent)
-                    .font(.headline)
-
-                Text(match.date, style: .date)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 5) {
-                Text("\(match.score)")
-                    .font(.title3.bold())
-
-                Text(resultDisplayName(match.result))
-                    .font(.caption)
-                    .foregroundStyle(resultColor(match.result))
-            }
-        }
-        .padding()
-        .background(Color.battleLogCard)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-struct StatCard: View {
+// MARK: - 统计卡片
+struct BattleLogStatCard: View {
     let title: String
     let value: String
-    let color: Color
+    let systemImage: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundColor(.blue)
+            Text(value)
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text(value)
-                .font(.title2.bold())
-                .foregroundStyle(color)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.battleLogCard)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
     }
 }

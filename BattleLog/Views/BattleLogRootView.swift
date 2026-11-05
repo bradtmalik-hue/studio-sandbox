@@ -8,38 +8,37 @@ struct BattleLogRootView: View {
     init() {
         DemoSeed.apply()
         _store = StateObject(wrappedValue: BattleLogStore())
-        _selectedTab = State(initialValue: Self.initialTab())
+        _selectedTab = State(initialValue: BattleLogRootView.initialTab())
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            BattleLogDashboardView()
-                .tabItem {
-                    Label("看板", systemImage: "chart.bar.fill")
-                }
-                .tag(0)
+            NavigationStack {
+                BattleLogListView()
+            }
+            .tabItem {
+                Label("战绩", systemImage: "list.bullet")
+            }
+            .tag(0)
 
-            BattleLogHistoryView()
-                .tabItem {
-                    Label("历史", systemImage: "list.bullet.rectangle.portrait")
-                }
-                .tag(1)
+            NavigationStack {
+                BattleLogStatsView()
+            }
+            .tabItem {
+                Label("统计", systemImage: "chart.bar")
+            }
+            .tag(1)
 
-            BattleLogAddMatchView()
-                .tabItem {
-                    Label("添加", systemImage: "plus.circle.fill")
-                }
-                .tag(2)
-
-            BattleLogStatsView()
-                .tabItem {
-                    Label("统计", systemImage: "chart.pie.fill")
-                }
-                .tag(3)
+            NavigationStack {
+                AboutBattleLogView()
+            }
+            .tabItem {
+                Label("关于", systemImage: "info.circle")
+            }
+            .tag(2)
         }
-        .environmentObject(store)
         .preferredColorScheme(.dark)
-        .tint(Color.accentColor)
+        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
@@ -47,8 +46,30 @@ struct BattleLogRootView: View {
         if let index = arguments.firstIndex(of: "-startTab"),
            index + 1 < arguments.count,
            let value = Int(arguments[index + 1]) {
-            return min(max(value, 0), 3)
+            return value
         }
         return 0
+    }
+}
+
+struct AboutBattleLogView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "gamecontroller.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.accentColor)
+            Text("Battle Log")
+                .font(.largeTitle.bold())
+            Text("记录你的每一局战绩，分析你的表现。")
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Spacer()
+            Text("所有数据仅保存在本机。")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .navigationTitle("关于")
     }
 }
