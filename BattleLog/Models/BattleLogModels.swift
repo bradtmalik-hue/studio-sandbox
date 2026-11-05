@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 import Combine
 
 enum BattleResult: String, Codable, CaseIterable, Identifiable {
