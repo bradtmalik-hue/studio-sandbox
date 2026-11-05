@@ -133,10 +133,10 @@ final class AppGrowthStore: ObservableObject {
             let heightCm = 80.0 + Double(6 - offset) * 1.1
             let weightKg = 11.0 + Double(6 - offset) * 0.28
             return AppGrowthRecord(
-                id: UUID(),
-                date: date,
                 heightCm: heightCm,
-                weightKg: weightKg
+                weightKg: weightKg,
+                date: date,
+                id: UUID()
             )
         }
     }

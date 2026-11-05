@@ -75,13 +75,13 @@ struct AppEntryView: View {
         }
 
         let record = AppGrowthRecord(
-            id: UUID(),
-            date: date,
             heightCm: height,
-            weightKg: weight
+            weightKg: weight,
+            date: date,
+            id: UUID()
         )
 
-        store.records.append(record)
+        store.addRecord(record)
 
         alertTitle = "已保存"
         alertMessage = "这条成长记录已经保存。"
