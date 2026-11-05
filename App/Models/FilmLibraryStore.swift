@@ -8,7 +8,7 @@ struct AppYearStatistics: Equatable {
 }
 
 final class AppFilmLibraryStore: ObservableObject {
-    @Published var records: [FilmRecord] = []
+    @Published var records: [AppFilmRecord] = []
 
     private let fileName = "filmRecords.json"
 
@@ -33,7 +33,7 @@ final class AppFilmLibraryStore: ObservableObject {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([FilmRecord].self, from: data)
+            records = try decoder.decode([AppFilmRecord].self, from: data)
         } catch {
             records = []
         }
@@ -50,18 +50,18 @@ final class AppFilmLibraryStore: ObservableObject {
         }
     }
 
-    func add(_ record: FilmRecord) {
+    func add(_ record: AppFilmRecord) {
         records.append(record)
         save()
     }
 
-    func update(_ record: FilmRecord) {
+    func update(_ record: AppFilmRecord) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
         records[index] = record
         save()
     }
 
-    func delete(_ record: FilmRecord) {
+    func delete(_ record: AppFilmRecord) {
         records.removeAll { $0.id == record.id }
         save()
     }
@@ -76,7 +76,7 @@ final class AppFilmLibraryStore: ObservableObject {
         let yearRecords = records.filter { calendar.component(.year, from: $0.watchDate) == year }
         let totalCount = yearRecords.count
         let totalRating = yearRecords.reduce(0.0) { partialResult, record in
-            partialResult + Double(record.rating)
+            partialResult + Double(record.starRating)
         }
         let averageRating = totalCount == 0 ? 0 : totalRating / Double(totalCount)
         return AppYearStatistics(year: year, totalCount: totalCount, averageRating: averageRating)
