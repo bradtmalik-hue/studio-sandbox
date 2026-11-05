@@ -6,7 +6,7 @@ extension BattleResult {
     var displayName: String {
         switch self {
         case .win: return "胜利"
-        case .lose: return "失败"
+        case .loss: return "失败"
         case .draw: return "平局"
         }
     }
@@ -14,7 +14,7 @@ extension BattleResult {
     var color: Color {
         switch self {
         case .win: return .green
-        case .lose: return .red
+        case .loss: return .red
         case .draw: return .orange
         }
     }
@@ -23,7 +23,17 @@ extension BattleResult {
 // MARK: - BattleLogStore 扩展：提供便捷方法
 extension BattleLogStore {
     func addBattleRecord(gameName: String, date: Date, result: BattleResult, kills: Int, deaths: Int, assists: Int, notes: String) {
-        let record = BattleRecord(gameName: gameName, date: date, result: result, kills: kills, deaths: deaths, assists: assists, notes: notes)
+        let record = BattleRecord(
+            gameName: gameName,
+            date: date,
+            result: result,
+            score: 0,
+            kills: kills,
+            deaths: deaths,
+            assists: assists,
+            durationMinutes: 0,
+            note: notes
+        )
         records.append(record)
         persistRecords()
     }
@@ -36,7 +46,7 @@ extension BattleLogStore {
             records[index].kills = kills
             records[index].deaths = deaths
             records[index].assists = assists
-            records[index].notes = notes
+            records[index].note = notes
             persistRecords()
         }
     }
@@ -184,7 +194,7 @@ struct BattleLogEditView: View {
         _kills = State(initialValue: record?.kills ?? 0)
         _deaths = State(initialValue: record?.deaths ?? 0)
         _assists = State(initialValue: record?.assists ?? 0)
-        _notes = State(initialValue: record?.notes ?? "")
+        _notes = State(initialValue: record?.note ?? "")
     }
 
     var body: some View {
