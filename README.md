@@ -1,7 +1,7 @@
-# App
+# BattleLog
 
-记好有效期，放哪儿一眼就找到
+记录每局战绩
 
-Bundle ID: `com.example.app`
+Bundle ID: `com.example.battlelog`
 
-Screens: 药箱首页, 加药页, 提醒页
+Screens: 记录, 统计, 设置
