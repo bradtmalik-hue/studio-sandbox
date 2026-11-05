@@ -1,301 +1,186 @@
 import SwiftUI
 import Foundation
-import Combine
-
-struct LoopMomentRow: View {
-    let moment: LoopMoment
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(moment.imageName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(moment.note)
-                    .font(.headline)
-                    .lineLimit(2)
-
-                HStack {
-                    Text(moment.date, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if moment.mood > 0 {
-                        Label("\(moment.mood)/5", systemImage: "star.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct LoopEmptyStateView: View {
-    @Binding var showingAddSheet: Bool
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "camera.on.rectangle")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-            Text("No moments yet")
-                .font(.title2.weight(.semibold))
-            Text("Share your first moment and keep your loop alive.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            Button {
-                showingAddSheet = true
-            } label: {
-                Label("Add a Moment", systemImage: "plus.circle.fill")
-                    .font(.headline)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        }
-        .padding()
-    }
-}
 
 struct LoopMomentsView: View {
     @EnvironmentObject var store: LoopStore
-    @State private var showingAddSheet = false
+    @State private var showingAddMoment = false
 
     var body: some View {
         NavigationStack {
             Group {
                 if store.moments.isEmpty {
-                    LoopEmptyStateView(moment: $showingAddSheet)
+                    ContentUnavailableView {
+                        Label("No Moments Yet", systemImage: "camera.on.rectangle")
+                    } description: {
+                        Text("Share your first moment with your closest friends.")
+                    } actions: {
+                        Button("Add Moment") {
+                            showingAddMoment = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 } else {
-                    List {
-                        ForEach(store.moments.sorted { $0.date > $1.date }) { moment in
-                            NavigationLink(destination: LoopMomentDetailView(moment: moment)) {
-                                LoopMomentRow(moment: moment)
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(store.moments.indices, id: \.self) { index in
+                                let moment = store.moments[index]
+                                NavigationLink {
+                                    LoopMomentDetailView(moment: moment)
+                                } label: {
+                                    LoopMomentCard(
+                                        moment: moment,
+                                        imageName: "sample\(index % 4 + 1)"
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .onDelete(perform: deleteItems)
+                        .padding()
                     }
-                    .listStyle(.plain)
                 }
             }
-            .navigationTitle("Loop")
+            .navigationTitle("Moments")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingAddSheet = true
+                        showingAddMoment = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddSheet) {
+            .sheet(isPresented: $showingAddMoment) {
                 LoopAddMomentView()
             }
         }
     }
+}
 
-    private func deleteItems(at offsets: IndexSet) {
-        let sorted = store.moments.sorted { $0.date > $1.date }
-        for index in offsets {
-            let moment = sorted[index]
-            store.delete(moment)
+struct LoopMomentCard: View {
+    let moment: LoopMoment
+    let imageName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Image(imageName)
+                .resizable()
+                .aspectRatio(4.0 / 3.0, contentMode: .fill)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .overlay(alignment: .bottomLeading) {
+                    LinearGradient(
+                        colors: [.black.opacity(0.45), .clear],
+                        startPoint: .bottom,
+                        endPoint: .center
+                    )
+                }
+                .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(moment.name)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text(moment.date, style: .date)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .padding()
+                }
+
+            HStack {
+                Label(
+                    "\(moment.value, specifier: "%.0f")",
+                    systemImage: "heart.fill"
+                )
+                Spacer()
+                Text("Loop Moment")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(.background)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
     }
 }
 
 struct LoopMomentDetailView: View {
-    @EnvironmentObject var store: LoopStore
     let moment: LoopMoment
-
-    @State private var showingEdit = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Image(moment.imageName)
+                Image("sample1")
                     .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(moment.note)
-                        .font(.title3.weight(.medium))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack {
-                        Label(moment.date.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        if moment.mood > 0 {
-                            Label("\(moment.mood)/5", systemImage: "star.fill")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(moment.name)
+                        .font(.title2.bold())
+                    Text(moment.date, style: .date)
+                        .foregroundStyle(.secondary)
+                    Label(
+                        "\(moment.value, specifier: "%.0f") moments shared",
+                        systemImage: "person.2.fill"
+                    )
                 }
-                .padding(.horizontal)
+
+                Divider()
+
+                Text("This moment will resurface for your closest friends over time.")
+                    .foregroundStyle(.secondary)
             }
             .padding()
         }
         .navigationTitle("Moment")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Edit") {
-                    showingEdit = true
-                }
-            }
-        }
-        .sheet(isPresented: $showingEdit) {
-            LoopEditMomentView(moment: moment)
-        }
     }
 }
 
 struct LoopAddMomentView: View {
     @EnvironmentObject var store: LoopStore
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
 
-    @State private var note = ""
-    @State private var imageName = "sample1"
+    @State private var name = ""
     @State private var date = Date()
-    @State private var mood = 3
+    @State private var value = 3.0
 
-    private let imageChoices = ["sample1", "sample2", "sample3", "sample4"]
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Image") {
-                    Picker("Image", selection: $imageName) {
-                        ForEach(imageChoices, id: \.self) { name in
-                            HStack {
-                                Image(name)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 40, height: 40)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                Text(name)
-                            }
-                            .tag(name)
-                        }
-                    }
-                    .pickerStyle(.inline)
+                Section("Moment") {
+                    TextField("Name", text: $name)
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
 
-                Section("Note") {
-                    TextField("What's on your mind?", text: $note, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section("When") {
-                    DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                }
-
-                Section("Mood") {
-                    Picker("Mood", selection: $mood) {
-                        ForEach(1...5, id: \.self) { value in
-                            Text("\(value)").tag(value)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
-            .navigationTitle("New Moment")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                Section("Feeling") {
+                    VStack(spacing: 8) {
+                        Slider(value: $value, in: 1...5, step: 1)
+                        Text("\(value, specifier: "%.0f")")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+
+                Section {
+                    Button("Save Moment") {
                         let newMoment = LoopMoment(
-                            id: UUID(),
+                            name: trimmedName,
                             date: date,
-                            note: note,
-                            imageName: imageName,
-                            mood: mood
+                            value: value
                         )
                         store.add(newMoment)
                         dismiss()
                     }
-                    .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(trimmedName.isEmpty)
                 }
             }
-        }
-    }
-}
-
-struct LoopEditMomentView: View {
-    @EnvironmentObject var store: LoopStore
-    @Environment(\.dismiss) private var dismiss
-
-    let moment: LoopMoment
-
-    @State private var note: String
-    @State private var imageName: String
-    @State private var date: Date
-    @State private var mood: Int
-
-    private let imageChoices = ["sample1", "sample2", "sample3", "sample4"]
-
-    init(moment: LoopMoment) {
-        self.moment = moment
-        _note = State(initialValue: moment.note)
-        _imageName = State(initialValue: moment.imageName)
-        _date = State(initialValue: moment.date)
-        _mood = State(initialValue: moment.mood)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Image") {
-                    Picker("Image", selection: $imageName) {
-                        ForEach(imageChoices, id: \.self) { name in
-                            HStack {
-                                Image(name)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 40, height: 40)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                Text(name)
-                            }
-                            .tag(name)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                }
-
-                Section("Note") {
-                    TextField("What's on your mind?", text: $note, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section("When") {
-                    DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                }
-
-                Section("Mood") {
-                    Picker("Mood", selection: $mood) {
-                        ForEach(1...5, id: \.self) { value in
-                            Text("\(value)").tag(value)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
-            .navigationTitle("Edit Moment")
+            .navigationTitle("Add Moment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -303,104 +188,155 @@ struct LoopEditMomentView: View {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        var updated = moment
-                        updated.date = date
-                        updated.note = note
-                        updated.imageName = imageName
-                        updated.mood = mood
-                        store.update(updated)
-                        dismiss()
-                    }
-                    .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
             }
         }
     }
 }
 
-struct LoopSummaryView: View {
+struct LoopLoopView: View {
     @EnvironmentObject var store: LoopStore
+
+    private var totalMoments: Int {
+        store.moments.count
+    }
+
+    private var averageValue: Double {
+        guard !store.moments.isEmpty else { return 0 }
+        return store.moments.map(\.value).reduce(0, +) / Double(store.moments.count)
+    }
+
+    private var momentsThisWeek: Int {
+        let calendar = Calendar.current
+        let oneWeekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return store.moments.filter { $0.date >= oneWeekAgo }.count
+    }
+
+    private var recentMoments: [LoopMoment] {
+        Array(store.moments.sorted { $0.date > $1.date }.prefix(3))
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     if store.moments.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "chart.bar")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.secondary)
-                            Text("Nothing to summarize yet")
-                                .font(.headline)
-                            Text("Add moments to see your loop statistics.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                        ContentUnavailableView {
+                            Label("No Loop Activity", systemImage: "chart.bar.xaxis")
+                        } description: {
+                            Text("Share a moment to see your loop come alive.")
                         }
-                        .padding(.top, 40)
                     } else {
-                        summaryCards
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ],
+                            spacing: 12
+                        ) {
+                            LoopStatCard(
+                                title: "Total Moments",
+                                value: "\(totalMoments)",
+                                icon: "camera.on.rectangle"
+                            )
+                            LoopStatCard(
+                                title: "Average Feeling",
+                                value: String(format: "%.1f", averageValue),
+                                icon: "heart.fill"
+                            )
+                            LoopStatCard(
+                                title: "This Week",
+                                value: "\(momentsThisWeek)",
+                                icon: "calendar"
+                            )
+                            LoopStatCard(
+                                title: "In the Loop",
+                                value: "\(totalMoments)",
+                                icon: "person.2.fill"
+                            )
+                        }
+                        .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recently Shared")
+                                .font(.headline)
+
+                            ForEach(recentMoments, id: \.id) { moment in
+                                HStack(spacing: 12) {
+                                    Image(systemName: "photo")
+                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(moment.name)
+                                            .font(.subheadline.weight(.medium))
+                                        Text(moment.date, style: .date)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                 }
-                .padding()
+                .padding(.vertical)
             }
-            .navigationTitle("Summary")
+            .navigationTitle("Loop")
         }
     }
+}
 
-    private var summaryCards: some View {
-        VStack(spacing: 20) {
-            summaryCard(
-                title: "Total Moments",
-                value: "\(store.moments.count)",
-                systemImage: "number"
-            )
+struct LoopStatCard: View {
+    let title: String
+    let value: String
+    let icon: String
 
-            let thisWeek = store.moments.filter {
-                $0.date >= Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            }
-            summaryCard(
-                title: "Last 7 Days",
-                value: "\(thisWeek.count)",
-                systemImage: "calendar"
-            )
-
-            let avgMood = store.moments.isEmpty ? 0 : Double(store.moments.map(\.mood).reduce(0, +)) / Double(store.moments.count)
-            summaryCard(
-                title: "Average Mood",
-                value: String(format: "%.1f", avgMood),
-                systemImage: "star"
-            )
-
-            let imageCounts = Dictionary(grouping: store.moments, by: { $0.imageName })
-            let mostUsedImage = imageCounts.max { $0.value.count < $1.value.count }?.key ?? "sample1"
-            summaryCard(
-                title: "Most Used Image",
-                value: mostUsedImage,
-                systemImage: "photo"
-            )
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title2.bold())
         }
-    }
-
-    private func summaryCard(title: String, value: String, systemImage: String) -> some View {
-        HStack(spacing: 16) {
-            Image(systemName: systemImage)
-                .font(.title2)
-                .frame(width: 44, height: 44)
-                .background(Color.gray.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.title2.weight(.bold))
-            }
-            Spacer()
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.gray.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct LoopProfileView: View {
+    @EnvironmentObject var store: LoopStore
+    @State private var showingSeedInfo = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Private Loop") {
+                    Label("Only close friends can see your moments", systemImage: "lock.fill")
+                    Label("Moments resurface over time", systemImage: "clock.arrow.circlepath")
+                }
+
+                Section("Local Storage") {
+                    Label("\(store.moments.count) moments stored offline", systemImage: "internaldrive.fill")
+                    Button("Show Demo Data Info") {
+                        showingSeedInfo = true
+                    }
+                }
+
+                Section("About") {
+                    Label("Loop Moments", systemImage: "app.badge")
+                    Text("Share your moments, keep your loop")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Profile")
+            .alert("Demo Data", isPresented: $showingSeedInfo) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Launch with -demoData to seed example moments.")
+            }
+        }
     }
 }

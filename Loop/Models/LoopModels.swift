@@ -1,50 +1,51 @@
 import Foundation
 import Combine
 
-struct LoopMoment: Identifiable, Codable, Hashable {
+struct LoopMoment: Identifiable, Codable, Equatable, Hashable {
     var id: UUID = UUID()
     var title: String
-    var note: String = ""
-    var date: Date = Date()
-    var value: Double = 3.0
-    var imageName: String? = nil
-    var tags: [String] = []
+    var note: String
+    var date: Date
+    var imageName: String
+    var viewedCount: Int
+    var isShared: Bool
+    var favorite: Bool
+    var mood: String
 }
 
 final class LoopStore: ObservableObject {
     @Published var moments: [LoopMoment] = []
     
-    private let fileURL: URL
+    private let fileName = "loopMoments.json"
+    
+    private var fileURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent(fileName)
+    }
     
     init() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileURL = documents.appendingPathComponent("loop-moments.json")
         load()
     }
     
-    var sortedMoments: [LoopMoment] {
-        moments.sorted { $0.date > $1.date }
-    }
-    
     func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            moments = []
-            return
-        }
-        do {
-            let data = try Data(contentsOf: fileURL)
-            moments = try JSONDecoder().decode([LoopMoment].self, from: data)
-        } catch {
-            moments = []
+        guard let url = fileURL,
+              let data = try? Data(contentsOf: url) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let decoded = try? decoder.decode([LoopMoment].self, from: data) {
+            moments = decoded
         }
     }
     
     func save() {
+        guard let url = fileURL else { return }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
         do {
-            let data = try JSONEncoder().encode(moments)
-            try data.write(to: fileURL)
+            let data = try encoder.encode(moments)
+            try data.write(to: url)
         } catch {
-            // Save can fail silently; data remains in memory.
+            // Write failed; keep in-memory data.
         }
     }
     
@@ -54,13 +55,25 @@ final class LoopStore: ObservableObject {
     }
     
     func update(_ moment: LoopMoment) {
-        guard let index = moments.firstIndex(where: { $0.id == moment.id }) else { return }
-        moments[index] = moment
-        save()
+        if let index = moments.firstIndex(where: { $0.id == moment.id }) {
+            moments[index] = moment
+            save()
+        }
     }
     
     func delete(_ moment: LoopMoment) {
         moments.removeAll { $0.id == moment.id }
+        save()
+    }
+    
+    func delete(at offsets: IndexSet) {
+        moments.remove(atOffsets: offsets)
+        save()
+    }
+    
+    func markViewed(_ moment: LoopMoment) {
+        guard let index = moments.firstIndex(where: { $0.id == moment.id }) else { return }
+        moments[index].viewedCount += 1
         save()
     }
 }
@@ -71,99 +84,116 @@ enum DemoSeed {
         let store = LoopStore()
         guard store.moments.isEmpty else { return }
         
-        let samples: [LoopMoment] = [
+        let calendar = Calendar.current
+        let now = Date()
+        func daysAgo(_ days: Int) -> Date {
+            calendar.date(byAdding: .day, value: -days, to: now) ?? now
+        }
+        
+        let seeds: [LoopMoment] = [
             LoopMoment(
-                title: "Morning coffee on the balcony",
-                note: "Quiet start before the day kicked in.",
-                date: makeDate(daysAgo: 0, hour: 8),
-                value: 4.5,
+                title: "Golden Hour at the Park",
+                note: "That warm light made everything feel like a film. We should do this every week.",
+                date: daysAgo(2),
                 imageName: "sample1",
-                tags: ["morning", "coffee"]
+                viewedCount: 14,
+                isShared: true,
+                favorite: true,
+                mood: "Warm"
             ),
             LoopMoment(
-                title: "First run in the park",
-                note: "Legs felt heavy but the air was fresh.",
-                date: makeDate(daysAgo: 1, hour: 7),
-                value: 3.8,
+                title: "Coffee Run Before Work",
+                note: "The little detour that turned into a 40-minute conversation.",
+                date: daysAgo(5),
                 imageName: "sample2",
-                tags: ["fitness", "outdoor"]
+                viewedCount: 9,
+                isShared: true,
+                favorite: false,
+                mood: "Cozy"
             ),
             LoopMoment(
-                title: "New book, quiet night",
-                note: "Finally started the novel everyone recommended.",
-                date: makeDate(daysAgo: 2, hour: 21),
-                value: 4.2,
-                imageName: nil,
-                tags: ["reading", "evening"]
-            ),
-            LoopMoment(
-                title: "Catching up with Sarah",
-                note: "Long walk and even longer conversation.",
-                date: makeDate(daysAgo: 3, hour: 18),
-                value: 4.0,
+                title: "Sunday Morning Farmers Market",
+                note: "Fresh berries, good bread, and the best chai we've had all month.",
+                date: daysAgo(8),
                 imageName: "sample3",
-                tags: ["friends"]
+                viewedCount: 21,
+                isShared: true,
+                favorite: true,
+                mood: "Fresh"
             ),
             LoopMoment(
-                title: "Rainy day work session",
-                note: "Stayed in, made progress on the project.",
-                date: makeDate(daysAgo: 4, hour: 14),
-                value: 3.5,
-                imageName: nil,
-                tags: ["work", "focus"]
-            ),
-            LoopMoment(
-                title: "Dinner with family",
-                note: "Homemade pasta and lots of laughter.",
-                date: makeDate(daysAgo: 5, hour: 19),
-                value: 4.8,
+                title: "Hike Near the Lake",
+                note: "The view from the top was worth every switchback. My legs still remember.",
+                date: daysAgo(12),
                 imageName: "sample4",
-                tags: ["family", "food"]
+                viewedCount: 18,
+                isShared: true,
+                favorite: true,
+                mood: "Adventurous"
             ),
             LoopMoment(
-                title: "Late night walk",
-                note: "The streets were empty and calm.",
-                date: makeDate(daysAgo: 6, hour: 23),
-                value: 3.0,
+                title: "Board Game Night",
+                note: "We laughed so hard we forgot whose turn it was. Rematch soon?",
+                date: daysAgo(15),
                 imageName: "sample1",
-                tags: ["night", "walk"]
+                viewedCount: 11,
+                isShared: true,
+                favorite: false,
+                mood: "Playful"
             ),
             LoopMoment(
-                title: "Weekend farmers market",
-                note: "Picked up fresh berries and flowers.",
-                date: makeDate(daysAgo: 7, hour: 10),
-                value: 4.3,
+                title: "Rainy Window Seat",
+                note: "A quiet afternoon with tea and a book. You looked so at peace.",
+                date: daysAgo(19),
                 imageName: "sample2",
-                tags: ["weekend", "market"]
+                viewedCount: 7,
+                isShared: false,
+                favorite: true,
+                mood: "Calm"
             ),
             LoopMoment(
-                title: "Sunset at the lake",
-                note: "The sky turned orange and pink.",
-                date: makeDate(daysAgo: 8, hour: 19),
-                value: 4.7,
+                title: "Impromptu Picnic",
+                note: "We grabbed whatever was in the fridge and it somehow became a feast.",
+                date: daysAgo(23),
                 imageName: "sample3",
-                tags: ["nature", "sunset"]
+                viewedCount: 16,
+                isShared: true,
+                favorite: true,
+                mood: "Spontaneous"
             ),
             LoopMoment(
-                title: "Trying a new recipe",
-                note: "It looked messy but tasted great.",
-                date: makeDate(daysAgo: 9, hour: 18),
-                value: 3.9,
+                title: "Late Night Drive",
+                note: "Windows down, playlist on shuffle, no destination. Just the loop.",
+                date: daysAgo(27),
                 imageName: "sample4",
-                tags: ["cooking", "experiment"]
+                viewedCount: 13,
+                isShared: true,
+                favorite: false,
+                mood: "Free"
+            ),
+            LoopMoment(
+                title: "Homemade Pizza Night",
+                note: "Flour everywhere, but the result was better than delivery.",
+                date: daysAgo(31),
+                imageName: "sample1",
+                viewedCount: 10,
+                isShared: true,
+                favorite: true,
+                mood: "Satisfying"
+            ),
+            LoopMoment(
+                title: "Beach Afternoon",
+                note: "The water was cold, the sun was warm, and the day felt endless.",
+                date: daysAgo(36),
+                imageName: "sample2",
+                viewedCount: 22,
+                isShared: true,
+                favorite: true,
+                mood: "Bright"
             )
         ]
         
-        store.moments = samples
+        store.moments = seeds
         store.save()
-    }
-    
-    private static func makeDate(daysAgo: Int, hour: Int) -> Date {
-        let now = Date()
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: now)
-        components.hour = hour
-        components.minute = 0
-        let base = Calendar.current.date(from: components) ?? now
-        return Calendar.current.date(byAdding: .day, value: -daysAgo, to: base) ?? now
     }
 }
