@@ -6,7 +6,7 @@ struct LoopMomentCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(moment.imageName)
+            Image(moment.imageName ?? "sample1")
                 .resizable()
                 .scaledToFill()
                 .frame(maxWidth: .infinity)
@@ -112,9 +112,7 @@ struct LoopTimelineView: View {
     }
 
     private func deleteMoment(_ moment: LoopMoment) {
-        if let index = store.moments.firstIndex(where: { $0.id == moment.id }) {
-            store.delete(at: IndexSet(integer: index))
-        }
+        store.delete(moment)
     }
 }
 
@@ -174,6 +172,7 @@ struct LoopComposeView: View {
                         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
                         let moment = LoopMoment(
                             id: UUID(),
+                            title: trimmedNote,
                             date: Date(),
                             note: trimmedNote,
                             imageName: selectedImageName
