@@ -12,11 +12,11 @@ struct TodayView: View {
     }
 
     private var totalAmount: Double {
-        todayRecords.map(\.amount).reduce(0, +)
+        todayRecords.map(\.amountGrams).reduce(0, +)
     }
 
     private var targetAmount: Double {
-        store.settings.dailyTarget
+        store.settings.dailyGoalGrams
     }
 
     private var hasMetTarget: Bool {
@@ -73,9 +73,9 @@ struct TodayView: View {
                                 .font(.headline)
                             ForEach(todayRecords) { record in
                                 HStack {
-                                    Label(record.date, format: .dateTime.hour().minute())
+                                    Text(record.date, format: .dateTime.hour().minute())
                                     Spacer()
-                                    Text("\(record.amount, specifier: "%.0f") g")
+                                    Text("\(record.amountGrams, specifier: "%.0f") g")
                                         .fontWeight(.medium)
                                 }
                                 .padding()
@@ -143,8 +143,8 @@ struct AddFeedingSheet: View {
 
     private func save() {
         guard let amount = Double(amountText), amount > 0 else { return }
-        let record = AppFeedingRecord(date: feedingDate, amount: amount)
-        store.add(record)
+        let record = AppFeedingRecord(date: feedingDate, amountGrams: amount)
+        store.records.append(record)
         dismiss()
     }
 }
@@ -265,9 +265,9 @@ struct CalendarView: View {
                         } else {
                             ForEach(selectedRecords) { record in
                                 HStack {
-                                    Label(record.date, format: .dateTime.hour().minute())
+                                    Text(record.date, format: .dateTime.hour().minute())
                                     Spacer()
-                                    Text("\(record.amount, specifier: "%.0f") g")
+                                    Text("\(record.amountGrams, specifier: "%.0f") g")
                                         .fontWeight(.medium)
                                 }
                                 .padding()
@@ -327,7 +327,7 @@ struct SettingsView: View {
             }
             .navigationTitle("设置")
             .onAppear {
-                targetText = String(format: "%.0f", store.settings.dailyTarget)
+                targetText = String(format: "%.0f", store.settings.dailyGoalGrams)
             }
             .alert("目标已保存", isPresented: $showSavedAlert) {
                 Button("好", role: .cancel) { }
@@ -337,7 +337,7 @@ struct SettingsView: View {
 
     private func saveTarget() {
         guard let newTarget = Double(targetText), newTarget > 0 else { return }
-        store.settings.dailyTarget = newTarget
+        store.settings.dailyGoalGrams = newTarget
         showSavedAlert = true
     }
 }
