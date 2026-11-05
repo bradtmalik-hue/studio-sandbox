@@ -1,7 +1,7 @@
-# App
+# PlantWaterReminder
 
-把喜欢的图片都收进来
+Never forget to water your plants
 
-Bundle ID: `com.example.app`
+Bundle ID: `com.example.plantwaterreminder`
 
-Screens: 收藏列表, 收藏详情, 统计
+Screens: Today, Add plant, Settings
