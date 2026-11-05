@@ -1,111 +1,106 @@
 import Foundation
 import Combine
-import SwiftUI
 
-enum AppMedicineCategory: String, Codable, CaseIterable, Identifiable {
-    case prescription = "处方药"
-    case otc = "非处方药"
-    case supplement = "保健品"
-    case topical = "外用药"
-    case other = "其他"
-    var id: String { rawValue }
-}
-
-enum AppStorageLocation: String, Codable, CaseIterable, Identifiable {
-    case medicineCabinet = "药柜"
-    case fridge = "冰箱"
-    case drawer = "抽屉"
-    case storageBox = "收纳盒"
-    case bedsideTable = "床头柜"
-    case other = "其他"
-    var id: String { rawValue }
-}
-
-struct AppMedicineItem: Identifiable, Codable, Equatable {
+struct AppMedicineItem: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
     var name: String
-    var category: AppMedicineCategory
+    var category: String
+    var storageLocation: String
     var expiryDate: Date
-    var storageSpot: AppStorageLocation
-    var quantity: Int
-    var notes: String
+    var quantity: Int = 1
+    var note: String = ""
     var createdAt: Date = Date()
 }
 
-class AppMedicineStore: ObservableObject {
-    @Published var medicines: [AppMedicineItem] {
-        didSet { save() }
-    }
+final class AppMedicineStore: ObservableObject {
+    @Published private(set) var items: [AppMedicineItem] = []
 
-    static let storageLocations = AppStorageLocation.allCases
-    static let categories = AppMedicineCategory.allCases
+    private static let documentsDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    private static let defaultFileURL: URL = documentsDirectory.appendingPathComponent("home_medbox_items.json")
 
-    private let fileName = "medicines.json"
-    private var dataFileURL: URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documents.appendingPathComponent(fileName)
-    }
+    private let fileURL: URL
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
 
-    init() {
-        self.medicines = []
+    init(fileURL: URL = AppMedicineStore.defaultFileURL) {
+        self.fileURL = fileURL
+        self.encoder = JSONEncoder()
+        self.encoder.dateEncodingStrategy = .iso8601
+        self.decoder = JSONDecoder()
+        self.decoder.dateDecodingStrategy = .iso8601
         load()
     }
 
-    func load() {
-        let url = dataFileURL
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            medicines = []
-            return
-        }
-        do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            medicines = try decoder.decode([AppMedicineItem].self, from: data)
-        } catch {
-            medicines = []
-        }
+    var sortedByExpiry: [AppMedicineItem] {
+        items.sorted { $0.expiryDate < $1.expiryDate }
     }
 
-    func save() {
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(medicines)
-            try data.write(to: dataFileURL)
-        } catch {
-            // ignore write errors for now
-        }
+    var expiredItems: [AppMedicineItem] {
+        sortedByExpiry.filter { $0.expiryDate < Date() }
+    }
+
+    var expiringSoonItems: [AppMedicineItem] {
+        let now = Date()
+        let upcoming = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
+        return sortedByExpiry.filter { $0.expiryDate >= now && $0.expiryDate < upcoming }
+    }
+
+    var activeItems: [AppMedicineItem] {
+        sortedByExpiry.filter { $0.expiryDate >= Date() }
+    }
+
+    func item(with id: UUID) -> AppMedicineItem? {
+        items.first { $0.id == id }
     }
 
     func add(_ item: AppMedicineItem) {
-        medicines.append(item)
+        items.append(item)
+        save()
     }
 
     func update(_ item: AppMedicineItem) {
-        guard let index = medicines.firstIndex(where: { $0.id == item.id }) else { return }
-        medicines[index] = item
-    }
-
-    func delete(at offsets: IndexSet) {
-        medicines.remove(atOffsets: offsets)
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[index] = item
+        save()
     }
 
     func delete(_ item: AppMedicineItem) {
-        medicines.removeAll { $0.id == item.id }
+        items.removeAll { $0.id == item.id }
+        save()
     }
 
-    func sortedByExpiry() -> [AppMedicineItem] {
-        medicines.sorted { $0.expiryDate < $1.expiryDate }
+    func delete(at offsets: IndexSet) {
+        items.remove(atOffsets: offsets)
+        save()
     }
 
-    func expiredCount() -> Int {
-        medicines.filter { $0.expiryDate < Date() }.count
+    func move(from source: IndexSet, to destination: Int) {
+        items.move(fromOffsets: source, toOffset: destination)
+        save()
     }
 
-    func expiringSoonCount(within days: Int = 30) -> Int {
-        let future = Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
-        return medicines.filter { $0.expiryDate >= Date() && $0.expiryDate <= future }.count
+    func filteredItems(searchText: String) -> [AppMedicineItem] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return sortedByExpiry }
+        return sortedByExpiry.filter {
+            $0.name.localizedCaseInsensitiveContains(trimmed) ||
+            $0.category.localizedCaseInsensitiveContains(trimmed) ||
+            $0.storageLocation.localizedCaseInsensitiveContains(trimmed) ||
+            $0.note.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+
+    private func load() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        if let data = try? Data(contentsOf: fileURL),
+           let decoded = try? decoder.decode([AppMedicineItem].self, from: data) {
+            items = decoded
+        }
+    }
+
+    private func save() {
+        guard let data = try? encoder.encode(items) else { return }
+        try? data.write(to: fileURL)
     }
 }
 
@@ -113,31 +108,95 @@ enum DemoSeed {
     static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
         let store = AppMedicineStore()
-        guard store.medicines.isEmpty else { return }
+        guard store.items.isEmpty else { return }
 
-        let calendar = Calendar.current
-        let now = Date()
-
-        func date(days: Int) -> Date {
-            calendar.date(byAdding: .day, value: days, to: now) ?? now
+        func makeDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
+            Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
         }
 
         let samples: [AppMedicineItem] = [
-            AppMedicineItem(name: "阿莫西林胶囊", category: .prescription, expiryDate: date(days: 120), storageSpot: .medicineCabinet, quantity: 2, notes: "每日三次，每次一粒"),
-            AppMedicineItem(name: "布洛芬缓释胶囊", category: .otc, expiryDate: date(days: 300), storageSpot: .drawer, quantity: 1, notes: "头痛时服用"),
-            AppMedicineItem(name: "维生素C片", category: .supplement, expiryDate: date(days: 200), storageSpot: .storageBox, quantity: 3, notes: "每日一片"),
-            AppMedicineItem(name: "红霉素软膏", category: .topical, expiryDate: date(days: 45), storageSpot: .bedsideTable, quantity: 1, notes: "外用，涂抹患处"),
-            AppMedicineItem(name: "感冒灵颗粒", category: .otc, expiryDate: date(days: 360), storageSpot: .medicineCabinet, quantity: 5, notes: "一次一袋，一日三次"),
-            AppMedicineItem(name: "蒙脱石散", category: .otc, expiryDate: date(days: 90), storageSpot: .drawer, quantity: 2, notes: "腹泻时服用"),
-            AppMedicineItem(name: "创可贴", category: .other, expiryDate: date(days: 730), storageSpot: .drawer, quantity: 20, notes: "小伤口使用"),
-            AppMedicineItem(name: "氯雷他定片", category: .otc, expiryDate: date(days: 180), storageSpot: .fridge, quantity: 1, notes: "过敏时服用，一天一片"),
-            AppMedicineItem(name: "眼药水", category: .other, expiryDate: date(days: 60), storageSpot: .fridge, quantity: 1, notes: "开封后一个月内用完"),
-            AppMedicineItem(name: "藿香正气水", category: .otc, expiryDate: date(days: 400), storageSpot: .medicineCabinet, quantity: 6, notes: "中暑时服用"),
-            AppMedicineItem(name: "云南白药气雾剂", category: .topical, expiryDate: date(days: 150), storageSpot: .storageBox, quantity: 2, notes: "跌打损伤"),
-            AppMedicineItem(name: "阿司匹林肠溶片", category: .prescription, expiryDate: date(days: 500), storageSpot: .medicineCabinet, quantity: 1, notes: "遵医嘱服用")
+            AppMedicineItem(
+                name: "布洛芬缓释胶囊",
+                category: "解热镇痛",
+                storageLocation: "客厅电视柜左侧药箱",
+                expiryDate: makeDate(2025, 8, 15),
+                quantity: 2,
+                note: "饭后服用"
+            ),
+            AppMedicineItem(
+                name: "阿莫西林胶囊",
+                category: "抗生素",
+                storageLocation: "主卧床头柜第二层",
+                expiryDate: makeDate(2025, 6, 30),
+                quantity: 1,
+                note: "注意过敏"
+            ),
+            AppMedicineItem(
+                name: "氯雷他定片",
+                category: "抗过敏",
+                storageLocation: "厨房冰箱门上药盒",
+                expiryDate: makeDate(2025, 11, 1),
+                quantity: 1,
+                note: "每日一次"
+            ),
+            AppMedicineItem(
+                name: "维生素D滴剂",
+                category: "维生素",
+                storageLocation: "儿童房抽屉药盒",
+                expiryDate: makeDate(2026, 1, 10),
+                quantity: 1,
+                note: "睡前滴"
+            ),
+            AppMedicineItem(
+                name: "云南白药气雾剂",
+                category: "外用药",
+                storageLocation: "卫生间镜柜上格",
+                expiryDate: makeDate(2025, 9, 12),
+                quantity: 1,
+                note: "跌打损伤"
+            ),
+            AppMedicineItem(
+                name: "碘伏消毒液",
+                category: "外用药",
+                storageLocation: "卫生间镜柜下格",
+                expiryDate: makeDate(2025, 10, 30),
+                quantity: 1,
+                note: "开封后密封保存"
+            ),
+            AppMedicineItem(
+                name: "感冒灵颗粒",
+                category: "感冒用药",
+                storageLocation: "客厅电视柜右侧抽屉",
+                expiryDate: makeDate(2025, 7, 20),
+                quantity: 3,
+                note: "每次一袋"
+            ),
+            AppMedicineItem(
+                name: "蒙脱石散",
+                category: "止泻药",
+                storageLocation: "厨房吊柜左侧",
+                expiryDate: makeDate(2025, 9, 25),
+                quantity: 2,
+                note: "空腹服用"
+            ),
+            AppMedicineItem(
+                name: "硝酸甘油片",
+                category: "急救用药",
+                storageLocation: "妈妈随身包夹层",
+                expiryDate: makeDate(2026, 3, 5),
+                quantity: 1,
+                note: "避光保存"
+            ),
+            AppMedicineItem(
+                name: "对乙酰氨基酚片",
+                category: "解热镇痛",
+                storageLocation: "书房书桌左下抽屉",
+                expiryDate: makeDate(2025, 12, 15),
+                quantity: 1,
+                note: "体温38.5℃以上使用"
+            )
         ]
 
-        store.medicines = samples
-        store.save()
+        samples.forEach { store.add($0) }
     }
 }

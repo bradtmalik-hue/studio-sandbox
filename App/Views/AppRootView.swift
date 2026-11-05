@@ -1,57 +1,47 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
-    @EnvironmentObject private var store: AppMedicineStore
+    @StateObject private var store = AppMedicineStore()
     @State private var selectedTab: Int
 
     init() {
         _selectedTab = State(initialValue: Self.initialTab())
     }
 
+    private static func initialTab() -> Int {
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
+            return min(max(v, 0), 2)
+        }
+        return 0
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                AppMedicineDashboardView()
+                AppHomeView()
             }
             .tabItem {
-                Label("概览", systemImage: "house.fill")
+                Label("首页", systemImage: "house.fill")
             }
             .tag(0)
 
             NavigationStack {
-                AppMedicineListView()
+                AppExpiryView()
             }
             .tabItem {
-                Label("药品", systemImage: "pills.fill")
+                Label("有效期", systemImage: "calendar.badge.clock")
             }
             .tag(1)
 
             NavigationStack {
-                AppExpiringSoonView()
+                AppStorageView()
             }
             .tabItem {
-                Label("临期", systemImage: "clock.fill")
+                Label("存放位置", systemImage: "location.fill")
             }
             .tag(2)
-
-            NavigationStack {
-                AppStorageLocationView()
-            }
-            .tabItem {
-                Label("位置", systemImage: "location.fill")
-            }
-            .tag(3)
         }
-    }
-
-    private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return min(max(value, 0), 3)
-        }
-        return 0
+        .environmentObject(store)
     }
 }

@@ -1,7 +1,7 @@
 # App
 
-药品有效期和存放位置，一盒不漏
+记好有效期，放哪儿一眼就找到
 
 Bundle ID: `com.example.app`
 
-Screens: 药品列表, 添加一盒药, 临期提醒
+Screens: 药箱首页, 加药页, 提醒页
