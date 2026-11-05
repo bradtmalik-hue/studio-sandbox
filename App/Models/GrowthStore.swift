@@ -9,7 +9,7 @@ struct AppGrowthMonthGroup: Identifiable {
 }
 
 final class AppGrowthStore: ObservableObject {
-    @Published private var records: [AppGrowthRecord] = []
+    @Published var records: [AppGrowthRecord] = []
 
     private let fileName = "growthRecords.json"
 

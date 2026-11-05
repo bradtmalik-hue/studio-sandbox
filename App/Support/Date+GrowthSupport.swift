@@ -60,8 +60,8 @@ extension Date {
     static func appDate(fromMonthKey key: String) -> Date? {
         let parts = key.split(separator: "-")
         guard parts.count == 2,
-              let year = Int(String(parts[0])),
-              let month = Int(String(parts[1])),
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
               (1...12).contains(month) else {
             return nil
         }
