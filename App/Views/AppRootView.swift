@@ -1,41 +1,43 @@
 import SwiftUI
-import Combine
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selectedTab: Int = AppRootView.initialTab()
+    @EnvironmentObject var store: AppStore
 
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            TodayView()
-                .tabItem {
-                    Label("今天", systemImage: "sun.max.fill")
-                }
-                .tag(0)
+    @State private var selectedTab: Int
 
-            CalendarView()
-                .tabItem {
-                    Label("日历", systemImage: "calendar")
-                }
-                .tag(1)
-
-            SettingsView()
-                .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
-                }
-                .tag(2)
-        }
-        .environmentObject(store)
-        .tint(.orange)
+    init() {
+        _selectedTab = State(initialValue: Self.initialTab())
     }
 
     private static func initialTab() -> Int {
         let arguments = ProcessInfo.processInfo.arguments
         if let index = arguments.firstIndex(of: "-startTab"),
            index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return value
+           let tabValue = Int(arguments[index + 1]) {
+            return tabValue
         }
         return 0
+    }
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            AppLensLibraryView()
+                .tabItem {
+                    Label("镜头库", systemImage: "camera")
+                }
+                .tag(0)
+
+            AppAddLensView()
+                .tabItem {
+                    Label("添加镜头", systemImage: "plus.circle")
+                }
+                .tag(1)
+
+            AppInvestmentStatsView()
+                .tabItem {
+                    Label("投入统计", systemImage: "chart.pie")
+                }
+                .tag(2)
+        }
     }
 }
