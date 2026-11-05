@@ -1,202 +1,148 @@
 import Foundation
 import Combine
 
-struct AppMedicineItem: Identifiable, Codable, Hashable {
+struct AppRecord: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
-    var name: String
+    var amount: Double
     var category: String
-    var storageLocation: String
-    var expiryDate: Date
-    var quantity: Int = 1
-    var note: String = ""
-    var createdAt: Date = Date()
+    var note: String
+    var date: Date
+    var isExpense: Bool
+
+    var isIncome: Bool {
+        !isExpense
+    }
+
+    var amountText: String {
+        String(format: "%.2f", amount)
+    }
+
+    var dateText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日"
+        return formatter.string(from: date)
+    }
 }
 
-final class AppMedicineStore: ObservableObject {
-    @Published private(set) var items: [AppMedicineItem] = []
+enum AppRecordCategory {
+    static let expense = ["早餐", "午餐", "晚餐", "购物", "交通", "娱乐", "医疗", "住房", "其他"]
+    static let income = ["工资", "兼职", "奖金", "理财", "其他"]
+    static let all = expense + income
+}
 
-    private static let documentsDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    private static let defaultFileURL: URL = documentsDirectory.appendingPathComponent("home_medbox_items.json")
+class AppStore: ObservableObject {
+    @Published var records: [AppRecord] = []
 
-    private let fileURL: URL
-    private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
+    private let fileName = "app_records.json"
 
-    init(fileURL: URL = AppMedicineStore.defaultFileURL) {
-        self.fileURL = fileURL
-        self.encoder = JSONEncoder()
-        self.encoder.dateEncodingStrategy = .iso8601
-        self.decoder = JSONDecoder()
-        self.decoder.dateDecodingStrategy = .iso8601
+    init() {
         load()
     }
 
-    var sortedByExpiry: [AppMedicineItem] {
-        items.sorted { $0.expiryDate < $1.expiryDate }
+    private var fileURL: URL {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return directory.appendingPathComponent(fileName)
     }
 
-    var expiredItems: [AppMedicineItem] {
-        sortedByExpiry.filter { $0.expiryDate < Date() }
+    func load() {
+        let url = fileURL
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode([AppRecord].self, from: data) else {
+            records = []
+            return
+        }
+        records = decoded.sorted { $0.date > $1.date }
     }
 
-    var expiringSoonItems: [AppMedicineItem] {
-        let now = Date()
-        let upcoming = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
-        return sortedByExpiry.filter { $0.expiryDate >= now && $0.expiryDate < upcoming }
+    func save() {
+        let url = fileURL
+        guard let data = try? JSONEncoder().encode(records) else { return }
+        try? data.write(to: url)
     }
 
-    var activeItems: [AppMedicineItem] {
-        sortedByExpiry.filter { $0.expiryDate >= Date() }
-    }
-
-    func item(with id: UUID) -> AppMedicineItem? {
-        items.first { $0.id == id }
-    }
-
-    func add(_ item: AppMedicineItem) {
-        items.append(item)
+    func add(_ record: AppRecord) {
+        records.append(record)
+        records.sort { $0.date > $1.date }
         save()
     }
 
-    func update(_ item: AppMedicineItem) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index] = item
-        save()
+    func update(_ record: AppRecord) {
+        if let index = records.firstIndex(where: { $0.id == record.id }) {
+            records[index] = record
+            records.sort { $0.date > $1.date }
+            save()
+        }
     }
 
-    func delete(_ item: AppMedicineItem) {
-        items.removeAll { $0.id == item.id }
+    func delete(_ record: AppRecord) {
+        records.removeAll { $0.id == record.id }
         save()
     }
 
     func delete(at offsets: IndexSet) {
-        items.remove(atOffsets: offsets)
+        records.remove(atOffsets: offsets)
         save()
     }
 
-    func move(from source: IndexSet, to destination: Int) {
-        items.move(fromOffsets: source, toOffset: destination)
-        save()
+    var totalIncome: Double {
+        records.filter { $0.isIncome }.reduce(0) { $0 + $1.amount }
     }
 
-    func filteredItems(searchText: String) -> [AppMedicineItem] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return sortedByExpiry }
-        return sortedByExpiry.filter {
-            $0.name.localizedCaseInsensitiveContains(trimmed) ||
-            $0.category.localizedCaseInsensitiveContains(trimmed) ||
-            $0.storageLocation.localizedCaseInsensitiveContains(trimmed) ||
-            $0.note.localizedCaseInsensitiveContains(trimmed)
-        }
+    var totalExpense: Double {
+        records.filter { $0.isExpense }.reduce(0) { $0 + $1.amount }
     }
 
-    private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        if let data = try? Data(contentsOf: fileURL),
-           let decoded = try? decoder.decode([AppMedicineItem].self, from: data) {
-            items = decoded
-        }
+    var balance: Double {
+        totalIncome - totalExpense
     }
 
-    private func save() {
-        guard let data = try? encoder.encode(items) else { return }
-        try? data.write(to: fileURL)
+    func records(for category: String) -> [AppRecord] {
+        records.filter { $0.category == category }
+    }
+
+    func total(for category: String) -> Double {
+        records(for: category).reduce(0) { $0 + $1.amount }
+    }
+
+    func records(forMonth date: Date) -> [AppRecord] {
+        let calendar = Calendar.current
+        return records.filter { calendar.isDate($0.date, equalTo: date, toGranularity: .month) }
+    }
+
+    func totalIncome(forMonth date: Date) -> Double {
+        records(forMonth: date).filter { $0.isIncome }.reduce(0) { $0 + $1.amount }
+    }
+
+    func totalExpense(forMonth date: Date) -> Double {
+        records(forMonth: date).filter { $0.isExpense }.reduce(0) { $0 + $1.amount }
     }
 }
 
 enum DemoSeed {
     static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
-        let store = AppMedicineStore()
-        guard store.items.isEmpty else { return }
+        let store = AppStore()
+        guard store.records.isEmpty else { return }
 
-        func makeDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
-            Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
-        }
+        let calendar = Calendar.current
+        let today = Date()
 
-        let samples: [AppMedicineItem] = [
-            AppMedicineItem(
-                name: "布洛芬缓释胶囊",
-                category: "解热镇痛",
-                storageLocation: "客厅电视柜左侧药箱",
-                expiryDate: makeDate(2025, 8, 15),
-                quantity: 2,
-                note: "饭后服用"
-            ),
-            AppMedicineItem(
-                name: "阿莫西林胶囊",
-                category: "抗生素",
-                storageLocation: "主卧床头柜第二层",
-                expiryDate: makeDate(2025, 6, 30),
-                quantity: 1,
-                note: "注意过敏"
-            ),
-            AppMedicineItem(
-                name: "氯雷他定片",
-                category: "抗过敏",
-                storageLocation: "厨房冰箱门上药盒",
-                expiryDate: makeDate(2025, 11, 1),
-                quantity: 1,
-                note: "每日一次"
-            ),
-            AppMedicineItem(
-                name: "维生素D滴剂",
-                category: "维生素",
-                storageLocation: "儿童房抽屉药盒",
-                expiryDate: makeDate(2026, 1, 10),
-                quantity: 1,
-                note: "睡前滴"
-            ),
-            AppMedicineItem(
-                name: "云南白药气雾剂",
-                category: "外用药",
-                storageLocation: "卫生间镜柜上格",
-                expiryDate: makeDate(2025, 9, 12),
-                quantity: 1,
-                note: "跌打损伤"
-            ),
-            AppMedicineItem(
-                name: "碘伏消毒液",
-                category: "外用药",
-                storageLocation: "卫生间镜柜下格",
-                expiryDate: makeDate(2025, 10, 30),
-                quantity: 1,
-                note: "开封后密封保存"
-            ),
-            AppMedicineItem(
-                name: "感冒灵颗粒",
-                category: "感冒用药",
-                storageLocation: "客厅电视柜右侧抽屉",
-                expiryDate: makeDate(2025, 7, 20),
-                quantity: 3,
-                note: "每次一袋"
-            ),
-            AppMedicineItem(
-                name: "蒙脱石散",
-                category: "止泻药",
-                storageLocation: "厨房吊柜左侧",
-                expiryDate: makeDate(2025, 9, 25),
-                quantity: 2,
-                note: "空腹服用"
-            ),
-            AppMedicineItem(
-                name: "硝酸甘油片",
-                category: "急救用药",
-                storageLocation: "妈妈随身包夹层",
-                expiryDate: makeDate(2026, 3, 5),
-                quantity: 1,
-                note: "避光保存"
-            ),
-            AppMedicineItem(
-                name: "对乙酰氨基酚片",
-                category: "解热镇痛",
-                storageLocation: "书房书桌左下抽屉",
-                expiryDate: makeDate(2025, 12, 15),
-                quantity: 1,
-                note: "体温38.5℃以上使用"
-            )
+        var samples: [AppRecord] = [
+            AppRecord(amount: 25.5, category: "早餐", note: "豆浆油条", date: today, isExpense: true),
+            AppRecord(amount: 45.0, category: "午餐", note: "工作餐", date: today, isExpense: true),
+            AppRecord(amount: 365.0, category: "购物", note: "超市采购", date: calendar.date(byAdding: .day, value: -1, to: today)!, isExpense: true),
+            AppRecord(amount: 150.0, category: "交通", note: "加油", date: calendar.date(byAdding: .day, value: -2, to: today)!, isExpense: true),
+            AppRecord(amount: 5200.0, category: "工资", note: "三月工资", date: calendar.date(byAdding: .day, value: -3, to: today)!, isExpense: false),
+            AppRecord(amount: 88.0, category: "娱乐", note: "电影票", date: calendar.date(byAdding: .day, value: -4, to: today)!, isExpense: true),
+            AppRecord(amount: 200.0, category: "餐饮", note: "朋友聚餐", date: calendar.date(byAdding: .day, value: -5, to: today)!, isExpense: true),
+            AppRecord(amount: 120.0, category: "购物", note: "日用品", date: calendar.date(byAdding: .day, value: -6, to: today)!, isExpense: true),
+            AppRecord(amount: 80.0, category: "医疗", note: "药店买药", date: calendar.date(byAdding: .day, value: -7, to: today)!, isExpense: true),
+            AppRecord(amount: 2000.0, category: "兼职", note: "周末兼职", date: calendar.date(byAdding: .day, value: -8, to: today)!, isExpense: false)
         ]
 
-        samples.forEach { store.add($0) }
+        samples.sort { $0.date > $1.date }
+        store.records = samples
+        store.save()
     }
 }
