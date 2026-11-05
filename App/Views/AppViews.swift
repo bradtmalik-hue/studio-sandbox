@@ -51,7 +51,7 @@ struct AppMedicineListView: View {
         } else {
             return sortedMedicines.filter {
                 $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.storageLocation.localizedCaseInsensitiveContains(searchText)
+                $0.storageSpot.localizedCaseInsensitiveContains(searchText)
             }
         }
     }
@@ -81,7 +81,7 @@ struct AppMedicineRow: View {
                     .foregroundStyle(expiryColor)
             }
             HStack {
-                Label(medicine.storageLocation, systemImage: "location")
+                Label(medicine.storageSpot, systemImage: "location")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -117,7 +117,7 @@ struct AppAddMedicineView: View {
     
     @State private var name = ""
     @State private var expiryDate = Date()
-    @State private var storageLocation = ""
+    @State private var storageSpot = ""
     @State private var notes = ""
     @State private var reminderDaysBefore: Int = 7
     
@@ -129,7 +129,7 @@ struct AppAddMedicineView: View {
                 Section("药品信息") {
                     TextField("药品名称", text: $name)
                     DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
-                    TextField("存放位置", text: $storageLocation)
+                    TextField("存放位置", text: $storageSpot)
                 }
                 
                 Section("备注") {
@@ -167,16 +167,16 @@ struct AppAddMedicineView: View {
     
     private func addMedicine() {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let trimmedLocation = storageLocation.trimmingCharacters(in: .whitespaces)
+        let trimmedLocation = storageSpot.trimmingCharacters(in: .whitespaces)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
         let medicine = AppMedicine(
             name: trimmedName,
             expiryDate: expiryDate,
-            storageLocation: trimmedLocation.isEmpty ? "未指定" : trimmedLocation,
+            storageSpot: trimmedLocation.isEmpty ? "未指定" : trimmedLocation,
             notes: trimmedNotes,
-            reminderDaysBefore: reminderDaysBefore
+            reminderDays: reminderDaysBefore
         )
-        store.add(medicine)
+        store.medicines.append(medicine)
         dismiss()
     }
 }
@@ -189,9 +189,9 @@ struct AppReminderSettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("启用过期提醒", isOn: $store.reminderSettings.notificationsEnabled)
-                    if store.reminderSettings.notificationsEnabled {
-                        Picker("默认提前天数", selection: $store.reminderSettings.defaultDaysBefore) {
+                    Toggle("启用过期提醒", isOn: $store.reminderSettings.expiryRemindersEnabled)
+                    if store.reminderSettings.expiryRemindersEnabled {
+                        Picker("默认提前天数", selection: $store.reminderSettings.defaultReminderDays) {
                             ForEach([3, 7, 14, 30], id: \.self) { days in
                                 Text("提前 \(days) 天").tag(days)
                             }
