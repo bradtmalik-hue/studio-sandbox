@@ -6,22 +6,22 @@ extension Date {
         let components = Calendar.current.dateComponents([.year, .month], from: self)
         let year = components.year ?? 0
         let month = components.month ?? 0
-        return String(format: "%04d-%02d", year, month)
+        return String(format: "%04d-%02d", Int32(year), Int32(month))
+    }
+
+    /// 当月第一天。
+    var appMonthStart: Date {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: self)
+        return calendar.date(from: components) ?? calendar.startOfDay(for: self)
     }
 
     /// 当前日期所在月份的完整时间区间。区间末尾为下个月第一天的起始时刻。
     var appMonthInterval: DateInterval {
         let calendar = Calendar.current
-        if let interval = calendar.dateInterval(of: .month, for: self) {
-            return interval
-        }
-        let fallbackStart = calendar.startOfDay(for: self)
-        return DateInterval(start: fallbackStart, duration: 0)
-    }
-
-    /// 当月第一天。
-    var appMonthStart: Date {
-        appMonthInterval.start
+        let start = appMonthStart
+        let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: start) ?? start
+        return DateInterval(start: start, end: nextMonthStart)
     }
 
     /// 当月最后一秒，便于使用 date <= appMonthEnd 包含整月记录。
@@ -60,8 +60,8 @@ extension Date {
     static func appDate(fromMonthKey key: String) -> Date? {
         let parts = key.split(separator: "-")
         guard parts.count == 2,
-              let year = Int(parts[0]),
-              let month = Int(parts[1]),
+              let year = Int(String(parts[0])),
+              let month = Int(String(parts[1])),
               (1...12).contains(month) else {
             return nil
         }

@@ -9,11 +9,11 @@ struct AppGrowthMonthGroup: Identifiable {
 }
 
 final class AppGrowthStore: ObservableObject {
-    @Published private(set) var records: [AppGrowthRecord] = []
+    @Published private var records: [AppGrowthRecord] = []
 
     private let fileName = "growthRecords.json"
 
-    private var fileURL: URL? {
+    var fileURL: URL? {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)
             .first?
