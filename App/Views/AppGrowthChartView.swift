@@ -68,11 +68,17 @@ struct AppGrowthChartView: View {
     }
 
     private var heightChart: some View {
-        AppLineChartView()
+        let points = monthlyData.map {
+            AppGrowthChartView.AppChartPoint(month: $0.month, value: $0.averageHeight)
+        }
+        return AppGrowthLineChartView()
     }
 
     private var weightChart: some View {
-        AppLineChartView()
+        let points = monthlyData.map {
+            AppGrowthChartView.AppChartPoint(month: $0.month, value: $0.averageWeight)
+        }
+        return AppGrowthLineChartView()
     }
 
     private var latestSummary: some View {
@@ -106,7 +112,7 @@ struct AppGrowthChartView: View {
     }
 }
 
-private struct AppLineChartView: View {
+private struct AppGrowthLineChartView: View {
     let title: String
     let points: [AppGrowthChartView.AppChartPoint]
     let lineColor: Color
