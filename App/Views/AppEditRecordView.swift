@@ -111,10 +111,10 @@ struct AppEditRecordView: View {
         }
 
         let updated = AppGrowthRecord(
-            id: record.id,
-            date: date,
             heightCm: height,
-            weightKg: weight
+            weightKg: weight,
+            date: date,
+            id: record.id
         )
         store.update(updated)
         dismiss()
