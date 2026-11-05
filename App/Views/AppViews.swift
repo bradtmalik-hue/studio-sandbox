@@ -1,213 +1,239 @@
 import SwiftUI
+import Foundation
+import Combine
 
-struct AppLensLibraryView: View {
+// MARK: - 收藏列表视图
+struct AppCollectionView: View {
     @EnvironmentObject var store: AppStore
-    @State private var showingAdd = false
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 160), spacing: 16)
+    ]
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.lenses.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 56))
-                            .foregroundColor(.secondary)
-                        Text("还没有镜头")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text("点击右上角 + 号添加第一支镜头，记录买价与成色。")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if store.images.isEmpty {
+                    ContentUnavailableView(
+                        "收藏夹还是空的",
+                        systemImage: "photo.on.rectangle.angled",
+                        description: Text("点击下方“添加”按钮，把喜欢的图片收进来。")
+                    )
                 } else {
-                    List {
-                        ForEach(store.lenses) { lens in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(lens.name)
-                                        .font(.headline)
-                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(store.images) { item in
+                                NavigationLink {
+                                    AppImageDetailView(item: item)
+                                } label: {
+                                    AppImageCard(item: item)
                                 }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text(lens.condition)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Text(lens.purchaseDate, style: .date)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        delete(item)
+                                    } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
                                 }
                             }
+                            .onDelete(perform: deleteItems)
                         }
+                        .padding()
                     }
                 }
             }
-            .navigationTitle("镜头库")
+            .navigationTitle("图集收藏")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAdd = true
-                    } label: {
-                        Image(systemName: "plus")
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !store.images.isEmpty {
+                        EditButton()
                     }
-                    .accessibilityLabel("添加镜头")
                 }
-            }
-            .sheet(isPresented: $showingAdd) {
-                AppAddLensView()
-                    .environmentObject(store)
             }
         }
     }
+
+    private func delete(_ item: AppImageItem) {
+        if let index = store.images.firstIndex(where: { $0.id == item.id }) {
+            store.images.remove(at: index)
+        }
+    }
+
+    private func deleteItems(at offsets: IndexSet) {
+        store.images.remove(atOffsets: offsets)
+    }
 }
 
-struct AppAddLensView: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
+// MARK: - 单张图片卡片
+struct AppImageCard: View {
+    let item: AppImageItem
 
-    @State private var name = ""
-    @State private var price: Double = 0
-    @State private var condition = "全新"
-    @State private var purchaseDate = Date()
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(item.imageName)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 140)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
-    private let conditions = ["全新", "近新", "良好", "一般", "战斗"]
+            Text(item.title)
+                .font(.headline)
+                .lineLimit(1)
 
-    private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && price >= 0
+            Text(item.date, style: .date)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
+}
+
+// MARK: - 添加图片视图
+struct AppAddImageView: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) var dismiss
+
+    @State private var title = ""
+    @State private var selectedImage = "sample1"
+
+    private let sampleImages = ["sample1", "sample2", "sample3", "sample4"]
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("镜头信息") {
-                    TextField("镜头名称", text: $name)
-                    TextField("买价", value: $price, format: .currency(code: "CNY"))
-                        .keyboardType(.decimalPad)
-                    Picker("成色", selection: $condition) {
-                        ForEach(conditions, id: \.self) { conditionOption in
-                            Text(conditionOption)
+                Section("选择图片") {
+                    Picker("图片", selection: $selectedImage) {
+                        ForEach(sampleImages, id: \.self) { name in
+                            Label(name, systemImage: "photo").tag(name)
                         }
                     }
-                    DatePicker("购买日期", selection: $purchaseDate, displayedComponents: .date)
+                    .pickerStyle(.menu)
+
+                    HStack {
+                        Spacer()
+                        Image(selectedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Spacer()
+                    }
+                }
+
+                Section("标题") {
+                    TextField("给图片起个名字", text: $title)
+                }
+
+                Section {
+                    Button {
+                        addImage()
+                    } label: {
+                        Text("添加到收藏")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .navigationTitle("添加镜头")
+            .navigationTitle("添加图片")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let newLens = AppLens(
-                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            purchasePrice: price,
-                            condition: condition,
-                            purchaseDate: purchaseDate
-                        )
-                        store.add(newLens)
-                        dismiss()
-                    }
-                    .disabled(!canSave)
-                }
-            }
+            .tint(.pink)
         }
+    }
+
+    private func addImage() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let newItem = AppImageItem(
+            title: trimmed,
+            imageName: selectedImage,
+            date: Date()
+        )
+        store.images.append(newItem)
+
+        title = ""
+        selectedImage = "sample1"
+        dismiss()
     }
 }
 
-struct AppInvestmentStatsView: View {
+// MARK: - 图片详情视图
+struct AppImageDetailView: View {
     @EnvironmentObject var store: AppStore
-
-    private var totalInvestment: Double {
-        store.lenses.reduce(0.0) { $0 + $1.purchasePrice }
-    }
-
-    private var averagePrice: Double {
-        store.lenses.isEmpty ? 0 : totalInvestment / Double(store.lenses.count)
-    }
-
-    private var mostExpensive: AppLens? {
-        store.lenses.max(by: { $0.purchasePrice < $1.purchasePrice })
-    }
-
-    private var leastExpensive: AppLens? {
-        store.lenses.min(by: { $0.purchasePrice < $1.purchasePrice })
-    }
+    let item: AppImageItem
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if store.lenses.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "chart.pie")
-                            .font(.system(size: 56))
-                            .foregroundColor(.secondary)
-                        Text("暂无投入数据")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text("添加镜头后，这里会显示你的器材投入统计。")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        Section("总览") {
-                            HStack {
-                                Text("镜头数量")
-                                Spacer()
-                                Text("\(store.lenses.count)")
-                                    .foregroundColor(.secondary)
-                            }
-                            HStack {
-                                Text("总投入")
-                                Spacer()
-                                Text(totalInvestment, format: .currency(code: "CNY"))
-                                    .foregroundColor(.secondary)
-                            }
-                            HStack {
-                                Text("平均买价")
-                                Spacer()
-                                Text(averagePrice, format: .currency(code: "CNY"))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(item.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(radius: 8)
 
-                        Section("最值镜头") {
-                            if let lens = mostExpensive {
-                                HStack {
-                                    Text("最贵")
-                                    Spacer()
-                                    Text(lens.name)
-                                        .foregroundColor(.secondary)
-                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            if let lens = leastExpensive {
-                                HStack {
-                                    Text("最便宜")
-                                    Spacer()
-                                    Text(lens.name)
-                                        .foregroundColor(.secondary)
-                                    Text(lens.purchasePrice, format: .currency(code: "CNY"))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(item.title)
+                        .font(.title2.bold())
+
+                    Text(item.date, style: .date)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button(role: .destructive) {
+                    deleteItem()
+                } label: {
+                    Label("从收藏中删除", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
             }
-            .navigationTitle("投入统计")
+            .padding()
+        }
+        .navigationTitle("图片详情")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func deleteItem() {
+        if let index = store.images.firstIndex(where: { $0.id == item.id }) {
+            store.images.remove(at: index)
         }
     }
 }
+
+// MARK: - 设置视图
+struct AppSettingsView: View {
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("关于") {
+                    LabeledContent("App 名称", value: "图集收藏")
+                    LabeledContent("版本", value: "1.0")
+                }
+
+                Section {
+                    Text("把喜欢的图片都收进来。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("设置")
+        }
+    }
+}
+
+// MARK: - 兼容别名，方便入口视图引用常见命名
+typealias AppLibraryView = AppCollectionView
+typealias AppGalleryView = AppCollectionView
+typealias AppHomeView = AppCollectionView
+typealias AppAddView = AppAddImageView
+typealias AppImagePickerView = AppAddImageView

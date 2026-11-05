@@ -1,7 +1,7 @@
 # App
 
-记录手上的镜头、买价和成色
+把喜欢的图片都收进来
 
 Bundle ID: `com.example.app`
 
-Screens: 镜头库, 添加镜头, 投入统计
+Screens: 收藏列表, 收藏详情, 统计
