@@ -35,20 +35,20 @@ struct LoopMessageBubble: View {
 
     var body: some View {
         HStack {
-            if message.sender == "Me" {
+            if message.isFromMe {
                 Spacer(minLength: 40)
             }
-            VStack(alignment: message.sender == "Me" ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
                 Text(message.text)
                     .padding(10)
-                    .background(message.sender == "Me" ? Color.blue : Color.gray.opacity(0.2))
-                    .foregroundStyle(message.sender == "Me" ? .white : .primary)
+                    .background(message.isFromMe ? Color.blue : Color.gray.opacity(0.2))
+                    .foregroundStyle(message.isFromMe ? Color.white : Color.primary)
                     .cornerRadius(16)
-                Text("\(message.sender) • \(message.sentAt, style: .time)")
+                Text("\(message.isFromMe ? "Me" : "Them") • \(message.sentAt, style: .time)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            if message.sender != "Me" {
+            if !message.isFromMe {
                 Spacer(minLength: 40)
             }
         }
@@ -134,7 +134,7 @@ struct LoopConversationsView: View {
     }
 
     private func momentText(for conversation: LoopConversation) -> String {
-        if let moment = store.moments.first(where: { $0.id == conversation.momentId }) {
+        if let moment = store.moments.first(where: { $0.id == conversation.momentID }) {
             return moment.text
         } else {
             return "Moment"
@@ -179,7 +179,7 @@ struct LoopComposeView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Share") {
-                        store.moments.append(LoopMoment(text: text, imageName: selectedImageName))
+                        store.moments.append(LoopMoment(id: UUID(), text: text, imageName: selectedImageName, createdAt: Date()))
                         store.save()
                         dismiss()
                     }
@@ -198,13 +198,12 @@ struct LoopMomentDetailView: View {
     @State private var messageText = ""
 
     private var conversation: LoopConversation? {
-        store.conversations.first(where: { $0.momentId == moment.id })
+        store.conversations.first(where: { $0.momentID == moment.id })
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Moment content
                 VStack(alignment: .leading, spacing: 10) {
                     if let imageName = moment.imageName {
                         Image(imageName)
@@ -253,7 +252,7 @@ struct LoopMomentDetailView: View {
                             description: Text("Start a conversation about this moment.")
                         )
                         Button("Start Conversation") {
-                            store.conversations.append(LoopConversation(momentId: moment.id))
+                            store.conversations.append(LoopConversation(id: UUID(), momentID: moment.id, participantName: "Me", createdAt: Date(), messages: []))
                             store.save()
                         }
                         .buttonStyle(.borderedProminent)
@@ -269,7 +268,7 @@ struct LoopMomentDetailView: View {
     private func sendMessage(in conversation: LoopConversation) {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if let index = store.conversations.firstIndex(where: { $0.id == conversation.id }) {
-            store.conversations[index].messages.append(LoopMessage(text: messageText, sender: "Me"))
+            store.conversations[index].messages.append(LoopMessage(id: UUID(), text: messageText, sentAt: Date(), isFromMe: true))
             store.save()
         }
         messageText = ""
@@ -311,7 +310,7 @@ struct LoopConversationDetailView: View {
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if let index = store.conversations.firstIndex(where: { $0.id == conversation.id }) {
-            store.conversations[index].messages.append(LoopMessage(text: messageText, sender: "Me"))
+            store.conversations[index].messages.append(LoopMessage(id: UUID(), text: messageText, sentAt: Date(), isFromMe: true))
             store.save()
         }
         messageText = ""

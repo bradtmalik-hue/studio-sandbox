@@ -2,8 +2,15 @@ import SwiftUI
 import Foundation
 
 struct LoopRootView: View {
-    @StateObject private var store = LoopStore()
-    @State private var selectedTab: Int = LoopRootView.initialTab()
+    @StateObject private var store: LoopStore
+    @State private var selectedTab: Int
+
+    init() {
+        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("loop-store.json")
+        _store = StateObject(wrappedValue: LoopStore(moments: [], conversations: [], fileURL: fileURL))
+        _selectedTab = State(initialValue: LoopRootView.initialTab())
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
