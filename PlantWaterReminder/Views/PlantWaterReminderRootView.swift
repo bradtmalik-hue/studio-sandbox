@@ -15,7 +15,7 @@ struct PlantWaterReminderRootView: View {
             .tag(0)
             
             NavigationStack {
-                PlantWaterReminderEditView()
+                PlantWaterReminderEditView(plant: nil)
             }
             .tabItem {
                 Label("Add Plant", systemImage: "plus.circle.fill")
