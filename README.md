@@ -1,7 +1,7 @@
 # App
 
-每次加油保养都记一笔，每月花多少钱一目了然
+随手记下孩子的身高体重，曲线自己长出来
 
 Bundle ID: `com.example.app`
 
-Screens: 记一笔, 历史, 统计
+Screens: 记一笔, 成长曲线, 历史记录

@@ -10,15 +10,14 @@
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
 		AA0000000000000000000003 /* AppFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppFormatters.swift */; };
-		AA0000000000000000000004 /* AppSampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppSampleData.swift */; };
-		AA0000000000000000000005 /* AppFuelRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppFuelRecord.swift */; };
-		AA0000000000000000000006 /* AppMaintenanceRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppMaintenanceRecord.swift */; };
-		AA0000000000000000000007 /* AppVehicleProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppVehicleProfile.swift */; };
-		AA0000000000000000000008 /* AppDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppDataStore.swift */; };
-		AA0000000000000000000009 /* AppRecordEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppRecordEntryView.swift */; };
-		AA0000000000000000000010 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppHistoryView.swift */; };
-		AA0000000000000000000011 /* AppStatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppStatisticsView.swift */; };
-		AA0000000000000000000012 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* AppRootView.swift */; };
+		AA0000000000000000000004 /* MonthNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* MonthNavigator.swift */; };
+		AA0000000000000000000005 /* AppGrowthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppGrowthRecord.swift */; };
+		AA0000000000000000000006 /* AppGrowthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppGrowthStore.swift */; };
+		AA0000000000000000000007 /* EntryFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* EntryFormView.swift */; };
+		AA0000000000000000000008 /* GrowthCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* GrowthCurveView.swift */; };
+		AA0000000000000000000009 /* HistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* HistoryListView.swift */; };
+		AA0000000000000000000010 /* GrowthChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* GrowthChartView.swift */; };
+		AA0000000000000000000011 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -26,15 +25,14 @@
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		BB0000000000000000000003 /* AppFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFormatters.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppSampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSampleData.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppFuelRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFuelRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppMaintenanceRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMaintenanceRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppVehicleProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVehicleProfile.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDataStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppRecordEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRecordEntryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* AppStatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatisticsView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000012 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* MonthNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthNavigator.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppGrowthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthRecord.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppGrowthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* EntryFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryFormView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* GrowthCurveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrowthCurveView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* HistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryListView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* GrowthChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrowthChartView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -81,10 +79,8 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000005 /* AppFuelRecord.swift */,
-				BB0000000000000000000006 /* AppMaintenanceRecord.swift */,
-				BB0000000000000000000007 /* AppVehicleProfile.swift */,
-				BB0000000000000000000008 /* AppDataStore.swift */,
+				BB0000000000000000000005 /* AppGrowthRecord.swift */,
+				BB0000000000000000000006 /* AppGrowthStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -92,10 +88,11 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000009 /* AppRecordEntryView.swift */,
-				BB0000000000000000000010 /* AppHistoryView.swift */,
-				BB0000000000000000000011 /* AppStatisticsView.swift */,
-				BB0000000000000000000012 /* AppRootView.swift */,
+				BB0000000000000000000007 /* EntryFormView.swift */,
+				BB0000000000000000000008 /* GrowthCurveView.swift */,
+				BB0000000000000000000009 /* HistoryListView.swift */,
+				BB0000000000000000000010 /* GrowthChartView.swift */,
+				BB0000000000000000000011 /* AppRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -105,7 +102,7 @@
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
 				BB0000000000000000000003 /* AppFormatters.swift */,
-				BB0000000000000000000004 /* AppSampleData.swift */,
+				BB0000000000000000000004 /* MonthNavigator.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -190,15 +187,14 @@
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
 				AA0000000000000000000003 /* AppFormatters.swift in Sources */,
-				AA0000000000000000000004 /* AppSampleData.swift in Sources */,
-				AA0000000000000000000005 /* AppFuelRecord.swift in Sources */,
-				AA0000000000000000000006 /* AppMaintenanceRecord.swift in Sources */,
-				AA0000000000000000000007 /* AppVehicleProfile.swift in Sources */,
-				AA0000000000000000000008 /* AppDataStore.swift in Sources */,
-				AA0000000000000000000009 /* AppRecordEntryView.swift in Sources */,
-				AA0000000000000000000010 /* AppHistoryView.swift in Sources */,
-				AA0000000000000000000011 /* AppStatisticsView.swift in Sources */,
-				AA0000000000000000000012 /* AppRootView.swift in Sources */,
+				AA0000000000000000000004 /* MonthNavigator.swift in Sources */,
+				AA0000000000000000000005 /* AppGrowthRecord.swift in Sources */,
+				AA0000000000000000000006 /* AppGrowthStore.swift in Sources */,
+				AA0000000000000000000007 /* EntryFormView.swift in Sources */,
+				AA0000000000000000000008 /* GrowthCurveView.swift in Sources */,
+				AA0000000000000000000009 /* HistoryListView.swift in Sources */,
+				AA0000000000000000000010 /* GrowthChartView.swift in Sources */,
+				AA0000000000000000000011 /* AppRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

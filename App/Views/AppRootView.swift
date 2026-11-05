@@ -1,40 +1,32 @@
-import Foundation
 import SwiftUI
+import Combine
 
 struct AppRootView: View {
-    @StateObject private var store: AppDataStore
-
-    init() {
-        let store = AppDataStore()
-        if !UserDefaults.standard.bool(forKey: "AppDidLoadSampleData") {
-            store.vehicleProfile = AppSampleData.vehicleProfile
-            store.fuelRecords = AppSampleData.fuelRecords
-            store.maintenanceRecords = AppSampleData.maintenanceRecords
-            store.save()
-            UserDefaults.standard.set(true, forKey: "AppDidLoadSampleData")
-        }
-        _store = StateObject(wrappedValue: store)
-    }
+    @StateObject private var store = AppGrowthStore()
+    @State private var selectedTab = 0
 
     var body: some View {
-        TabView {
-            AppRecordEntryView()
+        TabView(selection: $selectedTab) {
+            AppEntryFormView()
                 .tabItem {
                     Label("记一笔", systemImage: "plus.circle.fill")
                 }
-                .environmentObject(store)
+                .tag(0)
 
-            AppHistoryView()
+            GrowthCurveView()
                 .tabItem {
-                    Label("历史", systemImage: "clock.arrow.circlepath")
+                    Label("成长曲线", systemImage: "chart.xyaxis.line")
                 }
-                .environmentObject(store)
+                .tag(1)
 
-            AppStatisticsView()
+            HistoryListView()
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.xaxis")
+                    Label("历史记录", systemImage: "list.bullet.rectangle")
                 }
-                .environmentObject(store)
+                .tag(2)
         }
+        .environmentObject(store)
+        .tint(Color.blue)
+        .preferredColorScheme(.light)
     }
 }
