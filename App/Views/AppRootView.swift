@@ -1,26 +1,46 @@
 import SwiftUI
-import Combine
 
 struct AppRootView: View {
-    @StateObject private var store = AppFilmStore()
+    @StateObject private var store = AppGrowthStore()
+    @State private var selectedTab = AppRootView.initialTab()
+
+    private static func initialTab() -> Int {
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let tab = Int(args[index + 1]) {
+            return tab
+        }
+        return 0
+    }
+
+    private static let accentColor = Color(red: 0.05, green: 0.35, blue: 0.25)
 
     var body: some View {
-        TabView {
-            AppQuickLogView()
+        TabView(selection: $selectedTab) {
+            AppEntryFormView()
                 .tabItem {
-                    Label("记一部", systemImage: "plus.circle.fill")
+                    Label("记一笔", systemImage: "plus.circle.fill")
                 }
+                .tag(0)
 
-            AppFilmListView()
+            AppGrowthChartView()
                 .tabItem {
-                    Label("观影列表", systemImage: "list.bullet.rectangle")
+                    Label("曲线", systemImage: "chart.line.uptrend.xyaxis")
                 }
+                .tag(1)
 
-            AppStatsView()
+            AppHistoryView()
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.fill")
+                    Label("历史", systemImage: "list.bullet.rectangle")
                 }
+                .tag(2)
+
+            AppCalendarView()
+                .tabItem {
+                    Label("日历", systemImage: "calendar")
+                }
+                .tag(3)
         }
+        .tint(AppRootView.accentColor)
         .environmentObject(store)
     }
 }

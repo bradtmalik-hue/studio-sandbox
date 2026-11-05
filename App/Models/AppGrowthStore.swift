@@ -1,72 +1,41 @@
 import Foundation
 import Combine
 
-struct AppMonthlySection: Identifiable {
-    let id: String
-    let monthDate: Date
+struct AppMonthSection: Identifiable {
+    let id: Date
+    let month: Date
     let records: [AppGrowthRecord]
+    
+    var title: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy年 M月"
+        return formatter.string(from: month)
+    }
 }
 
-class AppGrowthStore: ObservableObject {
+final class AppGrowthStore: ObservableObject {
     @Published var records: [AppGrowthRecord] = []
     
-    private let fileName = "growthRecords.json"
-    private var fileURL: URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documents.appendingPathComponent(fileName)
-    }
-    
-    private static let monthIDFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        return formatter
-    }()
+    private let fileURL: URL
     
     init() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+        fileURL = docs.appendingPathComponent("growth_records.json")
         load()
-    }
-    
-    // MARK: - Persistence
-    
-    private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            records = []
-            return
-        }
-        do {
-            let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            records = try decoder.decode([AppGrowthRecord].self, from: data)
-            records.sort { $0.date > $1.date }
-        } catch {
-            records = []
-        }
-    }
-    
-    private func save() {
-        do {
-            let encoder = JSONEncoder()
-            let data = try encoder.encode(records)
-            try data.write(to: fileURL)
-        } catch {
-            // Failed to save; keep in-memory data.
-        }
     }
     
     // MARK: - CRUD
     
     func add(_ record: AppGrowthRecord) {
         records.append(record)
-        records.sort { $0.date > $1.date }
+        sortRecords()
         save()
     }
     
     func update(_ record: AppGrowthRecord) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
         records[index] = record
-        records.sort { $0.date > $1.date }
+        sortRecords()
         save()
     }
     
@@ -76,33 +45,73 @@ class AppGrowthStore: ObservableObject {
     }
     
     func delete(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            records.remove(at: index)
-        }
+        records.remove(atOffsets: offsets)
         save()
+    }
+    
+    func record(id: UUID) -> AppGrowthRecord? {
+        records.first { $0.id == id }
+    }
+    
+    // MARK: - Queries
+    
+    func records(for date: Date) -> [AppGrowthRecord] {
+        let calendar = Calendar.current
+        return records.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.date > $1.date }
+    }
+    
+    func records(inMonth month: Date) -> [AppGrowthRecord] {
+        let calendar = Calendar.current
+        let monthComps = calendar.dateComponents([.year, .month], from: month)
+        return records.filter { record in
+            let comps = calendar.dateComponents([.year, .month], from: record.date)
+            return comps.year == monthComps.year && comps.month == monthComps.month
+        }
+        .sorted { $0.date > $1.date }
     }
     
     // MARK: - Grouping
     
-    func monthlySections() -> [AppMonthlySection] {
+    var monthSections: [AppMonthSection] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: records) { record -> Date in
-            calendar.date(from: calendar.dateComponents([.year, .month], from: record.date)) ?? record.date
+            let comps = calendar.dateComponents([.year, .month], from: record.date)
+            return calendar.date(from: comps) ?? record.date
         }
-        let sortedDates = grouped.keys.sorted(by: >)
-        return sortedDates.map { date in
-            let sectionRecords = grouped[date] ?? []
-            return AppMonthlySection(
-                id: Self.monthIDFormatter.string(from: date),
-                monthDate: date,
-                records: sectionRecords.sorted { $0.date > $1.date }
+        return grouped.keys.sorted(by: >).map { month in
+            AppMonthSection(
+                id: month,
+                month: month,
+                records: grouped[month]!.sorted { $0.date > $1.date }
             )
         }
     }
     
-    // MARK: - Helpers
+    // MARK: - Persistence
     
-    var latestRecord: AppGrowthRecord? {
-        records.max(by: { $0.date < $1.date })
+    private func save() {
+        do {
+            let data = try JSONEncoder().encode(records)
+            try data.write(to: fileURL)
+        } catch {
+            // 本地文件写入失败时保持当前内存数据，不打断用户操作。
+        }
+    }
+    
+    private func load() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoded = try JSONDecoder().decode([AppGrowthRecord].self, from: data)
+            records = decoded
+            sortRecords()
+        } catch {
+            records = []
+        }
+    }
+    
+    private func sortRecords() {
+        records.sort { $0.date > $1.date }
     }
 }

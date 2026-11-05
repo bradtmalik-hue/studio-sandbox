@@ -9,30 +9,28 @@
 /* Begin PBXBuildFile section */
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
-		AA0000000000000000000003 /* AppStarRatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppStarRatingView.swift */; };
-		AA0000000000000000000004 /* AppFilmRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppFilmRecord.swift */; };
-		AA0000000000000000000005 /* AppFilmStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppFilmStore.swift */; };
-		AA0000000000000000000006 /* AppQuickLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppQuickLogView.swift */; };
-		AA0000000000000000000007 /* AppFilmListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppFilmListView.swift */; };
-		AA0000000000000000000008 /* AppFilmEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppFilmEditorView.swift */; };
-		AA0000000000000000000009 /* AppStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppStatsView.swift */; };
+		AA0000000000000000000003 /* AppPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppPalette.swift */; };
+		AA0000000000000000000004 /* AppGrowthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppGrowthRecord.swift */; };
+		AA0000000000000000000005 /* AppGrowthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppGrowthStore.swift */; };
+		AA0000000000000000000006 /* AppEntryFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppEntryFormView.swift */; };
+		AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppGrowthChartView.swift */; };
+		AA0000000000000000000008 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppHistoryView.swift */; };
+		AA0000000000000000000009 /* AppCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppCalendarView.swift */; };
 		AA0000000000000000000010 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppRootView.swift */; };
-		AA0000000000000000000011 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* NavigationView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
-		BB0000000000000000000003 /* AppStarRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStarRatingView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppFilmRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilmRecord.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppFilmStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilmStore.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppQuickLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppQuickLogView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppFilmListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilmListView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppFilmEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilmEditorView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatsView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* AppPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPalette.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppGrowthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthRecord.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppGrowthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthStore.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppEntryFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntryFormView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* AppGrowthChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthChartView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCalendarView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000010 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -79,8 +77,8 @@
 		DD0000000000000000000010 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000004 /* AppFilmRecord.swift */,
-				BB0000000000000000000005 /* AppFilmStore.swift */,
+				BB0000000000000000000004 /* AppGrowthRecord.swift */,
+				BB0000000000000000000005 /* AppGrowthStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -88,12 +86,11 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000006 /* AppQuickLogView.swift */,
-				BB0000000000000000000007 /* AppFilmListView.swift */,
-				BB0000000000000000000008 /* AppFilmEditorView.swift */,
-				BB0000000000000000000009 /* AppStatsView.swift */,
+				BB0000000000000000000006 /* AppEntryFormView.swift */,
+				BB0000000000000000000007 /* AppGrowthChartView.swift */,
+				BB0000000000000000000008 /* AppHistoryView.swift */,
+				BB0000000000000000000009 /* AppCalendarView.swift */,
 				BB0000000000000000000010 /* AppRootView.swift */,
-				BB0000000000000000000011 /* NavigationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -102,7 +99,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000002 /* AppTheme.swift */,
-				BB0000000000000000000003 /* AppStarRatingView.swift */,
+				BB0000000000000000000003 /* AppPalette.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -186,15 +183,14 @@
 			files = (
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
-				AA0000000000000000000003 /* AppStarRatingView.swift in Sources */,
-				AA0000000000000000000004 /* AppFilmRecord.swift in Sources */,
-				AA0000000000000000000005 /* AppFilmStore.swift in Sources */,
-				AA0000000000000000000006 /* AppQuickLogView.swift in Sources */,
-				AA0000000000000000000007 /* AppFilmListView.swift in Sources */,
-				AA0000000000000000000008 /* AppFilmEditorView.swift in Sources */,
-				AA0000000000000000000009 /* AppStatsView.swift in Sources */,
+				AA0000000000000000000003 /* AppPalette.swift in Sources */,
+				AA0000000000000000000004 /* AppGrowthRecord.swift in Sources */,
+				AA0000000000000000000005 /* AppGrowthStore.swift in Sources */,
+				AA0000000000000000000006 /* AppEntryFormView.swift in Sources */,
+				AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */,
+				AA0000000000000000000008 /* AppHistoryView.swift in Sources */,
+				AA0000000000000000000009 /* AppCalendarView.swift in Sources */,
 				AA0000000000000000000010 /* AppRootView.swift in Sources */,
-				AA0000000000000000000011 /* NavigationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
