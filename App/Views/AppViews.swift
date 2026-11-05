@@ -80,8 +80,7 @@ struct AppAddRunView: View {
             showingValidationAlert = true
             return
         }
-        let run = AppRun(date: date, distance: distance, duration: TimeInterval(totalSeconds), notes: notes.isEmpty ? nil : notes)
-        store.addRun(run)
+        store.addRun(date: date, distanceKm: distance, durationMinutes: Double(totalSeconds) / 60.0, note: notes)
         distanceText = ""
         durationMinutes = ""
         durationSeconds = ""
@@ -112,7 +111,7 @@ struct AppRunLogView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
-                        ForEach(store.runs.sorted(by: { $0.date > $1.date })) { run in
+                        ForEach(store.runs.sorted(by: { $0.date > $1.date }), id: \.id) { run in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(run.date, style: .date)
@@ -123,9 +122,9 @@ struct AppRunLogView: View {
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 4) {
-                                    Text(String(format: "%.2f 公里", run.distance))
+                                    Text(String(format: "%.2f 公里", run.distanceKm))
                                         .font(.headline)
-                                    Text(formatDuration(run.duration))
+                                    Text(formatDuration(run.durationMinutes * 60))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -147,7 +146,11 @@ struct AppRunLogView: View {
     }
 
     private func deleteRuns(at offsets: IndexSet) {
-        store.deleteRun(at: offsets)
+        let sortedRuns = store.runs.sorted(by: { $0.date > $1.date })
+        let runsToDelete = offsets.map { sortedRuns[$0] }
+        for run in runsToDelete {
+            store.deleteRun(run)
+        }
     }
 
     private func formatDuration(_ interval: TimeInterval) -> String {
@@ -198,12 +201,12 @@ struct AppWeeklyVolumeView: View {
         let weeks = lastEightWeeks()
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 12) {
-                ForEach(weeks) { week in
+                ForEach(weeks, id: \.weekStart) { week in
                     VStack {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(barColor(for: week.totalDistance))
-                            .frame(height: barHeight(for: week.totalDistance, maxValue: maxDistance(in: weeks)))
-                        Text(weekLabel(week.weekStartDate))
+                            .fill(barColor(for: week.volumeKm))
+                            .frame(height: barHeight(for: week.volumeKm, maxValue: maxDistance(in: weeks)))
+                        Text(weekLabel(week.weekStart))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -214,7 +217,7 @@ struct AppWeeklyVolumeView: View {
 
     private var weeklySummary: some View {
         let weeks = lastEightWeeks()
-        let total = weeks.reduce(0) { $0 + $1.totalDistance }
+        let total = weeks.reduce(0.0) { $0 + $1.volumeKm }
         let average = weeks.isEmpty ? 0 : total / Double(weeks.count)
         return HStack(spacing: 20) {
             VStack(alignment: .leading) {
@@ -247,15 +250,16 @@ struct AppWeeklyVolumeView: View {
             if let weekStart = calendar.date(byAdding: .weekOfYear, value: -weekOffset, to: today),
                let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: weekStart)?.start {
                 let endOfWeek = calendar.date(byAdding: .day, value: 6, to: startOfWeek) ?? startOfWeek
-                let distance = store.runs.filter { $0.date >= startOfWeek && $0.date <= endOfWeek }.reduce(0) { $0 + $1.distance }
-                result.append(AppWeeklyVolume(weekStartDate: startOfWeek, totalDistance: distance))
+                let runsForWeek = store.runs.filter { $0.date >= startOfWeek && $0.date <= endOfWeek }
+                let volumeKm = runsForWeek.reduce(0.0) { $0 + $1.distanceKm }
+                result.append(AppWeeklyVolume(weekStart: startOfWeek, volumeKm: volumeKm, runs: runsForWeek))
             }
         }
-        return result.sorted { $0.weekStartDate < $1.weekStartDate }
+        return result.sorted { $0.weekStart < $1.weekStart }
     }
 
     private func maxDistance(in weeks: [AppWeeklyVolume]) -> Double {
-        weeks.map(\.totalDistance).max() ?? 1
+        weeks.map(\.volumeKm).max() ?? 1
     }
 
     private func barHeight(for value: Double, maxValue: Double) -> CGFloat {
