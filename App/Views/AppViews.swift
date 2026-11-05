@@ -246,3 +246,6 @@ struct AppReminderSettingsView: View {
         }
     }
 }
+
+// MARK: - 使 AppModels 适配 ObservableObject
+extension AppModels: ObservableObject {}

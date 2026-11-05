@@ -3,17 +3,16 @@ import SwiftUI
 import Combine
 
 struct AppRootView: View {
-    @State private var store: AppModels
+    @EnvironmentObject private var store: AppModels
     @State private var selectedTab: Int
 
     init() {
-        _store = State(initialValue: AppModels())
         _selectedTab = State(initialValue: AppRootView.initialTab())
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppMedicationListView(medication: store)
+            AppMedicationListView()
                 .tabItem {
                     Label("药箱", systemImage: "pills")
                 }
