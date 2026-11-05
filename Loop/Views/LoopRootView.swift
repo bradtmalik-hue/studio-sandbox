@@ -24,7 +24,7 @@ struct LoopRootView: View {
                 }
                 .tag(1)
 
-            LoopComposeView(moment: store)
+            LoopComposeView()
                 .tabItem {
                     Label("New Moment", systemImage: "plus.circle.fill")
                 }
