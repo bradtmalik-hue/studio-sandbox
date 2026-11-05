@@ -1,7 +1,7 @@
 # App
 
-药品有效期和存放位置，快过期先提醒
+每天记一笔，看清一个月的练琴量
 
 Bundle ID: `com.example.app`
 
-Screens: 药箱列表, 加药, 提醒设置
+Screens: 打卡, 记录, 统计

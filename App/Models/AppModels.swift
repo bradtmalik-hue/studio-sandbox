@@ -1,157 +1,107 @@
 import Foundation
 import Combine
 
-struct AppMedicine: Identifiable, Codable, Equatable {
-    var id: UUID
-    var name: String
-    var storageSpot: String
-    var expiryDate: Date
-    var reminderDays: Int
-    var notes: String
-
-    init(
-        id: UUID = UUID(),
-        name: String = "",
-        storageSpot: String = "",
-        expiryDate: Date = Date(),
-        reminderDays: Int = 14,
-        notes: String = ""
-    ) {
-        self.id = id
-        self.name = name
-        self.storageSpot = storageSpot
-        self.expiryDate = expiryDate
-        self.reminderDays = reminderDays
-        self.notes = notes
-    }
-
-    var daysUntilExpiry: Int {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        let startOfExpiry = calendar.startOfDay(for: expiryDate)
-        return calendar.dateComponents([.day], from: startOfToday, to: startOfExpiry).day ?? 0
-    }
-
-    var isExpired: Bool {
-        daysUntilExpiry < 0
-    }
-
-    var isExpiringSoon: Bool {
-        daysUntilExpiry >= 0 && daysUntilExpiry <= reminderDays
-    }
+struct AppPracticeRecord: Identifiable, Codable {
+    let id: UUID
+    var date: Date
+    var durationMinutes: Double
+    var note: String
 }
 
-struct AppReminderSettings: Codable, Equatable {
-    var defaultReminderDays: Int
-    var expiryRemindersEnabled: Bool
-
-    init(defaultReminderDays: Int = 14, expiryRemindersEnabled: Bool = true) {
-        self.defaultReminderDays = defaultReminderDays
-        self.expiryRemindersEnabled = expiryRemindersEnabled
-    }
-}
-
-final class AppStore: ObservableObject {
-    @Published var medicines: [AppMedicine] = []
-    @Published var reminderSettings: AppReminderSettings = AppReminderSettings()
-
-    private let medicinesFileName = "medicines.json"
-    private let settingsFileName = "reminderSettings.json"
-
-    private var documentsDirectory: URL {
+class AppStore: ObservableObject {
+    @Published var records: [AppPracticeRecord] = []
+    
+    private let fileName = "practice_records.json"
+    private var fileURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(fileName)
     }
-
-    private var medicinesFileURL: URL {
-        documentsDirectory.appendingPathComponent(medicinesFileName)
-    }
-
-    private var settingsFileURL: URL {
-        documentsDirectory.appendingPathComponent(settingsFileName)
-    }
-
+    
     init() {
-        loadMedicines()
-        loadReminderSettings()
+        load()
     }
-
-    func addMedicine(_ medicine: AppMedicine) {
-        medicines.append(medicine)
-        saveMedicines()
-    }
-
-    func updateMedicine(_ medicine: AppMedicine) {
-        guard let index = medicines.firstIndex(where: { $0.id == medicine.id }) else {
-            return
-        }
-        medicines[index] = medicine
-        saveMedicines()
-    }
-
-    func deleteMedicine(_ medicine: AppMedicine) {
-        medicines.removeAll { $0.id == medicine.id }
-        saveMedicines()
-    }
-
-    func deleteMedicines(at offsets: IndexSet) {
-        medicines.remove(atOffsets: offsets)
-        saveMedicines()
-    }
-
-    func updateReminderSettings(_ settings: AppReminderSettings) {
-        reminderSettings = settings
-        saveReminderSettings()
-    }
-
-    func setDefaultReminderDays(_ days: Int) {
-        reminderSettings.defaultReminderDays = days
-        saveReminderSettings()
-    }
-
-    func setExpiryRemindersEnabled(_ enabled: Bool) {
-        reminderSettings.expiryRemindersEnabled = enabled
-        saveReminderSettings()
-    }
-
-    private func loadMedicines() {
-        guard FileManager.default.fileExists(atPath: medicinesFileURL.path) else {
-            return
-        }
+    
+    func load() {
         do {
-            let data = try Data(contentsOf: medicinesFileURL)
-            medicines = try JSONDecoder().decode([AppMedicine].self, from: data)
+            let data = try Data(contentsOf: fileURL)
+            let decoded = try JSONDecoder().decode([AppPracticeRecord].self, from: data)
+            records = decoded
         } catch {
-            medicines = []
+            records = []
         }
     }
-
-    private func saveMedicines() {
+    
+    func save() {
         do {
-            let data = try JSONEncoder().encode(medicines)
-            try data.write(to: medicinesFileURL)
+            let data = try JSONEncoder().encode(records)
+            try data.write(to: fileURL)
         } catch {
-            // 无法保存时忽略，避免崩溃
+            print("保存失败: \(error)")
         }
     }
-
-    private func loadReminderSettings() {
-        guard FileManager.default.fileExists(atPath: settingsFileURL.path) else {
-            return
-        }
-        do {
-            let data = try Data(contentsOf: settingsFileURL)
-            reminderSettings = try JSONDecoder().decode(AppReminderSettings.self, from: data)
-        } catch {
-            reminderSettings = AppReminderSettings()
+    
+    func add(date: Date = Date(), durationMinutes: Double, note: String = "") {
+        let newRecord = AppPracticeRecord(id: UUID(), date: date, durationMinutes: durationMinutes, note: note)
+        records.append(newRecord)
+        save()
+    }
+    
+    func delete(id: UUID) {
+        records.removeAll { $0.id == id }
+        save()
+    }
+    
+    func update(id: UUID, date: Date, durationMinutes: Double, note: String) {
+        if let index = records.firstIndex(where: { $0.id == id }) {
+            records[index] = AppPracticeRecord(id: id, date: date, durationMinutes: durationMinutes, note: note)
+            save()
         }
     }
-
-    private func saveReminderSettings() {
-        do {
-            let data = try JSONEncoder().encode(reminderSettings)
-            try data.write(to: settingsFileURL)
-        } catch {
-            // 无法保存时忽略，避免崩溃
+    
+    // MARK: - 统计
+    
+    func startOfMonth(for date: Date) -> Date {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: date)
+        return calendar.date(from: components) ?? date
+    }
+    
+    func recordsForMonth(containing date: Date) -> [AppPracticeRecord] {
+        let calendar = Calendar.current
+        return records.filter { calendar.isDate($0.date, equalTo: date, toGranularity: .month) }
+    }
+    
+    func totalDuration(for records: [AppPracticeRecord]) -> Double {
+        records.reduce(0) { $0 + $1.durationMinutes }
+    }
+    
+    func totalDurationThisMonth(for date: Date = Date()) -> Double {
+        totalDuration(for: recordsForMonth(containing: date))
+    }
+    
+    func totalDaysThisMonth(for date: Date = Date()) -> Int {
+        let monthRecords = recordsForMonth(containing: date)
+        let calendar = Calendar.current
+        let uniqueDays = Set(monthRecords.map { calendar.startOfDay(for: $0.date) })
+        return uniqueDays.count
+    }
+    
+    func dailySummaries(for records: [AppPracticeRecord]) -> [(date: Date, minutes: Double)] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.date) }
+        let sortedDates = grouped.keys.sorted()
+        return sortedDates.map { date in
+            let total = grouped[date]?.reduce(0) { $0 + $1.durationMinutes } ?? 0
+            return (date, total)
+        }
+    }
+    
+    func monthlySummaries() -> [(month: Date, minutes: Double)] {
+        let grouped = Dictionary(grouping: records) { startOfMonth(for: $0.date) }
+        let sortedMonths = grouped.keys.sorted()
+        return sortedMonths.map { monthStart in
+            let total = grouped[monthStart]?.reduce(0) { $0 + $1.durationMinutes } ?? 0
+            return (monthStart, total)
         }
     }
 }

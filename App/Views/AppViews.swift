@@ -2,218 +2,256 @@ import SwiftUI
 import Combine
 import Foundation
 
-// 药箱列表页面
-struct AppMedicineListView: View {
+struct AppCheckInView: View {
     @EnvironmentObject var store: AppStore
-    @State private var showingAddSheet = false
-    @State private var searchText = ""
-    
-    var body: some View {
-        NavigationStack {
-            Group {
-                if store.medicines.isEmpty {
-                    ContentUnavailableView(
-                        "药箱是空的",
-                        systemImage: "pills",
-                        description: Text("点击右上角 + 添加药品，开始管理有效期和存放位置")
-                    )
-                } else {
-                    List {
-                        ForEach(filteredMedicines) { medicine in
-                            AppMedicineRow(medicine: medicine)
-                        }
-                        .onDelete(perform: deleteMedicines)
-                    }
-                    .searchable(text: $searchText, prompt: "搜索药品名称或位置")
-                }
-            }
-            .navigationTitle("药箱")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("添加药品")
-                }
-            }
-            .sheet(isPresented: $showingAddSheet) {
-                AppAddMedicineView()
-                    .environmentObject(store)
-            }
-        }
-    }
-    
-    private var filteredMedicines: [AppMedicine] {
-        if searchText.isEmpty {
-            return sortedMedicines
-        } else {
-            return sortedMedicines.filter {
-                $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.storageSpot.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-    }
-    
-    private var sortedMedicines: [AppMedicine] {
-        store.medicines.sorted { $0.expiryDate < $1.expiryDate }
-    }
-    
-    private func deleteMedicines(at offsets: IndexSet) {
-        let idsToDelete = offsets.map { filteredMedicines[$0].id }
-        store.medicines.removeAll { idsToDelete.contains($0.id) }
-    }
-}
+    @State private var practiceDate = Date()
+    @State private var duration: Double = 30
+    @State private var note: String = ""
 
-// 药品行视图
-struct AppMedicineRow: View {
-    let medicine: AppMedicine
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(medicine.name)
-                    .font(.headline)
-                Spacer()
-                Text(medicine.expiryDate, format: .dateTime.year().month().day())
-                    .font(.subheadline)
-                    .foregroundStyle(expiryColor)
-            }
-            HStack {
-                Label(medicine.storageSpot, systemImage: "location")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if isExpiringSoon {
-                    Text("快过期")
-                        .font(.caption2)
-                        .padding(4)
-                        .background(Color.orange.opacity(0.2), in: Capsule())
-                        .foregroundStyle(.orange)
-                }
-            }
-        }
-        .padding(.vertical, 2)
-    }
-    
-    private var isExpiringSoon: Bool {
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: medicine.expiryDate).day ?? 0
-        return days >= 0 && days <= 30
-    }
-    
-    private var expiryColor: Color {
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: medicine.expiryDate).day ?? 0
-        if days < 0 { return .red }
-        if days <= 30 { return .orange }
-        return .primary
-    }
-}
-
-// 加药页面
-struct AppAddMedicineView: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var name = ""
-    @State private var expiryDate = Date()
-    @State private var storageSpot = ""
-    @State private var notes = ""
-    @State private var reminderDaysBefore: Int = 7
-    
-    private let reminderOptions = [0, 3, 7, 14, 30]
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("药品信息") {
-                    TextField("药品名称", text: $name)
-                    DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
-                    TextField("存放位置", text: $storageSpot)
-                }
-                
-                Section("备注") {
-                    TextField("备注（可选）", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-                
-                Section("提醒") {
-                    Picker("提前提醒", selection: $reminderDaysBefore) {
-                        ForEach(reminderOptions, id: \.self) { days in
-                            if days == 0 {
-                                Text("不提醒").tag(days)
-                            } else {
-                                Text("提前 \(days) 天").tag(days)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("添加药品")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        addMedicine()
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-    }
-    
-    private func addMedicine() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let trimmedLocation = storageSpot.trimmingCharacters(in: .whitespaces)
-        let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
-        let medicine = AppMedicine(
-            name: trimmedName,
-            storageSpot: trimmedLocation.isEmpty ? "未指定" : trimmedLocation,
-            expiryDate: expiryDate,
-            reminderDays: reminderDaysBefore,
-            notes: trimmedNotes
-        )
-        store.medicines.append(medicine)
-        dismiss()
-    }
-}
-
-// 提醒设置页面
-struct AppReminderSettingsView: View {
-    @EnvironmentObject var store: AppStore
-    
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("启用过期提醒", isOn: $store.reminderSettings.expiryRemindersEnabled)
-                    if store.reminderSettings.expiryRemindersEnabled {
-                        Picker("默认提前天数", selection: $store.reminderSettings.defaultReminderDays) {
-                            ForEach([3, 7, 14, 30], id: \.self) { days in
-                                Text("提前 \(days) 天").tag(days)
-                            }
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("每天记录练琴时长")
+                            .font(.headline)
+                        Text("坚持打卡，一个月后你会看到进步")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-                } header: {
-                    Text("提醒")
-                } footer: {
-                    Text("当药品接近有效期时，App 会提醒你。需要系统通知权限才能接收提醒。")
+                    .padding(.vertical, 4)
                 }
-                
-                Section("关于") {
-                    LabeledContent("应用名称", value: "Home MedBox")
-                    LabeledContent("版本", value: "1.0")
+
+                Section("练习日期") {
+                    DatePicker("日期", selection: $practiceDate, displayedComponents: .date)
+                }
+
+                Section("练习时长") {
+                    Stepper("\(Int(duration)) 分钟", value: $duration, in: 1...300, step: 5)
+                    Slider(value: $duration, in: 1...300, step: 5) {
+                        Text("时长")
+                    } minimumValueLabel: {
+                        Text("1")
+                    } maximumValueLabel: {
+                        Text("300")
+                    }
+                }
+
+                Section("备注") {
+                    TextField("例如：哈农、音阶、练习曲", text: $note)
+                }
+
+                Section {
+                    Button {
+                        let record = AppPracticeRecord(
+                            date: practiceDate,
+                            duration: duration,
+                            note: note
+                        )
+                        store.add(record)
+                        note = ""
+                        duration = 30
+                    } label: {
+                        Text("保存打卡")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
-            .navigationTitle("提醒设置")
+            .navigationTitle("打卡")
         }
     }
 }
 
-#Preview {
-    AppMedicineListView()
-        .environmentObject(AppStore())
+struct AppRecordsView: View {
+    @EnvironmentObject var store: AppStore
+    @State private var selectedMonth = Date()
+
+    private var filteredRecords: [AppPracticeRecord] {
+        store.records.filter { record in
+            Calendar.current.isDate(record.date, equalTo: selectedMonth, toGranularity: .month)
+        }
+        .sorted { $0.date > $1.date }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                Picker("月份", selection: $selectedMonth) {
+                    ForEach(-12..<1, id: \.self) { offset in
+                        let month = Calendar.current.date(byAdding: .month, value: offset, to: Date())!
+                        Text(month, format: .dateTime.year().month())
+                            .tag(month)
+                    }
+                }
+                .pickerStyle(.menu)
+                .padding()
+
+                if filteredRecords.isEmpty {
+                    ContentUnavailableView(
+                        "这个月还没有打卡记录",
+                        systemImage: "calendar.badge.exclamationmark",
+                        description: Text("去打卡页面记录你的第一次练习吧")
+                    )
+                } else {
+                    List {
+                        ForEach(filteredRecords) { record in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(record.date, format: .dateTime.month().day().weekday())
+                                        .font(.headline)
+                                    if !record.note.isEmpty {
+                                        Text(record.note)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("\(Int(record.duration)) 分钟")
+                                    .font(.subheadline)
+                                    .monospacedDigit()
+                            }
+                        }
+                        .onDelete { offsets in
+                            let recordsToDelete = offsets.map { filteredRecords[$0] }
+                            for record in recordsToDelete {
+                                if let index = store.records.firstIndex(where: { $0.id == record.id }) {
+                                    store.records.remove(at: index)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("记录")
+        }
+    }
+}
+
+struct AppStatisticsView: View {
+    @EnvironmentObject var store: AppStore
+    @State private var selectedMonth = Date()
+
+    private var monthRecords: [AppPracticeRecord] {
+        store.records.filter { record in
+            Calendar.current.isDate(record.date, equalTo: selectedMonth, toGranularity: .month)
+        }
+    }
+
+    private var totalDuration: Double {
+        monthRecords.reduce(0) { $0 + $1.duration }
+    }
+
+    private var totalCount: Int {
+        monthRecords.count
+    }
+
+    private var averageDuration: Double {
+        guard totalCount > 0 else { return 0 }
+        return totalDuration / Double(totalCount)
+    }
+
+    private var daysInMonth: [Date] {
+        let calendar = Calendar.current
+        let interval = calendar.dateInterval(of: .month, for: selectedMonth)!
+        let days = calendar.dateComponents([.day], from: interval.start, to: interval.end).day!
+        return (0..<days).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
+    }
+
+    private func durationForDay(_ day: Date) -> Double {
+        let calendar = Calendar.current
+        return monthRecords
+            .filter { calendar.isDate($0.date, inSameDayAs: day) }
+            .reduce(0) { $0 + $1.duration }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Picker("月份", selection: $selectedMonth) {
+                        ForEach(-12..<1, id: \.self) { offset in
+                            let month = Calendar.current.date(byAdding: .month, value: offset, to: Date())!
+                            Text(month, format: .dateTime.year().month())
+                                .tag(month)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .padding()
+
+                    if monthRecords.isEmpty {
+                        ContentUnavailableView(
+                            "这个月还没有练琴记录",
+                            systemImage: "chart.bar.xaxis",
+                            description: Text("开始打卡后，这里会展示你的进步")
+                        )
+                    } else {
+                        HStack(spacing: 16) {
+                            AppStatCard(title: "总时长", value: "\(Int(totalDuration)) 分钟", systemImage: "clock")
+                            AppStatCard(title: "打卡次数", value: "\(totalCount) 次", systemImage: "checkmark.circle")
+                            AppStatCard(title: "平均时长", value: "\(Int(averageDuration)) 分钟", systemImage: "chart.bar")
+                        }
+                        .padding(.horizontal)
+
+                        VStack(alignment: .leading) {
+                            Text("每日练习时长")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(alignment: .bottom, spacing: 4) {
+                                    ForEach(daysInMonth, id: \.self) { day in
+                                        let duration = durationForDay(day)
+                                        VStack {
+                                            Text("\(Int(duration))")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Capsule()
+                                                .fill(duration > 0 ? Color.accentColor : Color.gray.opacity(0.3))
+                                                .frame(width: 10, height: min(max(4, CGFloat(duration) * 0.8), 120))
+                                            Text(day, format: .dateTime.day())
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                            .frame(height: 180)
+                        }
+                        .padding(.vertical)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.vertical)
+            }
+            .navigationTitle("统计")
+        }
+    }
+}
+
+struct AppStatCard: View {
+    let title: String
+    let value: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(.tint)
+            Text(value)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
 }
