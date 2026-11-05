@@ -1,7 +1,7 @@
 # App
 
-药品有效期和存放位置，一盒不漏
+随手记下孩子的身高体重，曲线自己长出来
 
 Bundle ID: `com.example.app`
 
-Screens: 药品列表, 添加一盒药, 临期提醒
+Screens: 记一笔, 成长曲线, 历史记录
