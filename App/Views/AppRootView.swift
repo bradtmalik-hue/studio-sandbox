@@ -1,35 +1,32 @@
 import SwiftUI
-import Foundation
+import Combine
 
 struct AppRootView: View {
     @StateObject private var store = AppStore()
-    @State private var selectedTab: Int
-
-    init() {
-        _selectedTab = State(initialValue: Self.initialTab())
-    }
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppCheckInView()
+            TodayView()
                 .tabItem {
-                    Label("打卡", systemImage: "checkmark.circle.fill")
+                    Label("今天", systemImage: "sun.max.fill")
                 }
                 .tag(0)
 
-            AppRecordsView()
+            CalendarView()
                 .tabItem {
-                    Label("记录", systemImage: "list.bullet.rectangle.fill")
+                    Label("日历", systemImage: "calendar")
                 }
                 .tag(1)
 
-            AppStatisticsView()
+            SettingsView()
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.xaxis")
+                    Label("设置", systemImage: "gearshape.fill")
                 }
                 .tag(2)
         }
         .environmentObject(store)
+        .tint(.orange)
     }
 
     private static func initialTab() -> Int {
