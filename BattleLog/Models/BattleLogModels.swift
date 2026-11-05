@@ -7,7 +7,6 @@ enum BattleResult: String, Codable, CaseIterable, Identifiable {
     case draw = "平局"
     
     var id: String { rawValue }
-    var displayName: String { rawValue }
 }
 
 struct BattleRecord: Identifiable, Codable, Hashable {
