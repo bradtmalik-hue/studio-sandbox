@@ -1,37 +1,40 @@
+import Foundation
 import SwiftUI
 
 struct AppRootView: View {
-    private enum AppRootTab: Hashable {
-        case entry
-        case chart
-        case history
+    @StateObject private var store: AppDataStore
+
+    init() {
+        let store = AppDataStore()
+        if !UserDefaults.standard.bool(forKey: "AppDidLoadSampleData") {
+            store.vehicleProfile = AppSampleData.vehicleProfile
+            store.fuelRecords = AppSampleData.fuelRecords
+            store.maintenanceRecords = AppSampleData.maintenanceRecords
+            store.save()
+            UserDefaults.standard.set(true, forKey: "AppDidLoadSampleData")
+        }
+        _store = StateObject(wrappedValue: store)
     }
 
-    @StateObject private var store = AppGrowthStore()
-    @State private var selection: AppRootTab = .entry
-
     var body: some View {
-        TabView(selection: $selection) {
-            AppEntryView()
+        TabView {
+            AppRecordEntryView()
                 .tabItem {
                     Label("记一笔", systemImage: "plus.circle.fill")
                 }
-                .tag(AppRootTab.entry)
-
-            AppGrowthChartView()
-                .tabItem {
-                    Label("成长曲线", systemImage: "chart.xyaxis.line")
-                }
-                .tag(AppRootTab.chart)
+                .environmentObject(store)
 
             AppHistoryView()
                 .tabItem {
-                    Label("历史记录", systemImage: "list.bullet.rectangle")
+                    Label("历史", systemImage: "clock.arrow.circlepath")
                 }
-                .tag(AppRootTab.history)
+                .environmentObject(store)
+
+            AppStatisticsView()
+                .tabItem {
+                    Label("统计", systemImage: "chart.bar.xaxis")
+                }
+                .environmentObject(store)
         }
-        .environmentObject(store)
-        .tint(.blue)
-        .preferredColorScheme(.light)
     }
 }

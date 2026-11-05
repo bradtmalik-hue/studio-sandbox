@@ -1,93 +1,159 @@
 import SwiftUI
+import Combine
+import Foundation
 
 struct AppHistoryView: View {
-    @EnvironmentObject private var store: AppGrowthStore
-    @State private var selectedRecord: AppGrowthRecord?
+    @EnvironmentObject private var store: AppDataStore
+    @State private var filter: AppHistoryFilter = .all
 
-    private var sections: [(monthKey: String, monthTitle: String, records: [AppGrowthRecord])] {
-        let grouped = Dictionary(grouping: store.records) { record -> String in
-            let components = Calendar.current.dateComponents([.year, .month], from: record.date)
-            return String(format: "%04d-%02d", components.year ?? 0, components.month ?? 0)
+    private enum AppHistoryFilter: String, CaseIterable {
+        case all = "全部"
+        case fuel = "加油"
+        case maintenance = "保养"
+    }
+
+    private enum AppHistoryEntry: Identifiable {
+        case fuel(AppFuelRecord)
+        case maintenance(AppMaintenanceRecord)
+
+        var id: UUID {
+            switch self {
+            case .fuel(let record):
+                return record.id
+            case .maintenance(let record):
+                return record.id
+            }
         }
-        let sortedKeys = grouped.keys.sorted(by: >)
-        return sortedKeys.map { key in
-            let records = (grouped[key] ?? []).sorted { $0.date > $1.date }
-            let monthTitle = Self.monthTitle(for: key)
-            return (key, monthTitle, records)
+
+        var date: Date {
+            switch self {
+            case .fuel(let record):
+                return record.date
+            case .maintenance(let record):
+                return record.date
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .fuel:
+                return "加油"
+            case .maintenance:
+                return "保养"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .fuel(let record):
+                return String(format: "%.2f 升 · %.2f 元/升", record.liters, record.pricePerLiter)
+            case .maintenance(let record):
+                return record.itemName
+            }
+        }
+
+        var odometerText: String {
+            switch self {
+            case .fuel(let record):
+                return String(format: "%.0f km", record.odometer)
+            case .maintenance(let record):
+                return String(format: "%.0f km", record.mileage)
+            }
+        }
+
+        var amountText: String {
+            switch self {
+            case .fuel(let record):
+                return String(format: "%.2f 元", record.cost)
+            case .maintenance(let record):
+                return String(format: "%.2f 元", record.amount)
+            }
+        }
+    }
+
+    private struct AppMonthSection: Identifiable {
+        let id: Date
+        let title: String
+        let entries: [AppHistoryEntry]
+    }
+
+    private var entries: [AppHistoryEntry] {
+        let fuelEntries = store.fuelRecords.map { AppHistoryEntry.fuel($0) }
+        let maintenanceEntries = store.maintenanceRecords.map { AppHistoryEntry.maintenance($0) }
+
+        switch filter {
+        case .all:
+            return (fuelEntries + maintenanceEntries).sorted { $0.date > $1.date }
+        case .fuel:
+            return fuelEntries.sorted { $0.date > $1.date }
+        case .maintenance:
+            return maintenanceEntries.sorted { $0.date > $1.date }
+        }
+    }
+
+    private var groupedEntries: [AppMonthSection] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: entries) { entry -> Date in
+            calendar.date(from: calendar.dateComponents([.year, .month], from: entry.date))!
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy年M月"
+
+        return grouped.keys.sorted(by: >).map { monthStart in
+            let items = (grouped[monthStart] ?? []).sorted { $0.date > $1.date }
+            return AppMonthSection(
+                id: monthStart,
+                title: formatter.string(from: monthStart),
+                entries: items
+            )
         }
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if store.records.isEmpty {
-                    ContentUnavailableView(
-                        "还没有成长记录",
-                        systemImage: "chart.line.uptrend.xyaxis",
-                        description: Text("点击下方\"记一笔\"，添加孩子的身高体重数据")
-                    )
-                } else {
-                    List {
-                        ForEach(sections, id: \.monthKey) { section in
-                            Section(header: Text(section.monthTitle)) {
-                                ForEach(section.records) { record in
-                                    Button {
-                                        selectedRecord = record
-                                    } label: {
-                                        AppHistoryRecordRow(record: record)
+        VStack(spacing: 0) {
+            Picker("筛选", selection: $filter) {
+                ForEach(AppHistoryFilter.allCases, id: \.self) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+
+            if groupedEntries.isEmpty {
+                Spacer()
+                Text("暂无记录")
+                    .foregroundColor(.secondary)
+                Spacer()
+            } else {
+                List {
+                    ForEach(groupedEntries) { section in
+                        Section(header: Text(section.title)) {
+                            ForEach(section.entries) { entry in
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(entry.title)
+                                            .font(.headline)
+                                        Text(entry.subtitle)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                        Text(entry.odometerText)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
-                                    .buttonStyle(.plain)
+                                    Spacer()
+                                    Text(entry.amountText)
+                                        .font(.headline)
                                 }
+                                .padding(.vertical, 2)
                             }
                         }
                     }
-                    .listStyle(.insetGrouped)
                 }
-            }
-            .navigationTitle("历史记录")
-            .sheet(item: $selectedRecord) { record in
-                AppEditRecordView(record: record)
+                .listStyle(InsetGroupedListStyle())
             }
         }
-    }
-
-    private static func monthTitle(for monthKey: String) -> String {
-        let components = monthKey.split(separator: "-").compactMap { Int($0) }
-        guard components.count == 2, let year = components.first, let month = components.last else {
-            return monthKey
-        }
-        var dateComponents = DateComponents()
-        dateComponents.year = year
-        dateComponents.month = month
-        if let date = Calendar.current.date(from: dateComponents) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy年M月"
-            return formatter.string(from: date)
-        }
-        return monthKey
-    }
-}
-
-struct AppHistoryRecordRow: View {
-    let record: AppGrowthRecord
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(record.date, style: .date)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text("身高 \(record.heightCm, specifier: "%.1f") cm")
-                    .font(.headline)
-                Text("体重 \(record.weightKg, specifier: "%.2f") kg")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding(.vertical, 4)
+        .navigationTitle("历史记录")
     }
 }
