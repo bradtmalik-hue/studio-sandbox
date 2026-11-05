@@ -72,12 +72,6 @@ struct AppRecordEntryView: View {
         .navigationViewStyle(StackNavigationViewStyle())
     }
 
-    private var monthKey: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        return formatter.string(from: date)
-    }
-
     private var isValid: Bool {
         switch recordType {
         case .fuel:
@@ -95,8 +89,7 @@ struct AppRecordEntryView: View {
                 date: date,
                 odometer: Double(odometer) ?? 0,
                 cost: Double(cost) ?? 0,
-                liters: Double(liters) ?? 0,
-                pricePerLiter: Double(pricePerLiter) ?? 0
+                liters: Double(liters) ?? 0
             )
             store.fuelRecords.append(record)
         case .maintenance:
@@ -105,8 +98,7 @@ struct AppRecordEntryView: View {
                 date: date,
                 mileage: Double(mileage) ?? 0,
                 amount: Double(amount) ?? 0,
-                itemName: itemName,
-                monthKey: monthKey
+                itemName: itemName
             )
             store.maintenanceRecords.append(record)
         }
