@@ -8,8 +8,8 @@ workflows:
       - name: Compile
         script: |
           xcodebuild \
-            -project "App.xcodeproj" \
-            -scheme "App" \
+            -project "Loop.xcodeproj" \
+            -scheme "Loop" \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -24,14 +24,14 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: com.example.app
+        BUNDLE_ID: com.example.loop
     scripts:
       - name: Build for simulator
         script: |
           set -e
           xcodebuild \
-            -project "App.xcodeproj" \
-            -scheme "App" \
+            -project "Loop.xcodeproj" \
+            -scheme "Loop" \
             -sdk iphonesimulator \
             -configuration Release \
             -derivedDataPath build \
@@ -48,12 +48,12 @@ workflows:
           DEV=$(xcrun simctl create Capture "$DT" "$RT")
           xcrun simctl boot "$DEV" || true
           xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/App.app"
+          APP="build/Build/Products/Release-iphonesimulator/Loop.app"
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
           N=1
-          for T in 0 1 2 3; do
+          for T in 0 1 2; do
             xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
             xcrun simctl launch "$DEV" "$BUNDLE_ID" -startTab "$T" || true
             sleep 4
