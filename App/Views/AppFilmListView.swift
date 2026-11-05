@@ -9,7 +9,7 @@ struct AppFilmListView: View {
 
     private var groupedRecords: [(month: Date, records: [AppFilmRecord])] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: store.records) { record -> Date in
+        let grouped = Dictionary(grouping: store.films) { record -> Date in
             let components = calendar.dateComponents([.year, .month], from: record.watchDate)
             return calendar.date(from: components) ?? record.watchDate
         }
@@ -19,9 +19,9 @@ struct AppFilmListView: View {
     }
 
     var body: some View {
-        NavigationView {
+        SwiftUI.NavigationView {
             Group {
-                if store.records.isEmpty {
+                if store.films.isEmpty {
                     emptyView
                 } else {
                     listView
@@ -75,7 +75,7 @@ struct AppFilmListView: View {
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     AppStarRatingView()
-                    Text(String(format: "%.1f", record.starRating))
+                    Text(String(format: "%.1f", record.rating))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -104,7 +104,7 @@ struct AppFilmListView: View {
     }
 
     private func pickRandom() {
-        guard let random = store.records.randomElement() else {
+        guard let random = store.films.randomElement() else {
             randomTitle = "暂无记录"
             showRandomAlert = true
             return

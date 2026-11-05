@@ -1,23 +1,24 @@
 import SwiftUI
+import Combine
 
 struct AppRootView: View {
-    @StateObject private var store = AppGrowthStore()
+    @StateObject private var store = AppFilmStore()
 
     var body: some View {
         TabView {
-            AppRecordEntryView()
+            AppQuickLogView()
                 .tabItem {
-                    Label("记一笔", systemImage: "plus.circle.fill")
+                    Label("记一部", systemImage: "plus.circle.fill")
                 }
 
-            GrowthChartView()
+            AppFilmListView()
                 .tabItem {
-                    Label("成长曲线", systemImage: "chart.xyaxis.line")
+                    Label("观影列表", systemImage: "list.bullet.rectangle")
                 }
 
-            AppHistoryView()
+            AppStatsView()
                 .tabItem {
-                    Label("历史记录", systemImage: "clock.fill")
+                    Label("统计", systemImage: "chart.bar.fill")
                 }
         }
         .environmentObject(store)

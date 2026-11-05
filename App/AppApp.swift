@@ -5,7 +5,7 @@ struct AppApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView()
-                .tint(Color.accentColor)
+                .tint(AppTheme.accent)
         }
     }
 }
