@@ -1,202 +1,201 @@
 import Foundation
+import SwiftUI
 import Combine
 
-struct AppMedicineItem: Identifiable, Codable, Hashable {
-    var id: UUID = UUID()
-    var name: String
-    var category: String
-    var storageLocation: String
-    var expiryDate: Date
-    var quantity: Int = 1
-    var note: String = ""
-    var createdAt: Date = Date()
+struct AppFilmEntry: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var director: String
+    var genre: String
+    var watchedDate: Date
+    var rating: Int // 0...5, 0 means unrated
+    var notes: String
+    var createdAt: Date
+
+    init(id: UUID = UUID(), title: String, director: String = "", genre: String = "", watchedDate: Date = Date(), rating: Int = 0, notes: String = "", createdAt: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.director = director
+        self.genre = genre
+        self.watchedDate = watchedDate
+        self.rating = rating
+        self.notes = notes
+        self.createdAt = createdAt
+    }
 }
 
-final class AppMedicineStore: ObservableObject {
-    @Published private(set) var items: [AppMedicineItem] = []
+class AppStore: ObservableObject {
+    @Published var entries: [AppFilmEntry] = []
 
-    private static let documentsDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    private static let defaultFileURL: URL = documentsDirectory.appendingPathComponent("home_medbox_items.json")
+    private let fileName = "filmEntries.json"
+    private var fileURL: URL {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return dir.appendingPathComponent(fileName)
+    }
 
-    private let fileURL: URL
-    private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
-
-    init(fileURL: URL = AppMedicineStore.defaultFileURL) {
-        self.fileURL = fileURL
-        self.encoder = JSONEncoder()
-        self.encoder.dateEncodingStrategy = .iso8601
-        self.decoder = JSONDecoder()
-        self.decoder.dateDecodingStrategy = .iso8601
+    init() {
         load()
     }
 
-    var sortedByExpiry: [AppMedicineItem] {
-        items.sorted { $0.expiryDate < $1.expiryDate }
-    }
-
-    var expiredItems: [AppMedicineItem] {
-        sortedByExpiry.filter { $0.expiryDate < Date() }
-    }
-
-    var expiringSoonItems: [AppMedicineItem] {
-        let now = Date()
-        let upcoming = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
-        return sortedByExpiry.filter { $0.expiryDate >= now && $0.expiryDate < upcoming }
-    }
-
-    var activeItems: [AppMedicineItem] {
-        sortedByExpiry.filter { $0.expiryDate >= Date() }
-    }
-
-    func item(with id: UUID) -> AppMedicineItem? {
-        items.first { $0.id == id }
-    }
-
-    func add(_ item: AppMedicineItem) {
-        items.append(item)
+    func add(_ entry: AppFilmEntry) {
+        entries.append(entry)
         save()
     }
 
-    func update(_ item: AppMedicineItem) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index] = item
-        save()
+    func update(_ entry: AppFilmEntry) {
+        if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+            entries[index] = entry
+            save()
+        }
     }
 
-    func delete(_ item: AppMedicineItem) {
-        items.removeAll { $0.id == item.id }
+    func delete(_ entry: AppFilmEntry) {
+        entries.removeAll { $0.id == entry.id }
         save()
     }
 
     func delete(at offsets: IndexSet) {
-        items.remove(atOffsets: offsets)
+        entries.remove(atOffsets: offsets)
         save()
     }
 
-    func move(from source: IndexSet, to destination: Int) {
-        items.move(fromOffsets: source, toOffset: destination)
-        save()
-    }
-
-    func filteredItems(searchText: String) -> [AppMedicineItem] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return sortedByExpiry }
-        return sortedByExpiry.filter {
-            $0.name.localizedCaseInsensitiveContains(trimmed) ||
-            $0.category.localizedCaseInsensitiveContains(trimmed) ||
-            $0.storageLocation.localizedCaseInsensitiveContains(trimmed) ||
-            $0.note.localizedCaseInsensitiveContains(trimmed)
-        }
-    }
-
-    private func load() {
+    func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        if let data = try? Data(contentsOf: fileURL),
-           let decoded = try? decoder.decode([AppMedicineItem].self, from: data) {
-            items = decoded
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            entries = try decoder.decode([AppFilmEntry].self, from: data)
+        } catch {
+            // If load fails, keep empty array
+            entries = []
         }
     }
 
-    private func save() {
-        guard let data = try? encoder.encode(items) else { return }
-        try? data.write(to: fileURL)
+    func save() {
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(entries)
+            try data.write(to: fileURL)
+        } catch {
+            // Save failed, log or ignore
+            print("Failed to save film entries: \(error)")
+        }
     }
 }
 
 enum DemoSeed {
     static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
-        let store = AppMedicineStore()
-        guard store.items.isEmpty else { return }
+        let store = AppStore()
+        guard store.entries.isEmpty else { return }
+        store.entries = sampleEntries()
+        store.save()
+    }
 
-        func makeDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
-            Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
+    private static func sampleEntries() -> [AppFilmEntry] {
+        let calendar = Calendar.current
+        func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
+            calendar.date(from: DateComponents(year: year, month: month, day: day))!
         }
-
-        let samples: [AppMedicineItem] = [
-            AppMedicineItem(
-                name: "布洛芬缓释胶囊",
-                category: "解热镇痛",
-                storageLocation: "客厅电视柜左侧药箱",
-                expiryDate: makeDate(2025, 8, 15),
-                quantity: 2,
-                note: "饭后服用"
+        return [
+            AppFilmEntry(
+                title: "肖申克的救赎",
+                director: "弗兰克·德拉邦特",
+                genre: "剧情",
+                watchedDate: date(2024, 1, 12),
+                rating: 5,
+                notes: "希望是美好的，也许是人间至善，而美好的事物永不消逝。"
             ),
-            AppMedicineItem(
-                name: "阿莫西林胶囊",
-                category: "抗生素",
-                storageLocation: "主卧床头柜第二层",
-                expiryDate: makeDate(2025, 6, 30),
-                quantity: 1,
-                note: "注意过敏"
+            AppFilmEntry(
+                title: "霸王别姬",
+                director: "陈凯歌",
+                genre: "剧情 / 爱情",
+                watchedDate: date(2024, 2, 3),
+                rating: 5,
+                notes: "不疯魔不成活。"
             ),
-            AppMedicineItem(
-                name: "氯雷他定片",
-                category: "抗过敏",
-                storageLocation: "厨房冰箱门上药盒",
-                expiryDate: makeDate(2025, 11, 1),
-                quantity: 1,
-                note: "每日一次"
+            AppFilmEntry(
+                title: "阿甘正传",
+                director: "罗伯特·泽米吉斯",
+                genre: "剧情 / 爱情",
+                watchedDate: date(2024, 3, 17),
+                rating: 4,
+                notes: "人生就像一盒巧克力，你永远不知道下一颗是什么味道。"
             ),
-            AppMedicineItem(
-                name: "维生素D滴剂",
-                category: "维生素",
-                storageLocation: "儿童房抽屉药盒",
-                expiryDate: makeDate(2026, 1, 10),
-                quantity: 1,
-                note: "睡前滴"
+            AppFilmEntry(
+                title: "这个杀手不太冷",
+                director: "吕克·贝松",
+                genre: "剧情 / 动作",
+                watchedDate: date(2024, 4, 9),
+                rating: 5,
+                notes: "里昂和玛蒂尔达，一段奇妙的相遇。"
             ),
-            AppMedicineItem(
-                name: "云南白药气雾剂",
-                category: "外用药",
-                storageLocation: "卫生间镜柜上格",
-                expiryDate: makeDate(2025, 9, 12),
-                quantity: 1,
-                note: "跌打损伤"
+            AppFilmEntry(
+                title: "泰坦尼克号",
+                director: "詹姆斯·卡梅隆",
+                genre: "爱情 / 灾难",
+                watchedDate: date(2024, 5, 21),
+                rating: 4,
+                notes: "You jump, I jump."
             ),
-            AppMedicineItem(
-                name: "碘伏消毒液",
-                category: "外用药",
-                storageLocation: "卫生间镜柜下格",
-                expiryDate: makeDate(2025, 10, 30),
-                quantity: 1,
-                note: "开封后密封保存"
+            AppFilmEntry(
+                title: "千与千寻",
+                director: "宫崎骏",
+                genre: "动画 / 奇幻",
+                watchedDate: date(2024, 6, 14),
+                rating: 5,
+                notes: "不要忘记自己的名字。"
             ),
-            AppMedicineItem(
-                name: "感冒灵颗粒",
-                category: "感冒用药",
-                storageLocation: "客厅电视柜右侧抽屉",
-                expiryDate: makeDate(2025, 7, 20),
-                quantity: 3,
-                note: "每次一袋"
+            AppFilmEntry(
+                title: "美丽人生",
+                director: "罗伯托·贝尼尼",
+                genre: "剧情 / 战争",
+                watchedDate: date(2024, 7, 8),
+                rating: 5,
+                notes: "父爱如山，用乐观面对苦难。"
             ),
-            AppMedicineItem(
-                name: "蒙脱石散",
-                category: "止泻药",
-                storageLocation: "厨房吊柜左侧",
-                expiryDate: makeDate(2025, 9, 25),
-                quantity: 2,
-                note: "空腹服用"
+            AppFilmEntry(
+                title: "盗梦空间",
+                director: "克里斯托弗·诺兰",
+                genre: "科幻 / 悬疑",
+                watchedDate: date(2024, 8, 25),
+                rating: 5,
+                notes: "陀螺是否还在旋转？"
             ),
-            AppMedicineItem(
-                name: "硝酸甘油片",
-                category: "急救用药",
-                storageLocation: "妈妈随身包夹层",
-                expiryDate: makeDate(2026, 3, 5),
-                quantity: 1,
-                note: "避光保存"
+            AppFilmEntry(
+                title: "星际穿越",
+                director: "克里斯托弗·诺兰",
+                genre: "科幻 / 冒险",
+                watchedDate: date(2024, 9, 11),
+                rating: 5,
+                notes: "爱是唯一可以穿越时间和空间的力量。"
             ),
-            AppMedicineItem(
-                name: "对乙酰氨基酚片",
-                category: "解热镇痛",
-                storageLocation: "书房书桌左下抽屉",
-                expiryDate: makeDate(2025, 12, 15),
-                quantity: 1,
-                note: "体温38.5℃以上使用"
+            AppFilmEntry(
+                title: "楚门的世界",
+                director: "彼得·威尔",
+                genre: "剧情 / 科幻",
+                watchedDate: date(2024, 10, 30),
+                rating: 4,
+                notes: "如果再也见不到你，祝你早安、午安、晚安。"
+            ),
+            AppFilmEntry(
+                title: "放牛班的春天",
+                director: "克里斯托夫·巴拉蒂",
+                genre: "剧情 / 音乐",
+                watchedDate: date(2024, 11, 18),
+                rating: 5,
+                notes: "音乐能打开心灵。"
+            ),
+            AppFilmEntry(
+                title: "当幸福来敲门",
+                director: "加布里尔·穆奇诺",
+                genre: "剧情 / 传记",
+                watchedDate: date(2024, 12, 24),
+                rating: 4,
+                notes: "如果你有梦想，就要守护它。"
             )
         ]
-
-        samples.forEach { store.add($0) }
     }
 }

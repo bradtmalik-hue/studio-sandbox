@@ -1,47 +1,51 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppMedicineStore()
+    @StateObject private var store: AppStore
     @State private var selectedTab: Int
 
     init() {
-        _selectedTab = State(initialValue: Self.initialTab())
-    }
+        DemoSeed.apply()
+        _store = StateObject(wrappedValue: AppStore())
 
-    private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
-            return min(max(v, 0), 2)
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-startTab"),
+           index + 1 < arguments.count,
+           let value = Int(arguments[index + 1]) {
+            _selectedTab = State(initialValue: value)
+        } else {
+            _selectedTab = State(initialValue: 0)
         }
-        return 0
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                AppHomeView()
+                AppFilmListView()
             }
             .tabItem {
-                Label("首页", systemImage: "house.fill")
+                Label("片单", systemImage: "film.stack")
             }
             .tag(0)
 
             NavigationStack {
-                AppExpiryView()
+                AppStatsView()
             }
             .tabItem {
-                Label("有效期", systemImage: "calendar.badge.clock")
+                Label("统计", systemImage: "chart.bar.xaxis")
             }
             .tag(1)
 
             NavigationStack {
-                AppStorageView()
+                AppAboutView()
             }
             .tabItem {
-                Label("存放位置", systemImage: "location.fill")
+                Label("关于", systemImage: "info.circle")
             }
             .tag(2)
         }
+        .tint(.primary)
         .environmentObject(store)
     }
 }
