@@ -1,7 +1,7 @@
-# Loop
+# App
 
-Share moments, start conversations
 
-Bundle ID: `com.example.loop`
 
-Screens: Feed, Post, Messages
+Bundle ID: `com.example.app`
+
+Screens: 收藏列表, 收藏详情, 我的图集, 统计

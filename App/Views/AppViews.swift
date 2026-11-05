@@ -11,10 +11,15 @@ struct AppPhotoLibraryView: View {
         GridItem(.adaptive(minimum: 100), spacing: 8)
     ]
 
+    private var allPhotos: [AppPhoto] {
+        var seen = Set<UUID>()
+        return store.albums.flatMap { $0.photos }.filter { seen.insert($0.id).inserted }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                if store.photos.isEmpty {
+                if allPhotos.isEmpty {
                     AppEmptyStateView(
                         icon: "photo.on.rectangle.angled",
                         title: "还没有照片",
@@ -23,14 +28,14 @@ struct AppPhotoLibraryView: View {
                     .padding(.top, 80)
                 } else {
                     LazyVGrid(columns: columns, spacing: 8) {
-                        ForEach(store.photos) { photo in
+                        ForEach(allPhotos) { photo in
                             AppPhotoGridCell(photo: photo)
                                 .onTapGesture {
                                     selectedPhoto = photo
                                 }
                                 .contextMenu {
                                     Button {
-                                        store.toggleFavorite(photoID: photo.id)
+                                        toggleFavorite(photoID: photo.id)
                                     } label: {
                                         Label(
                                             photo.isFavorite ? "取消收藏" : "收藏",
@@ -40,7 +45,9 @@ struct AppPhotoLibraryView: View {
                                     Menu("添加到相册") {
                                         ForEach(store.albums) { album in
                                             Button(album.name) {
-                                                store.addPhotoToAlbum(photoID: photo.id, albumID: album.id)
+                                                if let index = store.albums.firstIndex(where: { $0.id == album.id }) {
+                                                    store.albums[index].photos.append(photo)
+                                                }
                                             }
                                         }
                                     }
@@ -68,6 +75,15 @@ struct AppPhotoLibraryView: View {
             }
         }
     }
+
+    private func toggleFavorite(photoID: UUID) {
+        for albumIndex in store.albums.indices {
+            if let photoIndex = store.albums[albumIndex].photos.firstIndex(where: { $0.id == photoID }) {
+                store.albums[albumIndex].photos[photoIndex].isFavorite.toggle()
+                return
+            }
+        }
+    }
 }
 
 // MARK: - 照片网格单元格
@@ -87,7 +103,7 @@ struct AppPhotoGridCell: View {
                         .stroke(Color.secondary.opacity(0.2), lineWidth: 0.5)
                 )
             HStack {
-                Text(photo.title)
+                Text(photo.name)
                     .font(.caption)
                     .foregroundColor(.primary)
                     .lineLimit(1)
@@ -122,12 +138,12 @@ struct AppPhotoDetailView: View {
                         .padding(.horizontal)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(photo.title)
+                        Text(photo.name)
                             .font(.title2.bold())
-                        Text(photo.date, style: .date)
+                        Text(photo.createdAt, style: .date)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        if let album = store.albums.first(where: { $0.photoIDs.contains(photo.id) }) {
+                        if let album = store.albums.first(where: { $0.photos.contains(where: { $0.id == photo.id }) }) {
                             Label("所属相册：\(album.name)", systemImage: "folder")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -137,7 +153,7 @@ struct AppPhotoDetailView: View {
 
                     HStack(spacing: 20) {
                         Button {
-                            store.toggleFavorite(photoID: photo.id)
+                            toggleFavorite(photoID: photo.id)
                         } label: {
                             Label(
                                 photo.isFavorite ? "已收藏" : "收藏",
@@ -170,6 +186,15 @@ struct AppPhotoDetailView: View {
             }
             .sheet(isPresented: $showingAlbumPicker) {
                 AppAlbumPickerSheet(photoID: photo.id)
+            }
+        }
+    }
+
+    private func toggleFavorite(photoID: UUID) {
+        for albumIndex in store.albums.indices {
+            if let photoIndex = store.albums[albumIndex].photos.firstIndex(where: { $0.id == photoID }) {
+                store.albums[albumIndex].photos[photoIndex].isFavorite.toggle()
+                return
             }
         }
     }
@@ -217,12 +242,14 @@ struct AppAddPhotoSheet: View {
                     Button("保存照片") {
                         let newPhoto = AppPhoto(
                             imageName: selectedImageName,
-                            title: title.isEmpty ? "未命名照片" : title,
-                            date: Date(),
-                            albumID: selectedAlbumID ?? store.albums.first?.id,
-                            isFavorite: false
+                            name: title.isEmpty ? "未命名照片" : title,
+                            note: "",
+                            createdAt: Date()
                         )
-                        store.addPhoto(newPhoto)
+                        let albumID = selectedAlbumID ?? store.albums.first?.id
+                        if let albumIndex = store.albums.firstIndex(where: { $0.id == albumID }) {
+                            store.albums[albumIndex].photos.append(newPhoto)
+                        }
                         dismiss()
                     }
                     .disabled(title.isEmpty && selectedImageName.isEmpty)
@@ -258,7 +285,10 @@ struct AppAlbumPickerSheet: View {
                 } else {
                     ForEach(store.albums) { album in
                         Button {
-                            store.addPhotoToAlbum(photoID: photoID, albumID: album.id)
+                            if let photo = store.albums.flatMap({ $0.photos }).first(where: { $0.id == photoID }),
+                               let index = store.albums.firstIndex(where: { $0.id == album.id }) {
+                                store.albums[index].photos.append(photo)
+                            }
                             dismiss()
                         } label: {
                             HStack {
@@ -266,7 +296,7 @@ struct AppAlbumPickerSheet: View {
                                     .foregroundColor(.blue)
                                 Text(album.name)
                                 Spacer()
-                                if album.photoIDs.contains(photoID) {
+                                if album.photos.contains(where: { $0.id == photoID }) {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(.blue)
                                 }
@@ -313,8 +343,8 @@ struct AppCreateAlbumSheet: View {
                 }
                 Section {
                     Button("创建") {
-                        let newAlbum = AppAlbum(name: albumName, coverImageName: "sample1", photoIDs: [], createdAt: Date())
-                        store.addAlbum(newAlbum)
+                        let newAlbum = AppAlbum(name: albumName, coverImageName: "sample1", photos: [], createdAt: Date())
+                        store.albums.append(newAlbum)
                         dismiss()
                     }
                     .disabled(albumName.isEmpty)
@@ -363,7 +393,7 @@ struct AppAlbumsView: View {
                             .buttonStyle(.plain)
                             .contextMenu {
                                 Button(role: .destructive) {
-                                    store.deleteAlbum(albumID: album.id)
+                                    store.albums.removeAll { $0.id == album.id }
                                 } label: {
                                     Label("删除相册", systemImage: "trash")
                                 }
@@ -396,7 +426,7 @@ struct AppAlbumGridCell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(album.coverImageName)
+            Image(album.coverImageName ?? "sample1")
                 .resizable()
                 .scaledToFill()
                 .frame(minWidth: 0, maxWidth: .infinity)
@@ -411,7 +441,7 @@ struct AppAlbumGridCell: View {
                     .font(.headline)
                     .foregroundColor(.primary)
                     .lineLimit(1)
-                Text("\(album.photoIDs.count) 张照片")
+                Text("\(album.photos.count) 张照片")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -431,7 +461,7 @@ struct AppAlbumDetailView: View {
 
     var body: some View {
         ScrollView {
-            if album.photoIDs.isEmpty {
+            if album.photos.isEmpty {
                 AppEmptyStateView(
                     icon: "photo.on.rectangle",
                     title: "相册是空的",
@@ -440,19 +470,18 @@ struct AppAlbumDetailView: View {
                 .padding(.top, 80)
             } else {
                 LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(store.photos.filter { album.photoIDs.contains($0.id) }) { photo in
+                    ForEach(album.photos) { photo in
                         AppPhotoGridCell(photo: photo)
                             .onTapGesture {
                                 selectedPhoto = photo
                             }
                             .contextMenu {
-                                Button {
-                                    store.toggleFavorite(photoID: photo.id)
+                                Button(role: .destructive) {
+                                    if let albumIndex = store.albums.firstIndex(where: { $0.id == album.id }) {
+                                        store.albums[albumIndex].photos.removeAll { $0.id == photo.id }
+                                    }
                                 } label: {
-                                    Label(
-                                        photo.isFavorite ? "取消收藏" : "收藏",
-                                        systemImage: photo.isFavorite ? "heart.slash" : "heart"
-                                    )
+                                    Label("从相册移除", systemImage: "minus.circle")
                                 }
                             }
                     }
@@ -480,27 +509,20 @@ struct AppFavoritesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                let favoritePhotos = store.photos.filter { $0.isFavorite }
-                if favoritePhotos.isEmpty {
+                let favorites = store.albums.flatMap { $0.photos }.filter { $0.isFavorite }
+                if favorites.isEmpty {
                     AppEmptyStateView(
                         icon: "heart",
-                        title: "还没有收藏",
-                        message: "在照片库点击照片，或长按照片选择收藏。"
+                        title: "暂无收藏",
+                        message: "点击照片上的心形图标，将喜欢的照片收藏在这里。"
                     )
                     .padding(.top, 80)
                 } else {
                     LazyVGrid(columns: columns, spacing: 8) {
-                        ForEach(favoritePhotos) { photo in
+                        ForEach(favorites) { photo in
                             AppPhotoGridCell(photo: photo)
                                 .onTapGesture {
                                     selectedPhoto = photo
-                                }
-                                .contextMenu {
-                                    Button {
-                                        store.toggleFavorite(photoID: photo.id)
-                                    } label: {
-                                        Label("取消收藏", systemImage: "heart.slash")
-                                    }
                                 }
                         }
                     }
@@ -515,30 +537,49 @@ struct AppFavoritesView: View {
     }
 }
 
-// MARK: - 空状态引导视图
+// MARK: - 空状态视图
 struct AppEmptyStateView: View {
     let icon: String
     let title: String
     let message: String
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
             Text(title)
-                .font(.title2.bold())
+                .font(.headline)
             Text(message)
-                .font(.body)
+                .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, 32)
         }
     }
 }
 
-// MARK: - 预览
-#Preview {
-    AppPhotoLibraryView()
-        .environmentObject(AppAlbumStore())
+// MARK: - 根视图
+struct AppRootView: View {
+    @State private var selectedTab = 0
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            AppPhotoLibraryView()
+                .tabItem {
+                    Label("照片", systemImage: "photo.on.rectangle")
+                }
+                .tag(0)
+            AppAlbumsView()
+                .tabItem {
+                    Label("相册", systemImage: "folder")
+                }
+                .tag(1)
+            AppFavoritesView()
+                .tabItem {
+                    Label("收藏", systemImage: "heart")
+                }
+                .tag(2)
+        }
+    }
 }
