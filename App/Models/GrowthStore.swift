@@ -96,7 +96,8 @@ final class AppGrowthStore: ObservableObject {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(records)
+            let dtos = records.map { GrowthRecordDTO(record: $0) }
+            let data = try encoder.encode(dtos)
             try data.write(to: fileURL)
         } catch {
             // Keep in-memory state even if persistence fails.
@@ -117,9 +118,33 @@ final class AppGrowthStore: ObservableObject {
             let data = try Data(contentsOf: fileURL)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppGrowthRecord].self, from: data)
+            let dtos = try decoder.decode([GrowthRecordDTO].self, from: data)
+            records = dtos.map { $0.record }
         } catch {
             records = []
         }
+    }
+}
+
+private struct GrowthRecordDTO: Codable {
+    let id: UUID
+    let date: Date
+    let heightCm: Double
+    let weightKg: Double
+
+    init(record: AppGrowthRecord) {
+        self.id = record.id
+        self.date = record.date
+        self.heightCm = record.heightCm
+        self.weightKg = record.weightKg
+    }
+
+    var record: AppGrowthRecord {
+        AppGrowthRecord(
+            id: id,
+            date: date,
+            heightCm: heightCm,
+            weightKg: weightKg
+        )
     }
 }

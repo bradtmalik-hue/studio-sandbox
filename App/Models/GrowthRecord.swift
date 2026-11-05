@@ -17,11 +17,4 @@ struct AppGrowthRecord: Codable, Identifiable, Equatable {
         self.heightCm = heightCm
         self.weightKg = weightKg
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case date
-        case heightCm
-        case weightKg
-    }
 }
