@@ -301,10 +301,10 @@ struct PlantWaterReminderEditView: View {
                 id: UUID(),
                 name: trimmedName,
                 species: species,
+                location: location,
                 wateringIntervalDays: wateringIntervalDays,
                 lastWateredDate: lastWateredDate,
                 notes: notes,
-                location: location,
                 iconName: "leaf"
             )
             store.add(newPlant)
