@@ -324,4 +324,3 @@ private struct AppPage2SummaryCard: View {
         .background(Color.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 }
-```
