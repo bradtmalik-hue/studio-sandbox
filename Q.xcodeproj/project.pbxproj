@@ -12,6 +12,7 @@
 		AA0000000000000000000003 /* QModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* QModels.swift */; };
 		AA0000000000000000000004 /* QViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* QViews.swift */; };
 		AA0000000000000000000005 /* QRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* QRootView.swift */; };
+		AA0000000000000000000006 /* QEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* QEmptyStateView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -22,6 +23,7 @@
 		BB0000000000000000000003 /* QModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QModels.swift; sourceTree = "<group>"; };
 		BB0000000000000000000004 /* QViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QViews.swift; sourceTree = "<group>"; };
 		BB0000000000000000000005 /* QRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* QEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QEmptyStateView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* Q.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Q.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +81,7 @@
 			children = (
 				BB0000000000000000000004 /* QViews.swift */,
 				BB0000000000000000000005 /* QRootView.swift */,
+				BB0000000000000000000006 /* QEmptyStateView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -175,6 +178,7 @@
 				AA0000000000000000000003 /* QModels.swift in Sources */,
 				AA0000000000000000000004 /* QViews.swift in Sources */,
 				AA0000000000000000000005 /* QRootView.swift in Sources */,
+				AA0000000000000000000006 /* QEmptyStateView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

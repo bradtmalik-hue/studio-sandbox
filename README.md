@@ -1,7 +1,7 @@
-# App
+# Q
 
-记录每天喂猫的时间和量，看有没有漏喂
+选一位Q版武将，左右闯关砍小兵
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.glodgalt947-dotcom.q`
 
-Screens: 今天, 日历, 设置
+Screens: 选将页, 闯关页, 结算页

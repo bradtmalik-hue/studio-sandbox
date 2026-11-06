@@ -90,11 +90,7 @@ struct QHomeView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        QEmptyStateView(
-                            icon: "figure.strengthtraining.traditional",
-                            title: "还没有武将",
-                            message: "去武将库看看，选好武将就能开始闯关。"
-                        )
+                        QEmptyStateView()
                     }
 
                     HStack(spacing: 12) {
@@ -130,11 +126,7 @@ struct QGeneralLibraryView: View {
         NavigationStack {
             Group {
                 if store.generals.isEmpty {
-                    QEmptyStateView(
-                        icon: "person.text.rectangle",
-                        title: "还没有武将",
-                        message: "当前没有可用的Q版武将，请先在演示数据中查看。"
-                    )
+                    QEmptyStateView()
                 } else {
                     List {
                         ForEach(Array(store.generals.enumerated()), id: \.offset) { _, general in
@@ -337,11 +329,7 @@ struct QBattleHistoryView: View {
 
     var body: some View {
         NavigationStack {
-            QEmptyStateView(
-                icon: "flag.checkered",
-                title: "暂无战报",
-                message: "完成闯关后，这里会显示战斗结果。"
-            )
+            QEmptyStateView()
             .navigationTitle("战报")
         }
     }
