@@ -1,421 +1,293 @@
 import SwiftUI
+import Foundation
+import Combine
 
-enum AppMetric: String, CaseIterable, Identifiable {
-    case height = "身高"
-    case weight = "体重"
-    var id: String { rawValue }
-}
-
+// MARK: - 日期格式化
 enum AppDateFormatter {
-    static let short: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter
+    static let timeOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "HH:mm"
+        return f
     }()
     
-    static let medium: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 HH:mm"
-        return formatter
+    static let full: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f
     }()
     
-    static let month: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年M月"
-        return formatter
+    static let dateOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日"
+        return f
     }()
 }
 
-struct AppDashboardView: View {
-    @EnvironmentObject var store: AppGrowthStore
-    @State private var showingAdd = false
-    
-    var sortedRecords: [AppGrowthRecord] {
-        store.records.sorted { $0.date > $1.date }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Group {
-                if sortedRecords.isEmpty {
-                    AppEmptyStateView(
-                        icon: "figure.and.child.holdinghands",
-                        title: "还没有成长记录",
-                        message: "点击右上角 + 记录第一条身高体重，曲线会自动生成。"
-                    )
-                } else {
-                    List {
-                        Section {
-                            AppSummaryView(records: store.records)
-                        }
-                        Section("最近记录") {
-                            ForEach(sortedRecords) { record in
-                                AppRecordRow(record: record)
-                            }
-                            .onDelete(perform: deleteRecords)
-                        }
-                    }
-                    .contentMargins(.bottom, 96, for: .scrollContent)
-                }
-            }
-            .navigationTitle("成长日志")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAdd = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAdd) {
-                AppAddRecordView()
-            }
-        }
-    }
-    
-    private func deleteRecords(at offsets: IndexSet) {
-        for index in offsets {
-            store.delete(sortedRecords[index])
-        }
-    }
-}
-
-struct AppRecordRow: View {
-    let record: AppGrowthRecord
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppDateFormatter.medium.string(from: record.date))
-                    .font(.subheadline.weight(.semibold))
-                if let note = record.note as? String, !note.isEmpty {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(String(format: "%.1f cm", record.heightCM))
-                    .font(.subheadline.weight(.medium))
-                Text(String(format: "%.1f kg", record.weightKG))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct AppSummaryView: View {
-    let records: [AppGrowthRecord]
-    
-    var latestRecord: AppGrowthRecord? {
-        records.max(by: { $0.date < $1.date })
-    }
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                AppStatCard(
-                    title: "最新身高",
-                    value: latestRecord.map { String(format: "%.1f", $0.heightCM) } ?? "--",
-                    unit: "cm",
-                    color: .blue
-                )
-                AppStatCard(
-                    title: "最新体重",
-                    value: latestRecord.map { String(format: "%.1f", $0.weightKG) } ?? "--",
-                    unit: "kg",
-                    color: .green
-                )
-            }
-            if let latest = latestRecord {
-                Text("更新于 \(AppDateFormatter.short.string(from: latest.date))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 8)
-    }
-}
-
-struct AppStatCard: View {
-    let title: String
-    let value: String
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(color)
-                Text(unit)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-struct AppAddRecordView: View {
-    @EnvironmentObject var store: AppGrowthStore
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var date = Date()
-    @State private var heightText = ""
-    @State private var weightText = ""
-    @State private var note = ""
-    
-    var height: Double? {
-        Double(heightText.replacingOccurrences(of: ",", with: "."))
-    }
-    
-    var weight: Double? {
-        Double(weightText.replacingOccurrences(of: ",", with: "."))
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("记录日期") {
-                    DatePicker("日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                }
-                Section("身高体重") {
-                    TextField("身高（cm）", text: $heightText)
-                        .keyboardType(.decimalPad)
-                    TextField("体重（kg）", text: $weightText)
-                        .keyboardType(.decimalPad)
-                }
-                Section("备注（可选）") {
-                    TextField("例如：体检后测量", text: $note)
-                }
-            }
-            .navigationTitle("添加记录")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        save()
-                    }
-                    .disabled(height == nil || weight == nil)
-                }
-            }
-        }
-    }
-    
-    func save() {
-        guard let height, let weight else { return }
-        let record = AppGrowthRecord(date: date, heightCM: height, weightKG: weight, note: note)
-        store.add(record)
-        dismiss()
-    }
-}
-
-struct AppGrowthChartView: View {
-    @EnvironmentObject var store: AppGrowthStore
-    @State private var metric: AppMetric = .height
-    
-    private var monthlyPoints: [AppMonthlyPoint] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: store.records) { record -> Date in
-            let components = calendar.dateComponents([.year, .month], from: record.date)
-            return calendar.date(from: components) ?? record.date
-        }
-        let points = grouped.map { (month, records) -> AppMonthlyPoint in
-            let average: Double
-            switch metric {
-            case .height:
-                average = records.map(\.heightCM).reduce(0, +) / Double(records.count)
-            case .weight:
-                average = records.map(\.weightKG).reduce(0, +) / Double(records.count)
-            }
-            return AppMonthlyPoint()
-        }
-        return points.sorted { $0.date < $1.date }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Group {
-                if store.records.isEmpty {
-                    AppEmptyStateView(
-                        icon: "chart.xyaxis.line",
-                        title: "还没有曲线数据",
-                        message: "添加身高体重记录后，这里会自动生成按月成长曲线。"
-                    )
-                } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            Picker("指标", selection: $metric) {
-                                ForEach(AppMetric.allCases) { metric in
-                                    Text(metric.rawValue).tag(metric)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .padding(.horizontal)
-                            
-                            AppChartView(
-                                points: monthlyPoints,
-                                color: metric == .height ? .blue : .green,
-                                unit: metric == .height ? "cm" : "kg"
-                            )
-                            .padding(.horizontal)
-                            
-                            AppMonthlyStatsView(points: monthlyPoints, metric: metric)
-                                .padding(.horizontal)
-                        }
-                        .padding(.bottom, 96)
-                    }
-                }
-            }
-            .navigationTitle("成长曲线")
-        }
-    }
-}
-
-struct AppMonthlyPoint: Identifiable {
-    let id = UUID()
-    let date: Date
-    let value: Double
-}
-
-struct AppChartView: View {
-    let points: [AppMonthlyPoint]
-    let color: Color
-    let unit: String
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            if points.isEmpty {
-                Text("暂无数据")
-                    .foregroundStyle(.secondary)
-            } else {
-                GeometryReader { geometry in
-                    let minValue = points.map(\.value).min() ?? 0
-                    let maxValue = points.map(\.value).max() ?? 1
-                    let range = max(maxValue - minValue, 0.1)
-                    let padding: CGFloat = 24
-                    let chartWidth = geometry.size.width - padding * 2
-                    let chartHeight = geometry.size.height - padding * 2
-                    let stepX = points.count > 1 ? chartWidth / CGFloat(points.count - 1) : 0
-                    
-                    let mappedPoints = points.enumerated().map { index, point -> CGPoint in
-                        let x = padding + (points.count > 1 ? CGFloat(index) * stepX : chartWidth / 2)
-                        let y = padding + chartHeight * (1 - CGFloat((point.value - minValue) / range))
-                        return CGPoint(x: x, y: y)
-                    }
-                    
-                    ZStack {
-                        ForEach(0..<5, id: \.self) { index in
-                            let y = padding + chartHeight * CGFloat(index) / 4
-                            Path { path in
-                                path.move(to: CGPoint(x: padding, y: y))
-                                path.addLine(to: CGPoint(x: geometry.size.width - padding, y: y))
-                            }
-                            .stroke(Color.gray.opacity(0.15), lineWidth: 0.5)
-                        }
-                        
-                        if mappedPoints.count > 1 {
-                            Path { path in
-                                path.move(to: mappedPoints[0])
-                                for point in mappedPoints.dropFirst() {
-                                    path.addLine(to: point)
-                                }
-                            }
-                            .stroke(color, lineWidth: 2)
-                        }
-                        
-                        ForEach(Array(mappedPoints.enumerated()), id: \.offset) { index, point in
-                            Circle()
-                                .fill(color)
-                                .frame(width: 8, height: 8)
-                                .position(point)
-                            Text(String(format: "%.1f", points[index].value))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .position(x: point.x, y: point.y - 14)
-                        }
-                    }
-                }
-                .frame(height: 220)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(points) { point in
-                            Text(AppDateFormatter.month.string(from: point.date))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            }
-        }
-        .padding(.vertical)
-    }
-}
-
-struct AppMonthlyStatsView: View {
-    let points: [AppMonthlyPoint]
-    let metric: AppMetric
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("按月平均")
-                .font(.headline)
-            if points.isEmpty {
-                Text("暂无数据")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(points) { point in
-                    HStack {
-                        Text(AppDateFormatter.month.string(from: point.date))
-                        Spacer()
-                        Text(String(format: "%.1f %@", point.value, metric == .height ? "cm" : "kg"))
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.subheadline)
-                }
-            }
-        }
-        .padding()
-        .background(Color.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
+// MARK: - 空状态视图
 struct AppEmptyStateView: View {
     let icon: String
     let title: String
     let message: String
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 56))
-                .foregroundStyle(.blue)
+                .font(.system(size: 48))
+                .foregroundStyle(.orange)
             Text(title)
-                .font(.title2.weight(.semibold))
+                .font(.headline)
             Text(message)
-                .font(.body)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+}
+
+// MARK: - 今天视图
+struct AppTodayView: View {
+    @EnvironmentObject var store: AppMealStore
+    @State private var showingAddSheet = false
+    
+    private var todayRecords: [AppMealRecord] {
+        store.records.filter { Calendar.current.isDateInToday($0.date) }
+            .sorted(by: { $0.date > $1.date })
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                if todayRecords.isEmpty {
+                    Section {
+                        AppEmptyStateView(
+                            icon: "cat",
+                            title: "今天还没有喂猫",
+                            message: "点右上角的 + 记录第一次喂食"
+                        )
+                    }
+                } else {
+                    Section("今日概览") {
+                        Label("已喂食 \(todayRecords.count) 次", systemImage: "checkmark.circle.fill")
+                        if let last = todayRecords.first {
+                            Label("最近一次：\(AppDateFormatter.timeOnly.string(from: last.date))", systemImage: "clock")
+                            Label("喂食量：\(last.amount, specifier: "%.0f") 克", systemImage: "fork.knife")
+                        }
+                    }
+                    Section("今日喂食记录") {
+                        ForEach(todayRecords) { record in
+                            AppMealRecordRow(record: record, showsDate: false)
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("猫饭记")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddMealView()
+            }
+            .contentMargins(.bottom, 96, for: .scrollContent)
+        }
+    }
+}
+
+// MARK: - 历史记录视图
+struct AppHistoryView: View {
+    @EnvironmentObject var store: AppMealStore
+    @State private var showingAddSheet = false
+    
+    private var sortedRecords: [AppMealRecord] {
+        store.records.sorted(by: { $0.date > $1.date })
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                if sortedRecords.isEmpty {
+                    Section {
+                        AppEmptyStateView(
+                            icon: "clock.arrow.circlepath",
+                            title: "还没有任何喂食记录",
+                            message: "添加记录后，这里会显示完整的喂食历史"
+                        )
+                    }
+                } else {
+                    Section("全部记录") {
+                        ForEach(sortedRecords) { record in
+                            AppMealRecordRow(record: record, showsDate: true)
+                        }
+                        .onDelete { offsets in
+                            let sorted = sortedRecords
+                            let ids = offsets.map { sorted[$0].id }
+                            store.records.removeAll { ids.contains($0.id) }
+                            store.save()
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("喂食历史")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddMealView()
+            }
+            .contentMargins(.bottom, 96, for: .scrollContent)
+        }
+    }
+}
+
+// MARK: - 统计视图
+struct AppStatsView: View {
+    @EnvironmentObject var store: AppMealStore
+    
+    private var last7DaysRecords: [AppMealRecord] {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        return store.records.filter { $0.date >= start }
+    }
+    
+    private var averageAmount: Double {
+        guard !last7DaysRecords.isEmpty else { return 0 }
+        return last7DaysRecords.map(\.amount).reduce(0.0, +) / Double(last7DaysRecords.count)
+    }
+    
+    private var totalAmount: Double {
+        last7DaysRecords.map(\.amount).reduce(0.0, +)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("最近 7 天") {
+                    Label("喂食次数：\(last7DaysRecords.count)", systemImage: "number.circle.fill")
+                    Label("平均每次：\(averageAmount, specifier: "%.0f") 克", systemImage: "plusminus")
+                    Label("总喂食量：\(totalAmount, specifier: "%.0f") 克", systemImage: "chart.bar.fill")
+                }
+                if store.records.isEmpty {
+                    Section {
+                        AppEmptyStateView(
+                            icon: "chart.pie.fill",
+                            title: "还没有统计数据",
+                            message: "喂食记录会出现在这里"
+                        )
+                    }
+                } else {
+                    Section("最近 7 天明细") {
+                        ForEach(last7DaysRecords.sorted(by: { $0.date > $1.date })) { record in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(AppDateFormatter.full.string(from: record.date))
+                                        .font(.body)
+                                    if let note = record.note {
+                                        Text(note)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("\(record.amount, specifier: "%.0f") 克")
+                                    .font(.headline)
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("统计")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+        }
+    }
+}
+
+// MARK: - 记录行
+struct AppMealRecordRow: View {
+    let record: AppMealRecord
+    var showsDate: Bool = false
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(showsDate ? AppDateFormatter.full.string(from: record.date) : AppDateFormatter.timeOnly.string(from: record.date))
+                    .font(.body)
+                if let note = record.note {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text("\(record.amount, specifier: "%.0f") 克")
+                .font(.headline)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 添加喂食记录视图
+struct AppAddMealView: View {
+    @EnvironmentObject var store: AppMealStore
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var date = Date()
+    @State private var amount: Double = 50
+    @State private var note: String = ""
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("喂食时间") {
+                    DatePicker("时间", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                }
+                Section("喂食量") {
+                    Stepper(value: $amount, in: 1...500, step: 5) {
+                        HStack {
+                            Text("喂食量")
+                            Spacer()
+                            Text("\(amount, specifier: "%.0f") 克")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Section("备注（可选）") {
+                    TextField("例如：猫粮、罐头", text: $note)
+                }
+            }
+            .navigationTitle("添加记录")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        let record = AppMealRecord(date: date, amount: amount, note: note.isEmpty ? nil : note)
+                        store.add(record)
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
