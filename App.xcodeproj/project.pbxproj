@@ -12,9 +12,7 @@
 		AA0000000000000000000003 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppModels.swift */; };
 		AA0000000000000000000004 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppViews.swift */; };
 		AA0000000000000000000005 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppRootView.swift */; };
-		AA0000000000000000000006 /* AppExpiryReminderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppExpiryReminderView.swift */; };
-		AA0000000000000000000007 /* AppLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppLocationView.swift */; };
-		AA0000000000000000000008 /* AppMedicineListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppMedicineListView.swift */; };
+		AA0000000000000000000006 /* AppSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppSettingsView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -25,9 +23,7 @@
 		BB0000000000000000000003 /* AppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		BB0000000000000000000004 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
 		BB0000000000000000000005 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000006 /* AppExpiryReminderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppExpiryReminderView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000007 /* AppLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocationView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppMedicineListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMedicineListView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -85,9 +81,7 @@
 			children = (
 				BB0000000000000000000004 /* AppViews.swift */,
 				BB0000000000000000000005 /* AppRootView.swift */,
-				BB0000000000000000000006 /* AppExpiryReminderView.swift */,
-				BB0000000000000000000007 /* AppLocationView.swift */,
-				BB0000000000000000000008 /* AppMedicineListView.swift */,
+				BB0000000000000000000006 /* AppSettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -184,9 +178,7 @@
 				AA0000000000000000000003 /* AppModels.swift in Sources */,
 				AA0000000000000000000004 /* AppViews.swift in Sources */,
 				AA0000000000000000000005 /* AppRootView.swift in Sources */,
-				AA0000000000000000000006 /* AppExpiryReminderView.swift in Sources */,
-				AA0000000000000000000007 /* AppLocationView.swift in Sources */,
-				AA0000000000000000000008 /* AppMedicineListView.swift in Sources */,
+				AA0000000000000000000006 /* AppSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
