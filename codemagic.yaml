@@ -91,12 +91,36 @@ workflows:
           N=1
           for T in 0 1 2; do
             xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
-            xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" || true
+            xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/tmp/launch_$T.txt 2>&1 || true
             # 等久一点：刚启动那几秒系统会弹通知/键盘提示，会盖住标题栏
             sleep 9
-            xcrun simctl io "$DEV" screenshot "shots/shot_$N.png"
+            xcrun simctl io "$DEV" screenshot "shots/shot_$N.png" || true
+
+            # 冒烟：还活着吗？崩了的话进程就没了，记一个 crash 文件回去
+            if xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              echo "tab $T alive"
+            else
+              echo "CRASH tab $T" > "shots/crash_$N.txt"
+              echo "tab $T CRASHED"
+            fi
+
+            # 再切一次前后台，很多崩溃只在恢复时出现
+            xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/dev/null 2>&1 || true
+            sleep 3
+            if ! xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              echo "CRASH on resume tab $T" >> "shots/crash_$N.txt"
+            fi
+
             N=$((N+1))
           done
+          # 有崩溃就把系统崩溃日志一起带走，方便定位
+          if ls shots/crash_*.txt >/dev/null 2>&1; then
+            mkdir -p shots/crashlogs
+            find ~/Library/Logs/DiagnosticReports -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do cp "$f" shots/crashlogs/ 2>/dev/null || true; done
+          fi
           ls -la shots
+          cat shots/crash_*.txt 2>/dev/null || echo "no crash"
     artifacts:
       - shots/*.png
+      - shots/crash_*.txt
+      - shots/crashlogs/*.ips
