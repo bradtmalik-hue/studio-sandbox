@@ -113,6 +113,16 @@ workflows:
 
             N=$((N+1))
           done
+          # 持久化验证：不带 -demoData 重启，数据应该还在（说明真的写盘了）
+          xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
+          sleep 2
+          xcrun simctl launch "$DEV" "$BUNDLE_ID" -startTab "0" >/tmp/launch_persist.txt 2>&1 || true
+          sleep 9
+          xcrun simctl io "$DEV" screenshot "shots/persist_1.png" || true
+          if ! xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+            echo "CRASH on relaunch (persistence check)" > "shots/crash_persist.txt"
+          fi
+
           # 有崩溃就把系统崩溃日志一起带走，方便定位
           if ls shots/crash_*.txt >/dev/null 2>&1; then
             mkdir -p shots/crashlogs
