@@ -312,8 +312,3 @@ struct QBattleHistoryView: View {
         }
     }
 }
-
-typealias QMainView = QHomeView
-typealias QGeneralSelectView = QGeneralLibraryView
-typealias QBattleArenaView = QBattleView
-typealias QRecordsView = QBattleHistoryView
