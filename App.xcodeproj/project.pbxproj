@@ -10,8 +10,10 @@
 		AA0000000000000000000001 /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppApp.swift */; };
 		AA0000000000000000000002 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* AppTheme.swift */; };
 		AA0000000000000000000003 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* AppModels.swift */; };
-		AA0000000000000000000004 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppViews.swift */; };
-		AA0000000000000000000005 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppRootView.swift */; };
+		AA0000000000000000000004 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* AppRootView.swift */; };
+		AA0000000000000000000005 /* AppPage1.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppPage1.swift */; };
+		AA0000000000000000000006 /* AppPage2.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppPage2.swift */; };
+		AA0000000000000000000007 /* AppPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppPage3.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -20,8 +22,10 @@
 		BB0000000000000000000001 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		BB0000000000000000000003 /* AppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
-		BB0000000000000000000004 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
-		BB0000000000000000000005 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* AppPage1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage1.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* AppPage2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* AppPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -77,8 +81,10 @@
 		DD0000000000000000000011 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000004 /* AppViews.swift */,
-				BB0000000000000000000005 /* AppRootView.swift */,
+				BB0000000000000000000004 /* AppRootView.swift */,
+				BB0000000000000000000005 /* AppPage1.swift */,
+				BB0000000000000000000006 /* AppPage2.swift */,
+				BB0000000000000000000007 /* AppPage3.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -173,8 +179,10 @@
 				AA0000000000000000000001 /* AppApp.swift in Sources */,
 				AA0000000000000000000002 /* AppTheme.swift in Sources */,
 				AA0000000000000000000003 /* AppModels.swift in Sources */,
-				AA0000000000000000000004 /* AppViews.swift in Sources */,
-				AA0000000000000000000005 /* AppRootView.swift in Sources */,
+				AA0000000000000000000004 /* AppRootView.swift in Sources */,
+				AA0000000000000000000005 /* AppPage1.swift in Sources */,
+				AA0000000000000000000006 /* AppPage2.swift in Sources */,
+				AA0000000000000000000007 /* AppPage3.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
