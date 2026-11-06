@@ -2,36 +2,41 @@ import SwiftUI
 import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppMedicineStore()
-    @State private var selectedTab = Self.initialTab()
+    @State private var selectedTab: Int
+
+    init(selectedTab: Int = AppRootView.initialTab()) {
+        _selectedTab = State(initialValue: selectedTab)
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppMedicineListView()
+            PlaceholderView()
                 .tabItem {
-                    Label("药品", systemImage: "pills")
+                    Label("今日", systemImage: "sun.max.fill")
                 }
                 .tag(0)
 
-            AppExpiryReminderView()
+            PlaceholderView()
                 .tabItem {
-                    Label("临期提醒", systemImage: "exclamationmark.triangle")
+                    Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
 
-            AppLocationView()
+            PlaceholderView()
                 .tabItem {
-                    Label("存放位置", systemImage: "location")
+                    Label("统计", systemImage: "chart.bar.fill")
                 }
                 .tag(2)
         }
-        .environmentObject(store)
+        .tint(.orange)
     }
 
     private static func initialTab() -> Int {
         let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
-            return min(max(0, v), 2)
+        if let index = args.firstIndex(of: "-startTab"),
+           index + 1 < args.count,
+           let value = Int(args[index + 1]) {
+            return min(max(value, 0), 2)
         }
         return 0
     }
