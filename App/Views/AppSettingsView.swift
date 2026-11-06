@@ -1,69 +1,99 @@
 import SwiftUI
-import Foundation
-
-private struct AppSettingsData: Codable {
-    var language: String = "system"
-    var useDarkMode: Bool = false
-}
-
-private final class AppSettingsStore: ObservableObject {
-    @Published var language: String = "system" {
-        didSet { save() }
-    }
-    @Published var useDarkMode: Bool = false {
-        didSet { save() }
-    }
-    
-    private let fileName = "app_settings.json"
-    private var fileURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(fileName)
-    }
-    
-    init() {
-        load()
-    }
-    
-    func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(AppSettingsData.self, from: data) else {
-            return
-        }
-        language = decoded.language
-        useDarkMode = decoded.useDarkMode
-    }
-    
-    func save() {
-        let data = AppSettingsData(language: language, useDarkMode: useDarkMode)
-        if let encoded = try? JSONEncoder().encode(data) {
-            try? encoded.write(to: fileURL)
-        }
-    }
-}
 
 struct AppSettingsView: View {
-    @StateObject private var store: AppSettingsStore
-    
-    init() {
-        _store = StateObject(wrappedValue: AppSettingsStore())
+    @AppStorage("app.language") private var languagePreference: String = "system"
+    @AppStorage("app.usesMetricUnits") private var usesMetricUnits: Bool = true
+
+    private var effectiveLanguageIsChinese: Bool {
+        switch languagePreference {
+        case "zh": return true
+        case "en": return false
+        default:
+            let code = Locale.current.language.languageCode?.identifier ?? "en"
+            return code == "zh"
+        }
     }
-    
+
+    private var languageSectionHeader: String {
+        effectiveLanguageIsChinese ? "偏好设置" : "Preferences"
+    }
+
+    private var languagePickerLabel: String {
+        effectiveLanguageIsChinese ? "语言" : "Language"
+    }
+
+    private var languageFooter: String {
+        effectiveLanguageIsChinese
+            ? "选择应用显示语言。其他页面将在重启后更新。"
+            : "Choose app display language. Other pages will update after restart."
+    }
+
+    private var unitsToggleLabel: String {
+        effectiveLanguageIsChinese ? "使用公制单位" : "Use Metric Units"
+    }
+
+    private var aboutHeader: String {
+        effectiveLanguageIsChinese ? "关于" : "About"
+    }
+
+    private var versionLabel: String {
+        effectiveLanguageIsChinese ? "版本" : "Version"
+    }
+
+    private var dataStorageLabel: String {
+        effectiveLanguageIsChinese ? "数据存储" : "Data Storage"
+    }
+
+    private var dataStorageValue: String {
+        effectiveLanguageIsChinese ? "本地 JSON 文件（文档目录）" : "Local JSON File (Documents)"
+    }
+
+    private var developerLabel: String {
+        effectiveLanguageIsChinese ? "开发者" : "Developer"
+    }
+
+    private var navigationTitleText: String {
+        effectiveLanguageIsChinese ? "设置" : "Settings"
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Picker("语言", selection: $store.language) {
+                    Picker(selection: $languagePreference, label: Text(languagePickerLabel)) {
+                        Text(effectiveLanguageIsChinese ? "跟随系统" : "System").tag("system")
                         Text("中文").tag("zh")
                         Text("English").tag("en")
-                        Text("跟随系统").tag("system")
                     }
-                    Toggle("深色模式", isOn: $store.useDarkMode)
+                    .pickerStyle(.menu)
                 } header: {
-                    Text("偏好设置")
+                    Text(languageSectionHeader)
+                } footer: {
+                    Text(languageFooter)
+                }
+
+                Section {
+                    Toggle(isOn: $usesMetricUnits) {
+                        Text(unitsToggleLabel)
+                    }
+                } header: {
+                    Text(effectiveLanguageIsChinese ? "单位" : "Units")
+                }
+
+                Section {
+                    LabeledContent(versionLabel, value: "1.0")
+                    LabeledContent(dataStorageLabel, value: dataStorageValue)
+                    LabeledContent(developerLabel, value: "App Team")
+                } header: {
+                    Text(aboutHeader)
                 }
             }
-            .navigationTitle("设置")
+            .navigationTitle(navigationTitleText)
             .contentMargins(.bottom, 96, for: .scrollContent)
         }
     }
+}
+
+#Preview {
+    AppSettingsView()
 }

@@ -16,6 +16,7 @@
 		AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppGrowthChartView.swift */; };
 		AA0000000000000000000008 /* AppHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppHomeView.swift */; };
 		AA0000000000000000000009 /* AppRecordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppRecordListView.swift */; };
+		AA0000000000000000000010 /* AppSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppSettingsView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -30,6 +31,7 @@
 		BB0000000000000000000007 /* AppGrowthChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGrowthChartView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000008 /* AppHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHomeView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000009 /* AppRecordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRecordListView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,6 +93,7 @@
 				BB0000000000000000000007 /* AppGrowthChartView.swift */,
 				BB0000000000000000000008 /* AppHomeView.swift */,
 				BB0000000000000000000009 /* AppRecordListView.swift */,
+				BB0000000000000000000010 /* AppSettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -191,6 +194,7 @@
 				AA0000000000000000000007 /* AppGrowthChartView.swift in Sources */,
 				AA0000000000000000000008 /* AppHomeView.swift in Sources */,
 				AA0000000000000000000009 /* AppRecordListView.swift in Sources */,
+				AA0000000000000000000010 /* AppSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct AppHomeView: View {
+extension AppHomeView {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "square.stack.3d.up")
