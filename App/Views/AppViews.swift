@@ -100,7 +100,7 @@ struct AppHomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if store.children.isEmpty {
+                    if store.profile.name.isEmpty {
                         AppEmptyStateView(
                             icon: "person.2",
                             title: "还没有孩子档案",
@@ -109,16 +109,14 @@ struct AppHomeView: View {
                     } else {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
-                                ForEach(store.children) { child in
-                                    AppChildCard(child: child)
-                                }
+                                AppChildCard(child: store.profile)
                                 Button {
                                     showingAddChild = true
                                 } label: {
                                     VStack(spacing: 6) {
                                         Image(systemName: "plus.circle.fill")
                                             .font(.title2)
-                                        Text("添加孩子")
+                                        Text("编辑孩子")
                                             .font(.caption)
                                     }
                                     .padding()
@@ -158,7 +156,7 @@ struct AppHomeView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        if store.children.isEmpty {
+                        if store.profile.name.isEmpty {
                             showingAddChild = true
                         } else {
                             showingAddRecord = true
@@ -185,10 +183,6 @@ struct AppRecordListView: View {
         store.records.sorted { $0.date > $1.date }
     }
 
-    private func childName(for childID: UUID) -> String {
-        store.children.first { $0.id == childID }?.name ?? "未知孩子"
-    }
-
     var body: some View {
         NavigationStack {
             List {
@@ -203,7 +197,7 @@ struct AppRecordListView: View {
                 } else {
                     ForEach(sortedRecords) { record in
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(childName(for: record.childID))
+                            Text(store.profile.name)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             AppRecordRow(record: record)
@@ -234,7 +228,6 @@ struct AppAddRecordView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var childID: UUID?
     @State private var date = Date()
     @State private var heightText = ""
     @State private var weightText = ""
@@ -243,18 +236,13 @@ struct AppAddRecordView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if store.children.isEmpty {
+                if store.profile.name.isEmpty {
                     Section {
                         Text("请先添加孩子档案")
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Section("孩子与日期") {
-                        Picker("孩子", selection: $childID) {
-                            ForEach(store.children) { child in
-                                Text(child.name).tag(child.id as UUID?)
-                            }
-                        }
+                    Section("日期") {
                         DatePicker("日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
                     }
 
@@ -280,23 +268,13 @@ struct AppAddRecordView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { addRecord() }
-                        .disabled(store.children.isEmpty)
+                        .disabled(store.profile.name.isEmpty)
                 }
-            }
-        }
-        .onAppear {
-            if childID == nil {
-                childID = store.children.first?.id
             }
         }
     }
 
     func addRecord() {
-        guard let selectedChildID = childID else {
-            validationMessage = "请先选择孩子。"
-            return
-        }
-
         guard let height = Double(heightText), let weight = Double(weightText) else {
             validationMessage = "请输入有效的数字。"
             return
@@ -304,10 +282,10 @@ struct AppAddRecordView: View {
 
         let record = AppGrowthRecord(
             id: UUID(),
-            childID: selectedChildID,
             date: date,
             heightCm: height,
-            weightKg: weight
+            weightKg: weight,
+            note: nil
         )
         store.records.append(record)
         store.save()
@@ -323,6 +301,7 @@ struct AppAddChildView: View {
     @State private var birthDate = Date()
     @State private var gender: AppGender = .male
     @State private var validationMessage: String?
+    @State private var didLoad = false
 
     var body: some View {
         NavigationStack {
@@ -343,13 +322,21 @@ struct AppAddChildView: View {
                     }
                 }
             }
-            .navigationTitle("添加孩子")
+            .navigationTitle("孩子档案")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { addChild() }
+                }
+            }
+            .onAppear {
+                if !didLoad {
+                    name = store.profile.name
+                    birthDate = store.profile.birthDate
+                    gender = store.profile.gender
+                    didLoad = true
                 }
             }
         }
@@ -363,12 +350,12 @@ struct AppAddChildView: View {
         }
 
         let child = AppChildProfile(
-            id: UUID(),
+            id: store.profile.id,
             name: trimmedName,
-            gender: gender,
-            birthDate: birthDate
+            birthDate: birthDate,
+            gender: gender
         )
-        store.children.append(child)
+        store.profile = child
         store.save()
         dismiss()
     }
@@ -381,7 +368,7 @@ struct AppChildListView: View {
     var body: some View {
         NavigationStack {
             List {
-                if store.children.isEmpty {
+                if store.profile.name.isEmpty {
                     AppEmptyStateView(
                         icon: "person.2",
                         title: "没有孩子档案",
@@ -390,23 +377,14 @@ struct AppChildListView: View {
                     .frame(maxWidth: .infinity)
                     .listRowSeparator(.hidden)
                 } else {
-                    ForEach(store.children) { child in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(child.name)
-                                .font(.headline)
-                            Text("出生日期：\(AppDateFormatter.zhShortDate.string(from: child.birthDate))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(store.profile.name)
+                            .font(.headline)
+                        Text("出生日期：\(AppDateFormatter.zhShortDate.string(from: store.profile.birthDate))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .onDelete(perform: deleteChildren)
-                }
-
-                if !store.children.isEmpty {
-                    Section {
-                        Color.clear.frame(height: 80)
-                    }
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("孩子档案")
@@ -423,17 +401,11 @@ struct AppChildListView: View {
             .contentMargins(.bottom, 96, for: .scrollContent)
         }
     }
-
-    private func deleteChildren(at offsets: IndexSet) {
-        store.children.remove(atOffsets: offsets)
-        store.save()
-    }
 }
 
 struct AppGrowthChartView: View {
     @EnvironmentObject var store: AppStore
 
-    @State private var selectedChildID: UUID?
     @State private var metric: ChartMetric = .height
 
     enum ChartMetric: String, CaseIterable {
@@ -442,22 +414,12 @@ struct AppGrowthChartView: View {
     }
 
     private var filteredRecords: [AppGrowthRecord] {
-        guard let id = selectedChildID else { return [] }
-        return store.records
-            .filter { $0.childID == id }
-            .sorted { $0.date < $1.date }
+        store.records.sorted { $0.date < $1.date }
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Picker("孩子", selection: $selectedChildID) {
-                    ForEach(store.children) { child in
-                        Text(child.name).tag(child.id as UUID?)
-                    }
-                }
-                .pickerStyle(.segmented)
-
                 Picker("指标", selection: $metric) {
                     ForEach(ChartMetric.allCases, id: \.self) { item in
                         Text(item.rawValue).tag(item)
@@ -480,83 +442,17 @@ struct AppGrowthChartView: View {
             .padding()
             .navigationTitle("成长曲线")
         }
-        .onAppear {
-            if selectedChildID == nil {
-                selectedChildID = store.children.first?.id
-            }
-        }
     }
 
     private var chart: some View {
-        GeometryReader { geometry in
-            let points = chartPoints(for: geometry.size)
-            ZStack {
-                if points.count > 1 {
-                    Path { path in
-                        path.move(to: points[0])
-                        for point in points.dropFirst() {
-                            path.addLine(to: point)
-                        }
-                    }
-                    .stroke(
-                        Color.accentColor,
-                        style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
-                    )
-                }
-
-                ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 8, height: 8)
-                        .position(point)
-                }
+        Chart {
+            ForEach(filteredRecords) { record in
+                LineMark(
+                    x: .value("日期", record.date),
+                    y: .value(metric.rawValue, metric == .height ? record.heightCm : record.weightKg)
+                )
+                .foregroundStyle(.blue)
             }
-        }
-    }
-
-    private func chartPoints(for size: CGSize) -> [CGPoint] {
-        guard filteredRecords.count > 1 else { return [] }
-
-        let values = filteredRecords.map { record -> Double in
-            metric == .height ? record.heightCm : record.weightKg
-        }
-
-        guard let minValue = values.min(),
-              let maxValue = values.max(),
-              maxValue > minValue else {
-            return []
-        }
-
-        let leftInset: CGFloat = 20
-        let rightInset: CGFloat = 20
-        let topInset: CGFloat = 20
-        let bottomInset: CGFloat = 20
-
-        let chartWidth = max(size.width - leftInset - rightInset, 1)
-        let chartHeight = max(size.height - topInset - bottomInset, 1)
-        let range = maxValue - minValue
-
-        return filteredRecords.enumerated().map { index, record in
-            let value = metric == .height ? record.heightCm : record.weightKg
-            let x = leftInset + chartWidth * CGFloat(index) / CGFloat(filteredRecords.count - 1)
-            let y = topInset + chartHeight * (1 - CGFloat((value - minValue) / range))
-            return CGPoint(x: x, y: y)
-        }
-    }
-}
-
-struct AppSettingsView: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("数据") {
-                    LabeledContent("孩子数量", value: "\(store.children.count)")
-                    LabeledContent("记录数量", value: "\(store.records.count)")
-                }
-            }
-            .navigationTitle("设置")
         }
     }
 }
