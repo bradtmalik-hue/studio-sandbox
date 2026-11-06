@@ -7,7 +7,7 @@ struct BattleLogRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            BattleLogOverviewView(store: store)
+            BattleLogOverviewView()
                 .tabItem {
                     Label("概览", systemImage: "chart.bar.xaxis")
                 }
