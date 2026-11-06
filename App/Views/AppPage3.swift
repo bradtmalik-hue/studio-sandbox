@@ -46,7 +46,7 @@ struct AppPage3View: View {
 
                 Section {
                     if filteredMedicines.isEmpty {
-                        AppPage3EmptyState(hasIgnored: !ignoredIDs.isEmpty, resetAction: resetFilters)
+                        AppPage3EmptyState(hasIgnored: !ignoredIDs.isEmpty, showAddAlert: $showAddAlert, resetAction: resetFilters)
                         .frame(maxWidth: .infinity, minHeight: 260)
                     } else {
                         ForEach(filteredMedicines) { medicine in
