@@ -15,4 +15,5 @@ struct AppMealRecord: Codable, Identifiable {
     }
 }
 
-final class App
+final class App {
+}
