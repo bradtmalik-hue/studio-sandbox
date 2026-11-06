@@ -345,6 +345,7 @@ struct BattleLogAddRecordView: View {
                 Section {
                     Button("保存记录") {
                         let newRecord = BattleLogRecord(
+                            gameName: "未命名",
                             date: date,
                             result: result,
                             score: score
