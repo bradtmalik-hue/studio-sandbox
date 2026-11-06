@@ -100,9 +100,9 @@ struct AppRecordRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(String(format: "%.1f cm", record.height))
+                Text(String(format: "%.1f cm", record.heightCM))
                     .font(.subheadline.weight(.medium))
-                Text(String(format: "%.1f kg", record.weight))
+                Text(String(format: "%.1f kg", record.weightKG))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -123,13 +123,13 @@ struct AppSummaryView: View {
             HStack(spacing: 12) {
                 AppStatCard(
                     title: "最新身高",
-                    value: latestRecord.map { String(format: "%.1f", $0.height) } ?? "--",
+                    value: latestRecord.map { String(format: "%.1f", $0.heightCM) } ?? "--",
                     unit: "cm",
                     color: .blue
                 )
                 AppStatCard(
                     title: "最新体重",
-                    value: latestRecord.map { String(format: "%.1f", $0.weight) } ?? "--",
+                    value: latestRecord.map { String(format: "%.1f", $0.weightKG) } ?? "--",
                     unit: "kg",
                     color: .green
                 )
@@ -220,7 +220,7 @@ struct AppAddRecordView: View {
     
     func save() {
         guard let height, let weight else { return }
-        let record = AppGrowthRecord(date: date, height: height, weight: weight, note: note)
+        let record = AppGrowthRecord(date: date, heightCM: height, weightKG: weight, note: note)
         store.add(record)
         dismiss()
     }
@@ -240,11 +240,11 @@ struct AppGrowthChartView: View {
             let average: Double
             switch metric {
             case .height:
-                average = records.map(\.height).reduce(0, +) / Double(records.count)
+                average = records.map(\.heightCM).reduce(0, +) / Double(records.count)
             case .weight:
-                average = records.map(\.weight).reduce(0, +) / Double(records.count)
+                average = records.map(\.weightKG).reduce(0, +) / Double(records.count)
             }
-            return AppMonthlyPoint(date: month, value: average)
+            return AppMonthlyPoint()
         }
         return points.sorted { $0.date < $1.date }
     }
