@@ -155,99 +155,103 @@ final class BattleLogStore: ObservableObject {
 }
 
 enum DemoSeed {
-    static func apply(into store: BattleLogStore) {
-        guard CommandLine.arguments.contains("-demoData") else { return }
+    static let hour: TimeInterval = 3600
+    static let day: TimeInterval = 86400
 
+    static let demoRecords: [BattleLogRecord] = {
         let now = Date()
-        let hour: TimeInterval = 3600
-        let day: TimeInterval = 86400
-
-        let demoRecords: [BattleLogRecord] = [
+        return [
             BattleLogRecord(
                 gameName: "星际征途",
-                date: now.addingTimeInterval(-2 * hour),
+                date: now.addingTimeInterval(-2 * Self.hour),
                 result: .win,
                 score: 1280,
                 note: "开局顺利"
             ),
             BattleLogRecord(
                 gameName: "幻境冒险",
-                date: now.addingTimeInterval(-26 * hour),
+                date: now.addingTimeInterval(-26 * Self.hour),
                 result: .lose,
                 score: 850,
                 note: "团战没跟上"
             ),
             BattleLogRecord(
                 gameName: "极限竞速",
-                date: now.addingTimeInterval(-1 * day - 3 * hour),
+                date: now.addingTimeInterval(-1 * Self.day - 3 * Self.hour),
                 result: .win,
                 score: 1540,
                 note: "刷新个人纪录"
             ),
             BattleLogRecord(
                 gameName: "火箭联盟",
-                date: now.addingTimeInterval(-2 * day - 1 * hour),
+                date: now.addingTimeInterval(-2 * Self.day - 1 * Self.hour),
                 result: .draw,
                 score: 960,
                 note: "加时赛"
             ),
             BattleLogRecord(
                 gameName: "魔法学院",
-                date: now.addingTimeInterval(-3 * day - 4 * hour),
+                date: now.addingTimeInterval(-3 * Self.day - 4 * Self.hour),
                 result: .win,
                 score: 1010,
                 note: "输出最高"
             ),
             BattleLogRecord(
                 gameName: "枪火前线",
-                date: now.addingTimeInterval(-3 * day - 7 * hour),
+                date: now.addingTimeInterval(-3 * Self.day - 7 * Self.hour),
                 result: .lose,
                 score: 420,
                 note: "队友掉线"
             ),
             BattleLogRecord(
                 gameName: "棋艺对决",
-                date: now.addingTimeInterval(-4 * day - 2 * hour),
+                date: now.addingTimeInterval(-4 * Self.day - 2 * Self.hour),
                 result: .win,
                 score: 1420,
                 note: "险胜"
             ),
             BattleLogRecord(
                 gameName: "卡牌战术",
-                date: now.addingTimeInterval(-5 * day - 5 * hour),
+                date: now.addingTimeInterval(-5 * Self.day - 5 * Self.hour),
                 result: .lose,
                 score: 390,
                 note: "卡组被克制"
             ),
             BattleLogRecord(
                 gameName: "足球大师",
-                date: now.addingTimeInterval(-6 * day - 2 * hour),
+                date: now.addingTimeInterval(-6 * Self.day - 2 * Self.hour),
                 result: .win,
                 score: 2100,
                 note: "帽子戏法"
             ),
             BattleLogRecord(
                 gameName: "篮球世界",
-                date: now.addingTimeInterval(-7 * day - 6 * hour),
+                date: now.addingTimeInterval(-7 * Self.day - 6 * Self.hour),
                 result: .lose,
                 score: 780,
                 note: "最后时刻失误"
             ),
             BattleLogRecord(
                 gameName: "星际征途",
-                date: now.addingTimeInterval(-8 * day - 3 * hour),
+                date: now.addingTimeInterval(-8 * Self.day - 3 * Self.hour),
                 result: .win,
                 score: 1320,
                 note: "三连胜"
             ),
             BattleLogRecord(
                 gameName: "幻境冒险",
-                date: now.addingTimeInterval(-9 * day - 8 * hour),
+                date: now.addingTimeInterval(-9 * Self.day - 8 * Self.hour),
                 result: .lose,
                 score: 610,
                 note: "BOSS 战失败"
             )
         ]
+    }()
+
+    static func apply(into store: BattleLogStore? = nil) {
+        guard let store = store, CommandLine.arguments.contains("-demoData") else {
+            return
+        }
 
         store.records = demoRecords
         store.save()
