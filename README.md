@@ -1,7 +1,7 @@
 # App
 
-随手记下孩子的身高体重，曲线自己长出来
+记录每天喂猫的时间和量，看有没有漏喂
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 记一笔, 成长曲线, 历史记录
+Screens: 今天, 日历, 设置
