@@ -1,7 +1,7 @@
-# BattleLog
+# App
 
-记录每局战绩
+记录每天喂猫的时间和量，看有没有漏喂
 
-Bundle ID: `com.dassospizzirri-hash.battlelog`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 记录, 统计, 设置
+Screens: 今天, 日历, 设置
