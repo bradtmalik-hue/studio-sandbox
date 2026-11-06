@@ -1,18 +1,26 @@
 import SwiftUI
 
-struct ContentView: View {
+struct MainTabView: View {
     var body: some View {
-        NavigationView {
-            List {
-                Text("Hello, world!")
+        TabView {
+            NavigationView {
+                Text("Home")
             }
-            .navigationTitle("App")
+            .tabItem {
+                Label("Home", systemImage: "house")
+            }
+            NavigationView {
+                Text("Settings")
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
         }
     }
 }
 
-struct PlaceholderView: View {
+struct ContentView: View {
     var body: some View {
-        Text("Placeholder")
+        MainTabView()
     }
 }
