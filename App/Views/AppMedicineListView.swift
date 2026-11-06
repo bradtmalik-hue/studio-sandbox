@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppMedicineListView: View {
-    @State private var medicines: [AppMedicineItem] = AppMedicineItem.samples
+    @State private var medicines: [MedicineReminderItem] = MedicineReminderItem.samples
 
     private var isChinese: Bool {
         Locale.preferredLanguages.first?.hasPrefix("zh") == true
@@ -65,15 +65,15 @@ struct AppMedicineListView: View {
     }
 
     private func addSampleMedicine() {
-        let newItem: AppMedicineItem
+        let newItem: MedicineReminderItem
         if isChinese {
-            newItem = AppMedicineItem(
+            newItem = MedicineReminderItem(
                 name: "阿司匹林",
                 dosage: "每日一次，每次一片，饭后服用",
                 nextDoseDate: Date().addingTimeInterval(86400)
             )
         } else {
-            newItem = AppMedicineItem(
+            newItem = MedicineReminderItem(
                 name: "Aspirin",
                 dosage: "Once daily, one tablet after meals",
                 nextDoseDate: Date().addingTimeInterval(86400)
@@ -103,51 +103,51 @@ struct AppMedicineListView: View {
     }
 }
 
-struct AppMedicineItem: Identifiable {
+struct MedicineReminderItem: Identifiable {
     let id = UUID()
     let name: String
     let dosage: String
     let nextDoseDate: Date
 
-    static var samples: [AppMedicineItem] {
+    static var samples: [MedicineReminderItem] {
         let isChinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
         return [
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "阿司匹林" : "Aspirin",
                 dosage: isChinese ? "每日一次，每次一片，饭后服用" : "Once daily, one tablet after meals",
                 nextDoseDate: Date().addingTimeInterval(3600)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "布洛芬" : "Ibuprofen",
                 dosage: isChinese ? "每8小时一次，每次一片" : "Every 8 hours, one tablet",
                 nextDoseDate: Date().addingTimeInterval(28800)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "维生素C" : "Vitamin C",
                 dosage: isChinese ? "每日一次，每次一片" : "Once daily, one tablet",
                 nextDoseDate: Date().addingTimeInterval(86400)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "阿莫西林" : "Amoxicillin",
                 dosage: isChinese ? "每日三次，每次两片" : "Three times daily, two tablets",
                 nextDoseDate: Date().addingTimeInterval(21600)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "氯雷他定" : "Loratadine",
                 dosage: isChinese ? "每日一次，每次一片" : "Once daily, one tablet",
                 nextDoseDate: Date().addingTimeInterval(43200)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "奥美拉唑" : "Omeprazole",
                 dosage: isChinese ? "每日一次，每次一粒，早餐前" : "Once daily, one capsule before breakfast",
                 nextDoseDate: Date().addingTimeInterval(93600)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "二甲双胍" : "Metformin",
                 dosage: isChinese ? "每日两次，每次一片，随餐" : "Twice daily, one tablet with meals",
                 nextDoseDate: Date().addingTimeInterval(61200)
             ),
-            AppMedicineItem(
+            MedicineReminderItem(
                 name: isChinese ? "蒙脱石散" : "Montmorillonite powder",
                 dosage: isChinese ? "每日三次，每次一袋" : "Three times daily, one sachet",
                 nextDoseDate: Date().addingTimeInterval(75600)

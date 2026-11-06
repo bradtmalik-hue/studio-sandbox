@@ -1,20 +1,15 @@
 import SwiftUI
 
-struct NavigationView<Content: View>: View {
-    let content: Content
-
-    @_disfavoredOverload
-    init() where Content == EmptyView {
-        self.content = EmptyView()
-    }
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
+struct NavigationView: View {
     var body: some View {
-        NavigationStack {
-            content
+        VStack(spacing: 10) {
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("这里还没做完")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
