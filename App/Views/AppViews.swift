@@ -1,315 +1,450 @@
 import SwiftUI
+import Combine
+import Foundation
 
-// MARK: - 随手记列表页
+// MARK: - 本地化格式
+private enum AppFormatters {
+    static let dateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
 
-struct AppRecordListView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var searchText: String = ""
-    @State private var showingAddSheet = false
+    static let fullDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日"
+        return formatter
+    }()
 
-    private var sortedRecords: [AppRecord] {
-        store.records.sorted { $0.date > $1.date }
-    }
+    static let monthYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月"
+        return formatter
+    }()
 
-    private var filteredRecords: [AppRecord] {
-        if searchText.isEmpty {
-            return sortedRecords
-        }
-        return sortedRecords.filter { record in
-            record.note.localizedCaseInsensitiveContains(searchText) ||
-            record.category.localizedCaseInsensitiveContains(searchText)
-        }
-    }
+    static let shortDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "E"
+        return formatter
+    }()
 
-    var body: some View {
-        NavigationStack {
-            Group {
-                if filteredRecords.isEmpty {
-                    AppRecordEmptyStateView()
-                } else {
-                    List {
-                        ForEach(filteredRecords) { record in
-                            AppRecordRow(record: record)
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        store.delete(record)
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
-                                }
-                        }
-                    }
-                    .listStyle(.plain)
-                }
-            }
-            .searchable(text: $searchText, prompt: "搜索备注或分类")
-            .navigationTitle("随手记")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("记一笔")
-                }
-            }
-            .sheet(isPresented: $showingAddSheet) {
-                AppAddRecordView()
-            }
+    static func grams(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f 克", value)
+        } else {
+            return String(format: "%.1f 克", value)
         }
     }
 }
 
 // MARK: - 空状态
-
-struct AppRecordEmptyStateView: View {
+struct AppFeedingEmptyView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-            Text("还没有记录")
-                .font(.title2)
-                .fontWeight(.semibold)
-            Text("点击右上角 + 随手记一笔")
-                .font(.body)
-                .foregroundStyle(.secondary)
+            Image(systemName: "pawprint.circle.fill")
+                .font(.system(size: 64))
+                .foregroundColor(.secondary)
+            Text("还没有喂猫记录")
+                .font(.title2.weight(.semibold))
+            Text("点右上角 + 添加第一笔记录")
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.gray.opacity(0.05))
+        .padding(.bottom, 96)
+        .background(Color(.systemGroupedBackground))
     }
 }
 
-// MARK: - 记录行
-
-struct AppRecordRow: View {
-    let record: AppRecord
+// MARK: - 单条喂食记录行
+struct AppFeedingRecordRow: View {
+    let record: AppFeedingRecord
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "note.text")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, height: 32)
-                .background(Color.gray.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
+        HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.note.isEmpty ? "无备注" : record.note)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                HStack {
-                    Text(record.category)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(record.date, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text(record.mealType.rawValue)
+                    .font(.headline)
+                Text(AppFormatters.dateTime.string(from: record.date))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
-
             Spacer()
-
-            Text(String(format: "¥%.2f", record.amount))
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
+            Text(AppFormatters.grams(record.amount))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
         }
         .padding(.vertical, 4)
     }
 }
 
-// MARK: - 添加记录
+// MARK: - 喂食记录列表页
+struct AppFeedingLogView: View {
+    @EnvironmentObject var store: AppCatMealStore
+    @State private var showingAddSheet = false
 
-private let appDefaultCategories = ["餐饮", "交通", "购物", "娱乐", "其他"]
+    private var sortedRecords: [AppFeedingRecord] {
+        store.records.sorted { $0.date > $1.date }
+    }
 
-struct AppAddRecordView: View {
+    var body: some View {
+        NavigationStack {
+            Group {
+                if sortedRecords.isEmpty {
+                    AppFeedingEmptyView()
+                } else {
+                    List {
+                        ForEach(sortedRecords) { record in
+                            AppFeedingRecordRow(record: record)
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
+                }
+            }
+            .navigationTitle("喂猫记录")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("添加记录", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddFeedingSheet()
+            }
+        }
+    }
+}
+
+// MARK: - 添加喂食记录弹窗
+struct AppAddFeedingSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var store: AppCatMealStore
 
-    @State private var category: String = appDefaultCategories[0]
-    @State private var amountText: String = ""
-    @State private var note: String = ""
     @State private var date = Date()
-    @State private var showValidationError = false
+    @State private var amountText = ""
+    @State private var mealType: AppMealType = AppMealType.allCases.first!
+
+    private var amountValue: Double? {
+        let text = amountText.trimmingCharacters(in: .whitespaces)
+        guard let value = Double(text), value > 0 else { return nil }
+        return value
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("分类") {
-                    Picker("分类", selection: $category) {
-                        ForEach(appDefaultCategories, id: \.self) { cat in
-                            Text(cat).tag(cat)
+                Section("时间") {
+                    DatePicker("喂猫时间", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                }
+
+                Section("类型") {
+                    Picker("食物类型", selection: $mealType) {
+                        ForEach(AppMealType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
 
-                Section("金额") {
-                    TextField("0.00", text: $amountText)
+                Section("食量") {
+                    TextField("克数", text: $amountText)
                         .keyboardType(.decimalPad)
                 }
-
-                Section("备注") {
-                    TextField("例如：午餐、打车、买书", text: $note)
-                }
-
-                Section("日期") {
-                    DatePicker("日期", selection: $date, displayedComponents: .date)
-                }
             }
-            .navigationTitle("记一笔")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("添加记录")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { saveRecord() }
-                        .disabled(amountText.isEmpty || Double(amountText) == nil)
+                    Button("保存") { addRecord() }
+                        .disabled(amountValue == nil)
                 }
-            }
-            .alert("请输入有效金额", isPresented: $showValidationError) {
-                Button("好", role: .cancel) { }
             }
         }
     }
 
-    private func saveRecord() {
-        guard let amount = Double(amountText), amount > 0 else {
-            showValidationError = true
-            return
-        }
-        let record = AppRecord(
-            id: UUID(),
-            category: category,
-            amount: amount,
-            note: note,
-            date: date
-        )
+    private func addRecord() {
+        guard let amount = amountValue else { return }
+        let record = AppFeedingRecord(date: date, amount: amount, mealType: mealType)
         store.add(record)
         dismiss()
     }
 }
 
-// MARK: - 统计页
+// MARK: - 喂食日历页
+struct AppFeedingCalendarView: View {
+    @EnvironmentObject var store: AppCatMealStore
+    @State private var displayedMonth: Date = Calendar.current.startOfDay(for: Date())
 
-struct AppStatsView: View {
-    @EnvironmentObject var store: AppStore
+    var calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.locale = Locale(identifier: "zh_CN")
+        cal.firstWeekday = 2
+        return cal
+    }()
 
-    var total: Double {
-        store.records.reduce(0) { $0 + $1.amount }
+    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
+
+    private var monthStart: Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth))!
     }
 
-    private var average: Double {
-        store.records.isEmpty ? 0 : total / Double(store.records.count)
+    private var daysInMonth: [Date] {
+        guard let interval = calendar.dateInterval(of: .month, for: monthStart) else { return [] }
+        let days = calendar.dateComponents([.day], from: interval.start, to: interval.end).day ?? 0
+        return (0..<days).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
     }
 
-    private var categoriesWithRecords: [String] {
-        Array(Set(store.records.map { $0.category }))
-    }
-
-    private var maxCategoryAmount: Double {
-        categoriesWithRecords
-            .map { category in
-                store.records.filter { $0.category == category }.reduce(0) { $0 + $1.amount }
-            }
-            .max() ?? 0
+    private var leadingEmpty: Int {
+        let weekday = calendar.component(.weekday, from: monthStart)
+        return (weekday - calendar.firstWeekday + 7) % 7
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 12) {
-                        Text("总支出")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text(String(format: "¥%.2f", total))
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                        Text("共 \(store.records.count) 笔 · 平均 ¥\(String(format: "%.2f", average))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-
-                    if store.records.isEmpty {
-                        AppStatsEmptyStateView()
-                    } else {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("分类占比")
-                                .font(.headline)
-                            ForEach(categoriesWithRecords, id: \.self) { category in
-                                let amount = store.records.filter { $0.category == category }.reduce(0) { $0 + $1.amount }
-                                AppCategoryStatRow(category: category, amount: amount, maxAmount: maxCategoryAmount)
-                            }
+                VStack(spacing: 16) {
+                    HStack {
+                        Button {
+                            changeMonth(-1)
+                        } label: {
+                            Image(systemName: "chevron.left")
                         }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        Spacer()
+                        Text(AppFormatters.monthYear.string(from: displayedMonth))
+                            .font(.title2.weight(.semibold))
+                        Spacer()
+                        Button {
+                            changeMonth(1)
+                        } label: {
+                            Image(systemName: "chevron.right")
+                        }
                     }
+                    .padding(.horizontal)
+
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(["一", "二", "三", "四", "五", "六", "日"], id: \.self) { day in
+                            Text(day)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(0..<leadingEmpty, id: \.self) { _ in
+                            Color.clear.frame(height: 44)
+                        }
+                        ForEach(daysInMonth, id: \.self) { day in
+                            AppCalendarDayCell(
+                                day: day,
+                                isMissed: missed(on: day),
+                                hasFed: !records(on: day).isEmpty,
+                                isToday: calendar.isDate(day, inSameDayAs: Date())
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.vertical)
+            }
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("喂食日历")
+        }
+    }
+
+    func records(on day: Date) -> [AppFeedingRecord] {
+        store.records.filter { calendar.isDate($0.date, inSameDayAs: day) }
+    }
+
+    private func missed(on day: Date) -> Bool {
+        let startOfDay = calendar.startOfDay(for: day)
+        let today = calendar.startOfDay(for: Date())
+        if startOfDay > today { return false }
+        return records(on: day).isEmpty
+    }
+
+    private func changeMonth(_ by: Int) {
+        if let newDate = calendar.date(byAdding: .month, value: by, to: displayedMonth) {
+            displayedMonth = newDate
+        }
+    }
+}
+
+// MARK: - 日历单日单元格
+struct AppCalendarDayCell: View {
+    let day: Date
+    let isMissed: Bool
+    let hasFed: Bool
+    let isToday: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(Calendar.current.component(.day, from: day))")
+                .font(.system(size: 16, weight: isToday ? .bold : .regular))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(backgroundColor)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            if isMissed {
+                Circle()
+                    .fill(Color.red.opacity(0.7))
+                    .frame(width: 6, height: 6)
+            } else if hasFed {
+                Circle()
+                    .fill(Color.green.opacity(0.7))
+                    .frame(width: 6, height: 6)
+            } else {
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .frame(height: 44)
+    }
+
+    private var backgroundColor: Color {
+        if isToday { return Color.blue.opacity(0.15) }
+        if isMissed { return Color.red.opacity(0.08) }
+        if hasFed { return Color.green.opacity(0.08) }
+        return Color.clear
+    }
+}
+
+// MARK: - 统计页
+struct AppFeedingSummaryView: View {
+    @EnvironmentObject var store: AppCatMealStore
+    private let calendar = Calendar.current
+
+    private var totalFeedings: Int {
+        store.records.count
+    }
+
+    private var totalAmount: Double {
+        store.records.reduce(0) { $0 + $1.amount }
+    }
+
+    private var averageAmount: Double {
+        totalFeedings == 0 ? 0 : totalAmount / Double(totalFeedings)
+    }
+
+    private var missedDays: Int {
+        guard let firstDate = store.records.map({ $0.date }).min() else { return 0 }
+        let start = calendar.startOfDay(for: firstDate)
+        let today = calendar.startOfDay(for: Date())
+        guard start <= today else { return 0 }
+        var count = 0
+        var day = start
+        while day <= today {
+            let hasFed = store.records.contains { calendar.isDate($0.date, inSameDayAs: day) }
+            if !hasFed { count += 1 }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return count
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    HStack(spacing: 12) {
+                        AppStatCard(title: "总次数", value: "\(totalFeedings)", systemImage: "number.circle")
+                        AppStatCard(title: "总食量", value: AppFormatters.grams(totalAmount), systemImage: "scalemass")
+                    }
+
+                    HStack(spacing: 12) {
+                        AppStatCard(title: "平均每次", value: AppFormatters.grams(averageAmount), systemImage: "chart.bar")
+                        AppStatCard(title: "漏喂天数", value: "\(missedDays)", systemImage: "exclamationmark.triangle")
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("最近7天食量")
+                            .font(.headline)
+                        AppRecent7DayChart(records: store.records, calendar: calendar)
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .padding()
             }
-            .background(Color.gray.opacity(0.05))
-            .navigationTitle("统计")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("喂食统计")
         }
     }
 }
 
-struct AppStatsEmptyStateView: View {
+// MARK: - 统计卡片
+struct AppStatCard: View {
+    let title: String
+    let value: String
+    let systemImage: String
+
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "chart.pie")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("暂无统计数据")
-                .font(.title3)
-                .fontWeight(.semibold)
-            Text("记几笔后这里会出现分类统计")
-                .font(.body)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundColor(.blue)
+            Text(value)
+                .font(.title2.weight(.semibold))
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
-struct AppCategoryStatRow: View {
-    let category: String
-    let amount: Double
-    let maxAmount: Double
+// MARK: - 最近7天柱状图
+struct AppRecent7DayChart: View {
+    let records: [AppFeedingRecord]
+    let calendar: Calendar
 
-    private var progress: Double {
-        maxAmount > 0 ? amount / maxAmount : 0
+    private var days: [Date] {
+        let today = calendar.startOfDay(for: Date())
+        return Array((0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed())
+    }
+
+    private func amount(for day: Date) -> Double {
+        records.filter { calendar.isDate($0.date, inSameDayAs: day) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    private var maxAmount: Double {
+        max(days.map { amount(for: $0) }.max() ?? 0, 1)
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Label(category, systemImage: "circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text(String(format: "¥%.2f", amount))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.gray.opacity(0.25))
-                    Capsule()
-                        .fill(Color.accentColor)
-                        .frame(width: geo.size.width * progress)
+        HStack(alignment: .bottom, spacing: 8) {
+            ForEach(days, id: \.self) { day in
+                VStack(spacing: 6) {
+                    Text(AppFormatters.shortDay.string(from: day))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.blue.gradient)
+                        .frame(height: CGFloat(amount(for: day) / maxAmount) * 100)
+                    Text(String(format: "%.0f", amount(for: day)))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
+                .frame(maxWidth: .infinity)
             }
-            .frame(height: 8)
         }
+        .frame(height: 160)
     }
 }

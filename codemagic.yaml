@@ -56,7 +56,8 @@ workflows:
           for T in 0 1 2; do
             xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
             xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" || true
-            sleep 4
+            # 等久一点：刚启动那几秒系统会弹通知/键盘提示，会盖住标题栏
+            sleep 9
             xcrun simctl io "$DEV" screenshot "shots/shot_$N.png"
             N=$((N+1))
           done

@@ -2,53 +2,39 @@ import SwiftUI
 import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selectedTab = AppRootView.initialTab()
-    @State private var showingAddRecord = false
+    @StateObject private var store = AppCatMealStore()
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                AppRecordListView()
-                    .navigationTitle("随手记")
-                    .toolbar {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button {
-                                showingAddRecord = true
-                            } label: {
-                                Label("记一笔", systemImage: "plus")
-                            }
-                        }
-                    }
-                    .sheet(isPresented: $showingAddRecord) {
-                        NavigationStack {
-                            AppAddRecordView()
-                        }
-                        .environmentObject(store)
-                    }
-            }
-            .tabItem {
-                Label("记录", systemImage: "list.bullet.rectangle")
-            }
-            .tag(0)
+            AppFeedingLogView()
+                .tabItem {
+                    Label("喂养", systemImage: "fork.knife")
+                }
+                .tag(0)
 
-            NavigationStack {
-                AppStatsView()
-                    .navigationTitle("统计")
-            }
-            .tabItem {
-                Label("统计", systemImage: "chart.bar.fill")
-            }
-            .tag(1)
+            AppFeedingCalendarView()
+                .tabItem {
+                    Label("日历", systemImage: "calendar")
+                }
+                .tag(1)
+
+            AppFeedingSummaryView()
+                .tabItem {
+                    Label("统计", systemImage: "chart.bar.xaxis")
+                }
+                .tag(2)
         }
         .environmentObject(store)
-        .tint(.primary)
+        .tint(.orange)
     }
 
     private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let value = Int(args[index + 1]) {
-            return min(max(value, 0), 1)
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-startTab"),
+           index + 1 < arguments.count,
+           let tab = Int(arguments[index + 1]) {
+            return min(max(tab, 0), 2)
         }
         return 0
     }

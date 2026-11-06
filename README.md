@@ -1,7 +1,7 @@
 # App
 
-随手记一笔，随时看统计
+记录每天喂猫的时间和量，别漏喂
 
 Bundle ID: `com.example.app`
 
-Screens: 记录列表, 统计, 设置
+Screens: 今天, 日历, 设置
