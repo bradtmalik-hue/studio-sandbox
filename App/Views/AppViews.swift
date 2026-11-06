@@ -2,384 +2,292 @@ import SwiftUI
 import Foundation
 import Combine
 
-enum AppFormatters {
-    static let expiryDisplay: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年M月d日"
-        return formatter
+// MARK: - 日期格式化
+enum AppDateFormatter {
+    static let timeOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "HH:mm"
+        return f
     }()
-    static let expiryShort: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter
+    
+    static let full: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f
+    }()
+    
+    static let dateOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日"
+        return f
     }()
 }
 
-struct AppMedicineRow: View {
-    let item: AppMedicineItem
-
-    var isExpired: Bool {
-        item.expiryDate < Date()
-    }
-    var isExpiringSoon: Bool {
-        !isExpired && item.expiryDate <= Date().addingTimeInterval(86400 * 30)
-    }
-
+// MARK: - 空状态视图
+struct AppEmptyStateView: View {
+    let icon: String
+    let title: String
+    let message: String
+    
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: isExpired ? "exclamationmark.triangle.fill" : (isExpiringSoon ? "clock.badge.exclamationmark.fill" : "pills.fill"))
-                .foregroundStyle(isExpired ? .red : (isExpiringSoon ? .orange : .secondary))
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.name)
-                    .font(.headline)
-                Text(item.location)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text("有效期至 \(AppFormatters.expiryDisplay.string(from: item.expiryDate))")
-                    .font(.caption)
-                    .foregroundStyle(isExpired ? .red : (isExpiringSoon ? .orange : .secondary))
-            }
-            Spacer()
-            Text("\(item.quantity)盒")
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 48))
+                .foregroundStyle(.orange)
+            Text(title)
+                .font(.headline)
+            Text(message)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
     }
 }
 
-struct AppMedicineListView: View {
-    @EnvironmentObject var store: AppMedicineStore
-    @State private var showingAddForm = false
-
-    private var sortedItems: [AppMedicineItem] {
-        store.items.sorted { $0.expiryDate < $1.expiryDate }
+// MARK: - 今天视图
+struct AppTodayView: View {
+    @EnvironmentObject var store: AppMealStore
+    @State private var showingAddSheet = false
+    
+    private var todayRecords: [AppMealRecord] {
+        store.records.filter { Calendar.current.isDateInToday($0.date) }
+            .sorted(by: { $0.date > $1.date })
     }
-    private var expiredItems: [AppMedicineItem] {
-        sortedItems.filter { $0.expiryDate < Date() }
-    }
-    private var expiringSoonItems: [AppMedicineItem] {
-        sortedItems.filter { $0.expiryDate >= Date() && $0.expiryDate <= Date().addingTimeInterval(86400 * 30) }
-    }
-    private var otherItems: [AppMedicineItem] {
-        sortedItems.filter { $0.expiryDate > Date().addingTimeInterval(86400 * 30) }
-    }
-
+    
     var body: some View {
         NavigationStack {
-            Group {
-                if store.items.isEmpty {
-                    emptyState
+            List {
+                if todayRecords.isEmpty {
+                    Section {
+                        AppEmptyStateView(
+                            icon: "cat",
+                            title: "今天还没有喂猫",
+                            message: "点右上角的 + 记录第一次喂食"
+                        )
+                    }
                 } else {
-                    List {
-                        if !expiredItems.isEmpty {
-                            Section("已过期") {
-                                ForEach(expiredItems) { item in
-                                    NavigationLink {
-                                        AppMedicineDetailView(itemID: item.id)
-                                    } label: {
-                                        AppMedicineRow(item: item)
-                                    }
-                                }
-                            }
-                        }
-                        if !expiringSoonItems.isEmpty {
-                            Section("30天内到期") {
-                                ForEach(expiringSoonItems) { item in
-                                    NavigationLink {
-                                        AppMedicineDetailView(itemID: item.id)
-                                    } label: {
-                                        AppMedicineRow(item: item)
-                                    }
-                                }
-                            }
-                        }
-                        if !otherItems.isEmpty {
-                            Section("其他") {
-                                ForEach(otherItems) { item in
-                                    NavigationLink {
-                                        AppMedicineDetailView(itemID: item.id)
-                                    } label: {
-                                        AppMedicineRow(item: item)
-                                    }
-                                }
-                            }
+                    Section("今日概览") {
+                        Label("已喂食 \(todayRecords.count) 次", systemImage: "checkmark.circle.fill")
+                        if let last = todayRecords.first {
+                            Label("最近一次：\(AppDateFormatter.timeOnly.string(from: last.date))", systemImage: "clock")
+                            Label("喂食量：\(last.amount, specifier: "%.0f") 克", systemImage: "fork.knife")
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
+                    Section("今日喂食记录") {
+                        ForEach(todayRecords) { record in
+                            AppMealRecordRow(record: record, showsDate: false)
+                        }
+                    }
                 }
             }
-            .navigationTitle("家庭药箱")
+            .listStyle(.insetGrouped)
+            .navigationTitle("猫饭记")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingAddForm = true
+                        showingAddSheet = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddForm) {
-                AppMedicineFormView()
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddMealView()
             }
+            .contentMargins(.bottom, 96, for: .scrollContent)
         }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "pills.circle")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-            Text("药箱空空如也")
-                .font(.title3.weight(.semibold))
-            Text("点击右上角 + 添加第一盒药\n记录保质期和存放位置")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-struct AppMedicineDetailView: View {
-    @EnvironmentObject var store: AppMedicineStore
-    @Environment(\.dismiss) var dismiss
-    let itemID: UUID
-    @State private var showingEditForm = false
-    @State private var showingDeleteConfirm = false
-
-    var item: AppMedicineItem? {
-        store.items.first { $0.id == itemID }
+// MARK: - 历史记录视图
+struct AppHistoryView: View {
+    @EnvironmentObject var store: AppMealStore
+    @State private var showingAddSheet = false
+    
+    private var sortedRecords: [AppMealRecord] {
+        store.records.sorted(by: { $0.date > $1.date })
     }
-
+    
     var body: some View {
-        Group {
-            if let item = item {
-                List {
-                    Section("药品信息") {
-                        LabeledContent("名称", value: item.name)
-                        LabeledContent("有效期至", value: AppFormatters.expiryDisplay.string(from: item.expiryDate))
-                        LabeledContent("数量", value: "\(item.quantity)盒")
-                    }
-                    Section("存放位置") {
-                        Text(item.location)
-                    }
-                    if !item.notes.isEmpty {
-                        Section("备注") {
-                            Text(item.notes)
-                        }
-                    }
+        NavigationStack {
+            List {
+                if sortedRecords.isEmpty {
                     Section {
-                        Button(role: .destructive) {
-                            showingDeleteConfirm = true
-                        } label: {
-                            Text("删除这盒药")
+                        AppEmptyStateView(
+                            icon: "clock.arrow.circlepath",
+                            title: "还没有任何喂食记录",
+                            message: "添加记录后，这里会显示完整的喂食历史"
+                        )
+                    }
+                } else {
+                    Section("全部记录") {
+                        ForEach(sortedRecords) { record in
+                            AppMealRecordRow(record: record, showsDate: true)
+                        }
+                        .onDelete { offsets in
+                            let sorted = sortedRecords
+                            let ids = offsets.map { sorted[$0].id }
+                            store.records.removeAll { ids.contains($0.id) }
+                            store.save()
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
-                .navigationTitle(item.name)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("编辑") {
-                            showingEditForm = true
-                        }
-                    }
-                }
-                .sheet(isPresented: $showingEditForm) {
-                    AppMedicineFormView(item: item)
-                }
-                .alert("确认删除？", isPresented: $showingDeleteConfirm) {
-                    Button("删除", role: .destructive) {
-                        store.delete(item)
-                        dismiss()
-                    }
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text("删除后无法恢复")
-                }
-            } else {
-                ContentUnavailableView("药品不存在", systemImage: "questionmark.circle")
             }
+            .listStyle(.insetGrouped)
+            .navigationTitle("喂食历史")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppAddMealView()
+            }
+            .contentMargins(.bottom, 96, for: .scrollContent)
         }
     }
 }
 
-struct AppMedicineFormView: View {
-    @EnvironmentObject var store: AppMedicineStore
-    @Environment(\.dismiss) var dismiss
-    let item: AppMedicineItem?
-
-    @State private var name: String
-    @State private var expiryDate: Date
-    @State private var location: String
-    @State private var quantity: Int
-    @State private var notes: String
-
-    init(item: AppMedicineItem? = nil) {
-        self.item = item
-        _name = State(initialValue: item?.name ?? "")
-        _expiryDate = State(initialValue: item?.expiryDate ?? Date().addingTimeInterval(86400 * 365))
-        _location = State(initialValue: item?.location ?? "")
-        _quantity = State(initialValue: item?.quantity ?? 1)
-        _notes = State(initialValue: item?.notes ?? "")
+// MARK: - 统计视图
+struct AppStatsView: View {
+    @EnvironmentObject var store: AppMealStore
+    
+    private var last7DaysRecords: [AppMealRecord] {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        return store.records.filter { $0.date >= start }
     }
+    
+    private var averageAmount: Double {
+        guard !last7DaysRecords.isEmpty else { return 0 }
+        return last7DaysRecords.map(\.amount).reduce(0.0, +) / Double(last7DaysRecords.count)
+    }
+    
+    private var totalAmount: Double {
+        last7DaysRecords.map(\.amount).reduce(0.0, +)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("最近 7 天") {
+                    Label("喂食次数：\(last7DaysRecords.count)", systemImage: "number.circle.fill")
+                    Label("平均每次：\(averageAmount, specifier: "%.0f") 克", systemImage: "plusminus")
+                    Label("总喂食量：\(totalAmount, specifier: "%.0f") 克", systemImage: "chart.bar.fill")
+                }
+                if store.records.isEmpty {
+                    Section {
+                        AppEmptyStateView(
+                            icon: "chart.pie.fill",
+                            title: "还没有统计数据",
+                            message: "喂食记录会出现在这里"
+                        )
+                    }
+                } else {
+                    Section("最近 7 天明细") {
+                        ForEach(last7DaysRecords.sorted(by: { $0.date > $1.date })) { record in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(AppDateFormatter.full.string(from: record.date))
+                                        .font(.body)
+                                    if let note = record.note {
+                                        Text(note)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("\(record.amount, specifier: "%.0f") 克")
+                                    .font(.headline)
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("统计")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+        }
+    }
+}
 
+// MARK: - 记录行
+struct AppMealRecordRow: View {
+    let record: AppMealRecord
+    var showsDate: Bool = false
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(showsDate ? AppDateFormatter.full.string(from: record.date) : AppDateFormatter.timeOnly.string(from: record.date))
+                    .font(.body)
+                if let note = record.note {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text("\(record.amount, specifier: "%.0f") 克")
+                .font(.headline)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 添加喂食记录视图
+struct AppAddMealView: View {
+    @EnvironmentObject var store: AppMealStore
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var date = Date()
+    @State private var amount: Double = 50
+    @State private var note: String = ""
+    
     var body: some View {
         NavigationStack {
             Form {
-                Section("药品名称") {
-                    TextField("例如：阿莫西林胶囊", text: $name)
+                Section("喂食时间") {
+                    DatePicker("时间", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
                 }
-                Section("有效期至") {
-                    DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
+                Section("喂食量") {
+                    Stepper(value: $amount, in: 1...500, step: 5) {
+                        HStack {
+                            Text("喂食量")
+                            Spacer()
+                            Text("\(amount, specifier: "%.0f") 克")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                Section("存放位置") {
-                    TextField("例如：卧室药箱第一层", text: $location)
-                }
-                Section("数量") {
-                    Stepper("\(quantity) 盒", value: $quantity, in: 1...100)
-                }
-                Section("备注") {
-                    TextField("可选", text: $notes)
+                Section("备注（可选）") {
+                    TextField("例如：猫粮、罐头", text: $note)
                 }
             }
-            .navigationTitle(item == nil ? "添加药品" : "编辑药品")
+            .navigationTitle("添加记录")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        save()
+                        let record = AppMealRecord(date: date, amount: amount, note: note.isEmpty ? nil : note)
+                        store.add(record)
+                        dismiss()
                     }
                 }
             }
         }
-    }
-
-    func save() {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedLocation = location.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !trimmedLocation.isEmpty else { return }
-        let newItem = AppMedicineItem(
-            id: item?.id ?? UUID(),
-            name: trimmedName,
-            expiryDate: expiryDate,
-            location: trimmedLocation,
-            quantity: quantity,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        if item == nil {
-            store.add(newItem)
-        } else {
-            store.update(newItem)
-        }
-        dismiss()
-    }
-}
-
-struct AppExpiryReminderView: View {
-    @EnvironmentObject var store: AppMedicineStore
-
-    private var expiringItems: [AppMedicineItem] {
-        store.items
-            .filter { $0.expiryDate <= Date().addingTimeInterval(86400 * 30) }
-            .sorted { $0.expiryDate < $1.expiryDate }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if expiringItems.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        ForEach(expiringItems) { item in
-                            NavigationLink {
-                                AppMedicineDetailView(itemID: item.id)
-                            } label: {
-                                AppMedicineRow(item: item)
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
-                }
-            }
-            .navigationTitle("临期提醒")
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-            Text("没有临期药品")
-                .font(.title3.weight(.semibold))
-            Text("所有药品都在安全期内")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct AppLocationView: View {
-    @EnvironmentObject var store: AppMedicineStore
-
-    private var groupedItems: [(key: String, value: [AppMedicineItem])] {
-        Dictionary(grouping: store.items, by: { $0.location })
-            .map { (key: $0.key, value: $0.value.sorted { $0.expiryDate < $1.expiryDate }) }
-            .sorted { $0.key < $1.key }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if groupedItems.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        ForEach(groupedItems, id: \.key) { group in
-                            Section(group.key) {
-                                ForEach(group.value) { item in
-                                    NavigationLink {
-                                        AppMedicineDetailView(itemID: item.id)
-                                    } label: {
-                                        AppMedicineRow(item: item)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
-                }
-            }
-            .navigationTitle("存放位置")
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "shippingbox")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-            Text("还没有存放位置")
-                .font(.title3.weight(.semibold))
-            Text("添加药品时填写存放位置\n这里会按位置分类显示")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
