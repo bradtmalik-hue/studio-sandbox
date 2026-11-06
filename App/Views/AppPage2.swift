@@ -47,7 +47,7 @@ struct AppPage2View: View {
                     TextField("规格", text: $specification)
                     TextField("生产厂家", text: $manufacturer)
                     Picker(selection: $category, label: {
-                        Label("分类", systemImage: "tag")
+                        Text("分类")
                     }) {
                         ForEach(availableCategories, id: \.self) { cat in
                             Text(cat).tag(cat)
@@ -84,7 +84,7 @@ struct AppPage2View: View {
                         }
                     }
                     Picker(selection: $unit, label: {
-                        Label("单位", systemImage: "scalemass")
+                        Text("单位")
                     }) {
                         ForEach(Self.units, id: \.self) { unit in
                             Text(unit).tag(unit)
