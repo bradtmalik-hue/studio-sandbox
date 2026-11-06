@@ -1,29 +1,47 @@
 import SwiftUI
+import Foundation
+
+typealias AppHomeView = AppViews
+typealias AppRecordListView = AppViews
 
 struct AppRootView: View {
-    @State private var selectedTab: Int = AppRootView.initialTab()
+    @StateObject private var store = AppStore()
+    @State private var selection = AppRootView.initialTab()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeView()
+        TabView(selection: $selection) {
+            AppHomeView()
                 .tabItem {
-                    Label("今日", systemImage: "sun.max.fill")
+                    Label("首页", systemImage: "house.fill")
                 }
                 .tag(0)
 
-            HistoryView()
+            AppRecordListView()
                 .tabItem {
-                    Label("历史", systemImage: "calendar")
+                    Label("记录", systemImage: "list.bullet.rectangle.fill")
                 }
                 .tag(1)
 
-            FavoritesView()
+            AppGrowthChartView(data: store.records.map { $0.heightCm }, lineColor: .green)
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.fill")
+                    Label("曲线", systemImage: "chart.xyaxis.line")
                 }
                 .tag(2)
+
+            AppChildListView()
+                .tabItem {
+                    Label("孩子", systemImage: "person.2.fill")
+                }
+                .tag(3)
+
+            AppSettingsView()
+                .tabItem {
+                    Label("设置", systemImage: "gearshape.fill")
+                }
+                .tag(4)
         }
-        .tint(.orange)
+        .environmentObject(store)
+        .tint(.green)
     }
 
     private static func initialTab() -> Int {
@@ -31,7 +49,7 @@ struct AppRootView: View {
         if let index = args.firstIndex(of: "-startTab"),
            index + 1 < args.count,
            let value = Int(args[index + 1]) {
-            return min(max(value, 0), 2)
+            return min(max(value, 0), 4)
         }
         return 0
     }
