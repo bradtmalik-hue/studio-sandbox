@@ -1,28 +1,28 @@
 import Foundation
 import Combine
 
-struct AppFeedingRecord: Identifiable, Codable, Hashable {
+struct AppMealRecord: Codable, Identifiable {
     let id: UUID
     var date: Date
-    var amountGrams: Double
+    var amount: Double // 单位：克
     var note: String
 
-    init(id: UUID = UUID(), date: Date, amountGrams: Double, note: String = "") {
+    init(id: UUID = UUID(), date: Date = Date(), amount: Double = 0, note: String = "") {
         self.id = id
         self.date = date
-        self.amountGrams = amountGrams
+        self.amount = amount
         self.note = note
     }
 }
 
-class AppFeedingStore: ObservableObject {
-    @Published var records: [AppFeedingRecord] = []
-    @Published var dailyTargetGrams: Double = 80.0
+final class AppMealStore: ObservableObject {
+    @Published var records: [AppMealRecord] = []
 
-    private let recordsFileName = "AppFeedingRecords.json"
-    private var recordsURL: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return docs.appendingPathComponent(recordsFileName)
+    private let fileName = "meal_records.json"
+
+    private var fileURL: URL? {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        return documents?.appendingPathComponent(fileName)
     }
 
     init() {
@@ -32,78 +32,85 @@ class AppFeedingStore: ObservableObject {
         }
     }
 
-    func add(_ record: AppFeedingRecord) {
+    func add(_ record: AppMealRecord) {
         records.append(record)
         save()
     }
 
-    func delete(at offsets: IndexSet) {
-        records.remove(atOffsets: offsets)
+    func update(_ record: AppMealRecord) {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        records[index] = record
         save()
     }
 
-    func delete(_ record: AppFeedingRecord) {
+    func delete(_ record: AppMealRecord) {
         records.removeAll { $0.id == record.id }
         save()
     }
 
-    func update(_ record: AppFeedingRecord) {
-        if let index = records.firstIndex(where: { $0.id == record.id }) {
-            records[index] = record
-            save()
-        }
-    }
-
     func save() {
+        guard let url = fileURL else { return }
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(records)
-            try data.write(to: recordsURL)
+            try data.write(to: url)
         } catch {
             print("保存失败: \(error)")
         }
     }
 
-    private func load() {
-        let url = recordsURL
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
+    func load() {
+        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else { return }
         do {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppFeedingRecord].self, from: data)
+            records = try decoder.decode([AppMealRecord].self, from: data)
         } catch {
-            print("读取失败: \(error)")
+            print("加载失败: \(error)")
         }
     }
 }
 
 enum DemoSeed {
-    static func apply(into store: AppFeedingStore) {
+    static func apply(into store: AppMealStore) {
+        // 只在启动参数包含 -demoData 时执行
         guard CommandLine.arguments.contains("-demoData") else { return }
 
-        var demos: [AppFeedingRecord] = []
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        store.records = []
 
-        func makeDate(daysAgo: Int, hour: Int, minute: Int) -> Date {
-            let day = calendar.date(byAdding: .day, value: -daysAgo, to: today)!
-            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
+        let calendar = Calendar.current
+        let today = Date()
+        // 生成最近 7 天的喂食记录，尽量真实
+        let demoData: [(daysAgo: Int, hour: Int, minute: Int, amount: Double, note: String)] = [
+            (0, 7, 40, 35, "干粮"),
+            (0, 19, 15, 50, "湿粮"),
+            (1, 8, 5, 38, "干粮"),
+            (1, 20, 30, 45, "湿粮"),
+            (2, 7, 55, 32, "干粮"),
+            (2, 18, 45, 48, "湿粮"),
+            (3, 8, 20, 40, "干粮"),
+            (3, 21, 10, 55, "湿粮"),
+            (4, 7, 50, 30, "干粮"),
+            (4, 19, 40, 50, "湿粮"),
+            (5, 8, 15, 42, "干粮"),
+            (5, 20, 5, 46, "湿粮")
+        ]
+
+        for item in demoData {
+            let date = calendar.date(byAdding: .day, value: -item.daysAgo, to: today) ?? today
+            let components = calendar.dateComponents([.year, .month, .day], from: date)
+            var finalComponents = DateComponents()
+            finalComponents.year = components.year
+            finalComponents.month = components.month
+            finalComponents.day = components.day
+            finalComponents.hour = item.hour
+            finalComponents.minute = item.minute
+            let finalDate = calendar.date(from: finalComponents) ?? date
+            store.records.append(AppMealRecord(date: finalDate, amount: item.amount, note: item.note))
         }
 
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 0, hour: 7, minute: 40), amountGrams: 35, note: "早餐：鸡肉罐头"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 0, hour: 18, minute: 30), amountGrams: 45, note: "晚餐：猫粮"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 1, hour: 7, minute: 55), amountGrams: 38, note: "早餐：鸡肉罐头"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 1, hour: 18, minute: 45), amountGrams: 42, note: "晚餐：猫粮"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 2, hour: 8, minute: 5), amountGrams: 30, note: "早餐：猫粮"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 2, hour: 19, minute: 10), amountGrams: 48, note: "晚餐：鸡胸肉"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 3, hour: 7, minute: 50), amountGrams: 36, note: "早餐：鸡肉罐头"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 3, hour: 18, minute: 20), amountGrams: 44, note: "晚餐：猫粮"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 4, hour: 8, minute: 15), amountGrams: 32, note: "早餐：猫粮"))
-        demos.append(AppFeedingRecord(date: makeDate(daysAgo: 4, hour: 19, minute: 30), amountGrams: 46, note: "晚餐：鸡胸肉"))
-
-        store.records = demos
         store.save()
     }
 }
