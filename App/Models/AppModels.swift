@@ -9,7 +9,8 @@ enum AppGender: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct AppChildProfile: Codable {
+struct AppChildProfile: Codable, Identifiable {
+    var id: UUID = UUID()
     var name: String
     var birthDate: Date
     var gender: AppGender
