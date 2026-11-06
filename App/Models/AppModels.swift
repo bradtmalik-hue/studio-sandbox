@@ -1,180 +1,159 @@
 import Foundation
+import SwiftUI
 import Combine
 
-enum AppGender: String, Codable, CaseIterable, Identifiable {
-    case male = "男孩"
-    case female = "女孩"
-    case unknown = "未知"
-
-    var id: String { rawValue }
-}
-
-enum ChartMetric: String, Codable, CaseIterable, Identifiable {
-    case height = "身高"
-    case weight = "体重"
-
-    var id: String { rawValue }
-}
-
-struct AppChildProfile: Identifiable, Codable, Hashable {
-    let id: UUID
+struct AppMedicineItem: Identifiable, Codable, Equatable {
+    var id = UUID()
     var name: String
-    var birthDate: Date
-    var gender: AppGender
+    var category: String
+    var storageLocation: String
+    var quantity: Int
+    var unit: String
+    var expiryDate: Date
+    var purchaseDate: Date
+    var note: String
+    var reminderEnabled: Bool
+    var createdAt: Date
 
-    init(id: UUID = UUID(), name: String, birthDate: Date, gender: AppGender) {
-        self.id = id
+    init(name: String, category: String, storageLocation: String, quantity: Int, unit: String, expiryDate: Date, purchaseDate: Date, note: String, reminderEnabled: Bool, createdAt: Date = Date()) {
         self.name = name
-        self.birthDate = birthDate
-        self.gender = gender
+        self.category = category
+        self.storageLocation = storageLocation
+        self.quantity = quantity
+        self.unit = unit
+        self.expiryDate = expiryDate
+        self.purchaseDate = purchaseDate
+        self.note = note
+        self.reminderEnabled = reminderEnabled
+        self.createdAt = createdAt
     }
 
-    var ageText: String {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.year, .month]
-        formatter.unitsStyle = .short
-        formatter.maximumUnitCount = 2
-        return formatter.string(from: birthDate, to: Date()) ?? "--"
+    var daysUntilExpiry: Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        let end = calendar.startOfDay(for: expiryDate)
+        return calendar.dateComponents([.day], from: start, to: end).day ?? 0
     }
-}
 
-struct AppGrowthRecord: Identifiable, Codable, Hashable {
-    let id: UUID
-    var childID: UUID
-    var date: Date
-    var height: Double?
-    var weight: Double?
+    var isExpired: Bool {
+        daysUntilExpiry < 0
+    }
 
-    init(id: UUID = UUID(), childID: UUID, date: Date = Date(), height: Double? = nil, weight: Double? = nil) {
-        self.id = id
-        self.childID = childID
-        self.date = date
-        self.height = height
-        self.weight = weight
+    var isExpiringSoon: Bool {
+        daysUntilExpiry >= 0 && daysUntilExpiry <= 30
     }
 }
 
-final class AppStore: ObservableObject {
-    @Published var children: [AppChildProfile] = []
-    @Published var records: [AppGrowthRecord] = []
+final class AppMedicineStore: ObservableObject {
+    @Published var items: [AppMedicineItem] = []
 
-    var sortedRecords: [AppGrowthRecord] {
-        records.sorted { $0.date > $1.date }
+    private var saveURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("home_med_cabinet.json")
     }
 
-    var latestRecords: [AppGrowthRecord] {
-        var latest: [AppGrowthRecord] = []
-        for child in children {
-            if let record = sortedRecords.first(where: { $0.childID == child.id }) {
-                latest.append(record)
-            }
+    init() {
+        load()
+        if CommandLine.arguments.contains("-demoData") {
+            DemoSeed.apply(into: self)
         }
-        return latest.sorted { $0.date > $1.date }
     }
 
-    func records(for childID: UUID) -> [AppGrowthRecord] {
-        sortedRecords.filter { $0.childID == childID }
-    }
-
-    func latestRecord(for childID: UUID) -> AppGrowthRecord? {
-        sortedRecords.first { $0.childID == childID }
-    }
-
-    func child(with id: UUID) -> AppChildProfile? {
-        children.first { $0.id == id }
-    }
-
-    func addChild(_ child: AppChildProfile) {
-        children.append(child)
-    }
-
-    func updateChild(_ child: AppChildProfile) {
-        guard let index = children.firstIndex(where: { $0.id == child.id }) else { return }
-        children[index] = child
-    }
-
-    func deleteChild(_ child: AppChildProfile) {
-        guard let index = children.firstIndex(where: { $0.id == child.id }) else { return }
-        children.remove(at: index)
-        records.removeAll { $0.childID == child.id }
-    }
-
-    func deleteChild(at offsets: IndexSet) {
-        let ids = offsets.map { children[$0].id }
-        for index in offsets.sorted(by: >) {
-            children.remove(at: index)
+    private func load() {
+        guard let url = saveURL,
+              FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            items = try decoder.decode([AppMedicineItem].self, from: data)
+        } catch {
+            items = []
         }
-        records.removeAll { ids.contains($0.childID) }
     }
 
-    func addRecord(_ record: AppGrowthRecord) {
-        records.append(record)
-    }
-
-    func updateRecord(_ record: AppGrowthRecord) {
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
-        records[index] = record
-    }
-
-    func deleteRecord(_ record: AppGrowthRecord) {
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
-        records.remove(at: index)
-    }
-
-    func deleteRecord(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            records.remove(at: index)
+    func save() {
+        guard let url = saveURL else { return }
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(items)
+            try data.write(to: url)
+        } catch {
+            print(error.localizedDescription)
         }
+    }
+
+    func add(_ item: AppMedicineItem) {
+        items.append(item)
+        save()
+    }
+
+    func update(_ item: AppMedicineItem) {
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            items[index] = item
+            save()
+        }
+    }
+
+    func delete(_ item: AppMedicineItem) {
+        items.removeAll { $0.id == item.id }
+        save()
+    }
+
+    func delete(at offsets: IndexSet) {
+        items.remove(atOffsets: offsets)
+        save()
+    }
+
+    func toggleReminder(for item: AppMedicineItem) {
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            items[index].reminderEnabled.toggle()
+            save()
+        }
+    }
+
+    func itemsExpiringSoon() -> [AppMedicineItem] {
+        items.filter { $0.isExpiringSoon }
+    }
+
+    func sortedByExpiry() -> [AppMedicineItem] {
+        items.sorted { $0.expiryDate < $1.expiryDate }
     }
 }
 
 enum DemoSeed {
-    static let store: AppStore = AppStore()
+    static func apply(into store: AppMedicineStore) {
+        guard CommandLine.arguments.contains("-demoData") else { return }
 
-    static func apply(_ store: AppStore) {
+        let now = Date()
         let calendar = Calendar.current
 
-        let child1 = AppChildProfile(
-            name: "小明",
-            birthDate: calendar.date(byAdding: .year, value: -4, to: Date()) ?? Date(),
-            gender: .male
-        )
-        let child2 = AppChildProfile(
-            name: "小红",
-            birthDate: calendar.date(byAdding: .year, value: -2, to: Date()) ?? Date(),
-            gender: .female
-        )
+        func date(days: Int, hour: Int = 10, minute: Int = 0) -> Date {
+            let base = calendar.date(byAdding: .day, value: days, to: now) ?? now
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
+        }
 
-        store.addChild(child1)
-        store.addChild(child2)
+        func pastDate(days: Int) -> Date {
+            calendar.date(byAdding: .day, value: -days, to: now) ?? now
+        }
 
-        store.addRecord(
-            AppGrowthRecord(
-                childID: child1.id,
-                date: calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
-                height: 104,
-                weight: 16
-            )
-        )
-        store.addRecord(
-            AppGrowthRecord(
-                childID: child1.id,
-                date: calendar.date(byAdding: .day, value: -30, to: Date()) ?? Date(),
-                height: 103,
-                weight: 15.5
-            )
-        )
-        store.addRecord(
-            AppGrowthRecord(
-                childID: child2.id,
-                date: calendar.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
-                height: 88,
-                weight: 12
-            )
-        )
-    }
+        let demoItems: [AppMedicineItem] = [
+            AppMedicineItem(name: "阿莫西林胶囊", category: "抗生素", storageLocation: "客厅药箱第一层", quantity: 2, unit: "盒", expiryDate: date(days: 18), purchaseDate: pastDate(days: 220), note: "饭后服用", reminderEnabled: true),
+            AppMedicineItem(name: "布洛芬缓释胶囊", category: "解热镇痛", storageLocation: "卧室床头柜", quantity: 1, unit: "盒", expiryDate: date(days: 70), purchaseDate: pastDate(days: 300), note: "发烧超过38.5度服用", reminderEnabled: false),
+            AppMedicineItem(name: "感冒灵颗粒", category: "感冒用药", storageLocation: "客厅药箱第二层", quantity: 3, unit: "盒", expiryDate: date(days: 45), purchaseDate: pastDate(days: 180), note: "一天三次", reminderEnabled: true),
+            AppMedicineItem(name: "维生素D滴剂", category: "营养补充", storageLocation: "厨房冰箱门", quantity: 1, unit: "瓶", expiryDate: date(days: 240), purchaseDate: pastDate(days: 60), note: "每日两滴", reminderEnabled: false),
+            AppMedicineItem(name: "氯雷他定片", category: "抗过敏", storageLocation: "书房抽屉", quantity: 2, unit: "盒", expiryDate: date(days: 12), purchaseDate: pastDate(days: 365), note: "睡前一片", reminderEnabled: true),
+            AppMedicineItem(name: "蒙脱石散", category: "止泻药", storageLocation: "客厅药箱第三层", quantity: 4, unit: "包", expiryDate: date(days: 500), purchaseDate: pastDate(days: 90), note: "腹泻时服用", reminderEnabled: false),
+            AppMedicineItem(name: "碘伏消毒液", category: "外用消毒", storageLocation: "浴室镜柜", quantity: 1, unit: "瓶", expiryDate: date(days: 365), purchaseDate: pastDate(days: 120), note: "开封后三个月内用完", reminderEnabled: false),
+            AppMedicineItem(name: "创可贴", category: "外用护理", storageLocation: "玄关抽屉", quantity: 20, unit: "片", expiryDate: date(days: 600), purchaseDate: pastDate(days: 30), note: "防水型", reminderEnabled: false),
+            AppMedicineItem(name: "连花清瘟胶囊", category: "感冒用药", storageLocation: "客厅药箱第一层", quantity: 1, unit: "盒", expiryDate: date(days: 6), purchaseDate: pastDate(days: 720), note: "遵医嘱", reminderEnabled: true),
+            AppMedicineItem(name: "西瓜霜润喉片", category: "咽喉用药", storageLocation: "卧室梳妆台", quantity: 2, unit: "盒", expiryDate: date(days: 28), purchaseDate: pastDate(days: 150), note: "含服", reminderEnabled: true),
+            AppMedicineItem(name: "开瑞坦", category: "抗过敏", storageLocation: "书房抽屉", quantity: 1, unit: "盒", expiryDate: date(days: 90), purchaseDate: pastDate(days: 110), note: "儿童减半", reminderEnabled: false),
+            AppMedicineItem(name: "过期维生素C片", category: "营养补充", storageLocation: "储物间", quantity: 1, unit: "瓶", expiryDate: date(days: -10), purchaseDate: pastDate(days: 800), note: "已过期，待处理", reminderEnabled: false)
+        ]
 
-    static func apply(to store: AppStore) {
-        apply(store)
+        store.items = demoItems
+        store.save()
     }
 }
