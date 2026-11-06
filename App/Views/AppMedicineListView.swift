@@ -1,27 +1,88 @@
 import SwiftUI
 
+private struct AppMedicineRow: Identifiable {
+    let id = UUID()
+    let nameZh: String
+    let nameEn: String
+    let detailZh: String
+    let detailEn: String
+    let priceZh: String
+    let priceEn: String
+}
+
 struct AppMedicineListView: View {
-    @State private var medicines: [MedicineReminderItem] = MedicineReminderItem.samples
+    private let demoMedicines: [AppMedicineRow] = [
+        AppMedicineRow(
+            nameZh: "阿莫西林胶囊",
+            nameEn: "Amoxicillin Capsules",
+            detailZh: "0.5g · 每日3次",
+            detailEn: "0.5g · 3 times daily",
+            priceZh: "¥35.50",
+            priceEn: "$35.50"
+        ),
+        AppMedicineRow(
+            nameZh: "布洛芬缓释胶囊",
+            nameEn: "Ibuprofen ER Capsules",
+            detailZh: "0.3g · 必要时服用",
+            detailEn: "0.3g · as needed",
+            priceZh: "¥22.00",
+            priceEn: "$22.00"
+        ),
+        AppMedicineRow(
+            nameZh: "维生素D滴剂",
+            nameEn: "Vitamin D Drops",
+            detailZh: "400IU · 每日1次",
+            detailEn: "400IU · once daily",
+            priceZh: "¥68.00",
+            priceEn: "$68.00"
+        ),
+        AppMedicineRow(
+            nameZh: "氯雷他定片",
+            nameEn: "Loratadine Tablets",
+            detailZh: "10mg · 每晚1次",
+            detailEn: "10mg · once nightly",
+            priceZh: "¥19.80",
+            priceEn: "$19.80"
+        ),
+        AppMedicineRow(
+            nameZh: "蒙脱石散",
+            nameEn: "Montmorillonite Powder",
+            detailZh: "3g · 每日3次",
+            detailEn: "3g · 3 times daily",
+            priceZh: "¥15.00",
+            priceEn: "$15.00"
+        ),
+        AppMedicineRow(
+            nameZh: "对乙酰氨基酚片",
+            nameEn: "Acetaminophen Tablets",
+            detailZh: "500mg · 发热时服用",
+            detailEn: "500mg · for fever",
+            priceZh: "¥12.50",
+            priceEn: "$12.50"
+        )
+    ]
 
     private var isChinese: Bool {
-        Locale.preferredLanguages.first?.hasPrefix("zh") == true
+        Locale.current.language.languageCode?.identifier.hasPrefix("zh") == true
+    }
+
+    private var navigationTitle: String {
+        isChinese ? "药品清单" : "Medicines"
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if medicines.isEmpty {
+                if demoMedicines.isEmpty {
                     emptyView
                 } else {
-                    listContent
+                    list
                 }
             }
-            .navigationTitle(isChinese ? "药品" : "Medicines")
+            .navigationTitle(navigationTitle)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        addSampleMedicine()
-                    } label: {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: {}) {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel(isChinese ? "添加药品" : "Add Medicine")
@@ -30,128 +91,33 @@ struct AppMedicineListView: View {
         }
     }
 
-    private var listContent: some View {
+    private var list: some View {
         List {
-            ForEach(medicines) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name)
-                        .font(.headline)
-                    Text(item.dosage)
+            ForEach(demoMedicines) { medicine in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isChinese ? medicine.nameZh : medicine.nameEn)
+                            .font(.headline)
+                        Text(isChinese ? medicine.detailZh : medicine.detailEn)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(isChinese ? medicine.priceZh : medicine.priceEn)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(formattedDate(item.nextDoseDate))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
                 .padding(.vertical, 2)
             }
-            .onDelete(perform: deleteItems)
         }
         .contentMargins(.bottom, 96, for: .scrollContent)
     }
 
     private var emptyView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "pills")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text(isChinese ? "暂无药品，点击右上角添加" : "No medicines yet. Tap + to add.")
-                .font(.headline)
-            Text(isChinese ? "记录每个药品的用法和下次服药时间" : "Track dosage and next dose time.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-    }
-
-    private func addSampleMedicine() {
-        let newItem: MedicineReminderItem
-        if isChinese {
-            newItem = MedicineReminderItem(
-                name: "阿司匹林",
-                dosage: "每日一次，每次一片，饭后服用",
-                nextDoseDate: Date().addingTimeInterval(86400)
-            )
-        } else {
-            newItem = MedicineReminderItem(
-                name: "Aspirin",
-                dosage: "Once daily, one tablet after meals",
-                nextDoseDate: Date().addingTimeInterval(86400)
-            )
-        }
-        withAnimation {
-            medicines.append(newItem)
-        }
-    }
-
-    private func deleteItems(at offsets: IndexSet) {
-        withAnimation {
-            medicines.remove(atOffsets: offsets)
-        }
-    }
-
-    private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        if isChinese {
-            formatter.locale = Locale(identifier: "zh_CN")
-            formatter.dateFormat = "M月d日 HH:mm"
-        } else {
-            formatter.locale = Locale(identifier: "en_US")
-            formatter.dateFormat = "MMM d, HH:mm"
-        }
-        return formatter.string(from: date)
-    }
-}
-
-struct MedicineReminderItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let dosage: String
-    let nextDoseDate: Date
-
-    static var samples: [MedicineReminderItem] {
-        let isChinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
-        return [
-            MedicineReminderItem(
-                name: isChinese ? "阿司匹林" : "Aspirin",
-                dosage: isChinese ? "每日一次，每次一片，饭后服用" : "Once daily, one tablet after meals",
-                nextDoseDate: Date().addingTimeInterval(3600)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "布洛芬" : "Ibuprofen",
-                dosage: isChinese ? "每8小时一次，每次一片" : "Every 8 hours, one tablet",
-                nextDoseDate: Date().addingTimeInterval(28800)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "维生素C" : "Vitamin C",
-                dosage: isChinese ? "每日一次，每次一片" : "Once daily, one tablet",
-                nextDoseDate: Date().addingTimeInterval(86400)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "阿莫西林" : "Amoxicillin",
-                dosage: isChinese ? "每日三次，每次两片" : "Three times daily, two tablets",
-                nextDoseDate: Date().addingTimeInterval(21600)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "氯雷他定" : "Loratadine",
-                dosage: isChinese ? "每日一次，每次一片" : "Once daily, one tablet",
-                nextDoseDate: Date().addingTimeInterval(43200)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "奥美拉唑" : "Omeprazole",
-                dosage: isChinese ? "每日一次，每次一粒，早餐前" : "Once daily, one capsule before breakfast",
-                nextDoseDate: Date().addingTimeInterval(93600)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "二甲双胍" : "Metformin",
-                dosage: isChinese ? "每日两次，每次一片，随餐" : "Twice daily, one tablet with meals",
-                nextDoseDate: Date().addingTimeInterval(61200)
-            ),
-            MedicineReminderItem(
-                name: isChinese ? "蒙脱石散" : "Montmorillonite powder",
-                dosage: isChinese ? "每日三次，每次一袋" : "Three times daily, one sachet",
-                nextDoseDate: Date().addingTimeInterval(75600)
-            )
-        ]
+        ContentUnavailableView(
+            isChinese ? "暂无药品" : "No Medicines",
+            systemImage: "pills",
+            description: Text(isChinese ? "点击右上角添加第一种药品" : "Tap + to add your first medicine")
+        )
     }
 }
