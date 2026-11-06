@@ -1,19 +1,17 @@
 import SwiftUI
 
-struct NavigationView<Content: View>: View {
-    private let content: Content
+struct NavigationView: View {
+    private let content: AnyView
 
-    init() where Content == EmptyView {
-        self.content = EmptyView()
+    init() {
+        self.content = AnyView(EmptyView())
     }
 
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
+    init<Content: View>(@ViewBuilder content: () -> Content) {
+        self.content = AnyView(content())
     }
 
     var body: some View {
-        SwiftUI.NavigationStack {
-            content
-        }
+        content
     }
 }
