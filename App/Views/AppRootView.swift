@@ -15,19 +15,19 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(filteredMedicines: "")
+            AppPage1View()
                 .tabItem {
                     Label("药箱", systemImage: "pills.fill")
                 }
                 .tag(0)
 
-            AppPage2View(availableCategories: "", trimmedName: "", canSave: false)
+            AppPage2View()
                 .tabItem {
                     Label("添加", systemImage: "plus.circle.fill")
                 }
                 .tag(1)
 
-            AppPage3View(filteredMedicines: "")
+            AppPage3View()
                 .tabItem {
                     Label("临期", systemImage: "exclamationmark.triangle.fill")
                 }
