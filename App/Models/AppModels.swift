@@ -1,143 +1,116 @@
 import Foundation
 import Combine
 
-enum AppMealType: String, Codable, CaseIterable, Identifiable {
-    case breakfast = "早餐"
-    case lunch = "午餐"
-    case dinner = "晚餐"
-    case snack = "加餐"
-
-    var id: String { rawValue }
-}
-
 struct AppFeedingRecord: Identifiable, Codable, Equatable {
-    let id: UUID
-    var date: Date
-    var grams: Double
-    var mealType: AppMealType
+    var id: UUID
+    var catName: String
+    var foodType: String
+    var amountGrams: Double
     var note: String
-
-    init(id: UUID = UUID(), date: Date, grams: Double, mealType: AppMealType, note: String = "") {
-        self.id = id
-        self.date = date
-        self.grams = grams
-        self.mealType = mealType
-        self.note = note
-    }
+    var date: Date
 }
 
-struct AppCatMealStoreData: Codable {
-    var records: [AppFeedingRecord]
-    var targetMealsPerDay: Int
-    var targetGramsPerDay: Double
-}
-
-final class AppCatMealStore: ObservableObject {
-    @Published var records: [AppFeedingRecord] = []
-    @Published var targetMealsPerDay: Int = 2
-    @Published var targetGramsPerDay: Double = 80
-
-    private static let fileName = "cat_meal_records.json"
-
-    private static func fileURL() -> URL? {
-        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        return dir.appendingPathComponent(fileName)
+final class AppStore: ObservableObject {
+    @Published var feedingRecords: [AppFeedingRecord] = []
+    
+    private let saveKey = "feedingRecords.json"
+    private var saveURL: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent(saveKey)
     }
-
+    
     init() {
         load()
         if CommandLine.arguments.contains("-demoData") {
             DemoSeed.apply(into: self)
         }
     }
-
-    func load() {
-        guard let url = Self.fileURL(),
-              let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode(AppCatMealStoreData.self, from: data) else {
-            return
-        }
-        records = decoded.records.sorted { $0.date > $1.date }
-        targetMealsPerDay = decoded.targetMealsPerDay
-        targetGramsPerDay = decoded.targetGramsPerDay
-    }
-
-    func save() {
-        guard let url = Self.fileURL() else { return }
-        let dataToSave = AppCatMealStoreData(
-            records: records,
-            targetMealsPerDay: targetMealsPerDay,
-            targetGramsPerDay: targetGramsPerDay
-        )
-        do {
-            let data = try JSONEncoder().encode(dataToSave)
-            try data.write(to: url)
-        } catch {
-            // 存储失败时暂不处理，保持内存数据可用
-        }
-    }
-
+    
     func add(_ record: AppFeedingRecord) {
-        records.append(record)
-        sortRecords()
+        feedingRecords.append(record)
         save()
     }
-
-    func delete(_ record: AppFeedingRecord) {
-        records.removeAll { $0.id == record.id }
-        save()
-    }
-
+    
     func update(_ record: AppFeedingRecord) {
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
-        records[index] = record
-        sortRecords()
+        if let index = feedingRecords.firstIndex(where: { $0.id == record.id }) {
+            feedingRecords[index] = record
+            save()
+        }
+    }
+    
+    func delete(at offsets: IndexSet) {
+        feedingRecords.remove(atOffsets: offsets)
         save()
     }
-
-    func records(for day: Date) -> [AppFeedingRecord] {
-        let cal = Calendar.current
-        return records.filter { cal.isDate($0.date, inSameDayAs: day) }
+    
+    func delete(_ record: AppFeedingRecord) {
+        feedingRecords.removeAll { $0.id == record.id }
+        save()
     }
-
-    func isMissed(day: Date) -> Bool {
-        records(for: day).count < targetMealsPerDay
+    
+    func load() {
+        let url = saveURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            feedingRecords = try decoder.decode([AppFeedingRecord].self, from: data)
+        } catch {
+            feedingRecords = []
+            print("加载失败: \(error)")
+        }
     }
-
-    private func sortRecords() {
-        records.sort { $0.date > $1.date }
+    
+    func save() {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        do {
+            let data = try encoder.encode(feedingRecords)
+            try data.write(to: saveURL)
+        } catch {
+            print("保存失败: \(error)")
+        }
     }
 }
 
 enum DemoSeed {
-    static func apply(into store: AppCatMealStore) {
+    static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
-
-        let cal = Calendar.current
-
-        func makeDate(daysAgo: Int, hour: Int, minute: Int) -> Date {
-            let day = cal.date(byAdding: .day, value: -daysAgo, to: Date())!
-            return cal.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
+        // 实际演示数据注入由 AppStore.init 调用 apply(into:) 完成，避免重复写入。
+    }
+    
+    static func apply(into store: AppStore) {
+        guard CommandLine.arguments.contains("-demoData") else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        let cats = ["咪咪", "灰灰", "橘橘"]
+        let foods = ["鸡肉冻干", "三文鱼", "牛肉泥", "全价猫粮", "羊奶", "金枪鱼罐头"]
+        let notes = ["胃口很好", "吃了一半", "加了点温水", "准时喂食", "有点挑食", "", "吃完就睡", "被叫醒喂的"]
+        
+        var records: [AppFeedingRecord] = []
+        for dayOffset in 0..<10 {
+            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { continue }
+            let hour = dayOffset % 2 == 0 ? 8 : 19
+            let minute = dayOffset % 3 == 0 ? 0 : 30
+            guard let feedDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) else { continue }
+            let amount = Double(25 + (dayOffset * 7) % 20)
+            let cat = cats[dayOffset % cats.count]
+            let food = foods[dayOffset % foods.count]
+            let note = notes[dayOffset % notes.count]
+            let record = AppFeedingRecord(
+                id: UUID(),
+                catName: cat,
+                foodType: food,
+                amountGrams: amount,
+                note: note,
+                date: feedDate
+            )
+            records.append(record)
         }
-
-        let samples: [AppFeedingRecord] = [
-            AppFeedingRecord(date: makeDate(daysAgo: 0, hour: 8, minute: 30), grams: 45, mealType: .breakfast, note: "胃口不错"),
-            AppFeedingRecord(date: makeDate(daysAgo: 0, hour: 18, minute: 45), grams: 40, mealType: .dinner, note: "吃完了"),
-            AppFeedingRecord(date: makeDate(daysAgo: 1, hour: 7, minute: 50), grams: 35, mealType: .breakfast, note: ""),
-            AppFeedingRecord(date: makeDate(daysAgo: 2, hour: 8, minute: 15), grams: 40, mealType: .breakfast, note: ""),
-            AppFeedingRecord(date: makeDate(daysAgo: 2, hour: 19, minute: 0), grams: 45, mealType: .dinner, note: "晚饭稍晚"),
-            AppFeedingRecord(date: makeDate(daysAgo: 3, hour: 9, minute: 0), grams: 30, mealType: .breakfast, note: ""),
-            AppFeedingRecord(date: makeDate(daysAgo: 3, hour: 18, minute: 0), grams: 50, mealType: .dinner, note: ""),
-            AppFeedingRecord(date: makeDate(daysAgo: 4, hour: 8, minute: 0), grams: 45, mealType: .breakfast, note: ""),
-            AppFeedingRecord(date: makeDate(daysAgo: 5, hour: 7, minute: 30), grams: 40, mealType: .breakfast, note: "起床晚了一点"),
-            AppFeedingRecord(date: makeDate(daysAgo: 5, hour: 19, minute: 30), grams: 45, mealType: .dinner, note: "")
-        ]
-
-        store.records = samples.sorted { $0.date > $1.date }
-        store.targetMealsPerDay = 2
-        store.targetGramsPerDay = 80
+        
+        store.feedingRecords = records
         store.save()
     }
 }
