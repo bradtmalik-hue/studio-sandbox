@@ -34,10 +34,6 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-    publishing:
-      email:
-        recipients: []
-        notify: false
 
   compile-check:
     name: Compile Check (no signing)
