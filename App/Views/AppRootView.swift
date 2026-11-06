@@ -5,19 +5,19 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView()
+            AppTodayView()
                 .tabItem {
                     Label("今日", systemImage: "sun.max.fill")
                 }
                 .tag(0)
 
-            ListView()
+            AppHistoryView()
                 .tabItem {
                     Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
 
-            ProfileView()
+            AppStatsView()
                 .tabItem {
                     Label("统计", systemImage: "chart.bar.fill")
                 }
