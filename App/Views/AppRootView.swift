@@ -1,37 +1,51 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppMedicineStore()
-    @State private var selectedTab = Self.initialTab()
+    @StateObject private var store = AppStore(children: [], records: [])
+    @State private var selection = AppRootView.initialTab()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            AppMedicineListView()
+        TabView(selection: $selection) {
+            AppHomeView(sortedRecords: store)
                 .tabItem {
-                    Label("药品", systemImage: "pills")
+                    Label("首页", systemImage: "house.fill")
                 }
                 .tag(0)
 
-            AppExpiryReminderView()
+            AppRecordListView(sortedRecords: store)
                 .tabItem {
-                    Label("临期提醒", systemImage: "exclamationmark.triangle")
+                    Label("记录", systemImage: "list.bullet.rectangle.fill")
                 }
                 .tag(1)
 
-            AppLocationView()
+            AppGrowthChartView(store: store, selectedChildID: nil, metric: .height)
                 .tabItem {
-                    Label("存放位置", systemImage: "location")
+                    Label("曲线", systemImage: "chart.xyaxis.line")
                 }
                 .tag(2)
+
+            AppChildListView()
+                .tabItem {
+                    Label("孩子", systemImage: "person.2.fill")
+                }
+                .tag(3)
+
+            AppSettingsView()
+                .tabItem {
+                    Label("设置", systemImage: "gearshape.fill")
+                }
+                .tag(4)
         }
         .environmentObject(store)
+        .tint(.green)
     }
 
     private static func initialTab() -> Int {
         let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
-            return min(max(0, v), 2)
+        if let index = args.firstIndex(of: "-startTab"),
+           index + 1 < args.count,
+           let value = Int(args[index + 1]) {
+            return min(max(value, 0), 4)
         }
         return 0
     }
