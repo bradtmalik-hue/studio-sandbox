@@ -1,43 +1,29 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selection = AppRootView.initialTab()
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
-        TabView(selection: $selection) {
-            AppHomeView()
+        TabView(selection: $selectedTab) {
+            AppTodayView()
                 .tabItem {
-                    Label("首页", systemImage: "house.fill")
+                    Label("今日", systemImage: "sun.max.fill")
                 }
                 .tag(0)
 
-            AppRecordListView()
+            AppHistoryView()
                 .tabItem {
-                    Label("记录", systemImage: "list.bullet.rectangle.fill")
+                    Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
 
-            AppGrowthChartView()
+            AppStatsView()
                 .tabItem {
-                    Label("曲线", systemImage: "chart.xyaxis.line")
+                    Label("统计", systemImage: "chart.bar.fill")
                 }
                 .tag(2)
-
-            AppChildListView()
-                .tabItem {
-                    Label("孩子", systemImage: "person.2.fill")
-                }
-                .tag(3)
-
-            AppSettingsView()
-                .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
-                }
-                .tag(4)
         }
-        .environmentObject(store)
-        .tint(.green)
+        .tint(.orange)
     }
 
     private static func initialTab() -> Int {
@@ -45,7 +31,7 @@ struct AppRootView: View {
         if let index = args.firstIndex(of: "-startTab"),
            index + 1 < args.count,
            let value = Int(args[index + 1]) {
-            return min(max(value, 0), 4)
+            return min(max(value, 0), 2)
         }
         return 0
     }
