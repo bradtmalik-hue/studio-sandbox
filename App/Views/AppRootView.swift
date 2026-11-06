@@ -1,5 +1,4 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
     @State private var selectedTab: Int = AppRootView.initialTab()
