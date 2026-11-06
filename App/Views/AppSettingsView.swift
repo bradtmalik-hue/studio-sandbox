@@ -42,7 +42,11 @@ private final class AppSettingsStore: ObservableObject {
 }
 
 struct AppSettingsView: View {
-    @StateObject private var store = AppSettingsStore()
+    @StateObject private var store: AppSettingsStore
+    
+    init() {
+        _store = StateObject(wrappedValue: AppSettingsStore())
+    }
     
     var body: some View {
         NavigationStack {

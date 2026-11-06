@@ -7,9 +7,9 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.glodgalt947-dotcom.q
+        bundle_identifier: com.bradtmalik-hue.app
       vars:
-        BUNDLE_ID: com.glodgalt947-dotcom.q
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Set up code signing
         script: |
@@ -18,7 +18,7 @@ workflows:
       - name: Build signed ipa
         script: |
           set -e
-          xcode-project build-ipa             --project "Q.xcodeproj"             --scheme "Q"             --config Release
+          xcode-project build-ipa             --project "App.xcodeproj"             --scheme "App"             --config Release
       - name: Upload to TestFlight (only if key provided)
         script: |
           set -e
@@ -44,8 +44,8 @@ workflows:
       - name: Compile
         script: |
           xcodebuild \
-            -project "Q.xcodeproj" \
-            -scheme "Q" \
+            -project "App.xcodeproj" \
+            -scheme "App" \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -60,14 +60,14 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: com.glodgalt947-dotcom.q
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Build for simulator
         script: |
           set -e
           xcodebuild \
-            -project "Q.xcodeproj" \
-            -scheme "Q" \
+            -project "App.xcodeproj" \
+            -scheme "App" \
             -sdk iphonesimulator \
             -configuration Release \
             -derivedDataPath build \
@@ -84,7 +84,7 @@ workflows:
           DEV=$(xcrun simctl create Capture "$DT" "$RT")
           xcrun simctl boot "$DEV" || true
           xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/Q.app"
+          APP="build/Build/Products/Release-iphonesimulator/App.app"
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
