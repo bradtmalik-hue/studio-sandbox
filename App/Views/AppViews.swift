@@ -1,561 +1,385 @@
 import SwiftUI
+import Foundation
 import Combine
 
-private enum AppDateFormatter {
-    static let zhFull: DateFormatter = {
+enum AppFormatters {
+    static let expiryDisplay: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "MM月dd日 HH:mm"
+        formatter.dateFormat = "yyyy年M月d日"
         return formatter
     }()
-
-    static let zhDate: DateFormatter = {
+    static let expiryShort: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter
-    }()
-
-    static let zhShortDate: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "MM月dd日"
+        formatter.dateFormat = "M月d日"
         return formatter
     }()
 }
 
-struct AppEmptyStateView: View {
-    let icon: String
-    let title: String
-    let message: String
+struct AppMedicineRow: View {
+    let item: AppMedicineItem
 
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 46, weight: .medium))
-                .foregroundStyle(.tertiary)
-            Text(title)
-                .font(.headline)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-        }
-        .padding()
+    var isExpired: Bool {
+        item.expiryDate < Date()
     }
-}
-
-struct AppChildCard: View {
-    let child: AppChildProfile
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(child.name)
-                .font(.headline)
-                .foregroundStyle(.primary)
-            Text("出生日期：\(AppDateFormatter.zhShortDate.string(from: child.birthDate))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+    var isExpiringSoon: Bool {
+        !isExpired && item.expiryDate <= Date().addingTimeInterval(86400 * 30)
     }
-}
-
-struct AppRecordRow: View {
-    let record: AppGrowthRecord
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(AppDateFormatter.zhFull.string(from: record.date))
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-            HStack(spacing: 16) {
-                Label("身高 \(record.height, specifier: "%.1f") cm", systemImage: "ruler")
-                Label("体重 \(record.weight, specifier: "%.2f") kg", systemImage: "scalemass")
+        HStack(spacing: 12) {
+            Image(systemName: isExpired ? "exclamationmark.triangle.fill" : (isExpiringSoon ? "clock.badge.exclamationmark.fill" : "pills.fill"))
+                .foregroundStyle(isExpired ? .red : (isExpiringSoon ? .orange : .secondary))
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(.headline)
+                Text(item.location)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("有效期至 \(AppFormatters.expiryDisplay.string(from: item.expiryDate))")
+                    .font(.caption)
+                    .foregroundStyle(isExpired ? .red : (isExpiringSoon ? .orange : .secondary))
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(item.quantity)盒")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
     }
 }
 
-struct AppHomeView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showingAddRecord = false
-    @State private var showingAddChild = false
+struct AppMedicineListView: View {
+    @EnvironmentObject var store: AppMedicineStore
+    @State private var showingAddForm = false
 
-    var sortedRecords: [AppGrowthRecord] {
-        store.records.sorted { $0.date > $1.date }
+    private var sortedItems: [AppMedicineItem] {
+        store.items.sorted { $0.expiryDate < $1.expiryDate }
     }
-
-    private var latestRecords: [AppGrowthRecord] {
-        Array(sortedRecords.prefix(5))
+    private var expiredItems: [AppMedicineItem] {
+        sortedItems.filter { $0.expiryDate < Date() }
+    }
+    private var expiringSoonItems: [AppMedicineItem] {
+        sortedItems.filter { $0.expiryDate >= Date() && $0.expiryDate <= Date().addingTimeInterval(86400 * 30) }
+    }
+    private var otherItems: [AppMedicineItem] {
+        sortedItems.filter { $0.expiryDate > Date().addingTimeInterval(86400 * 30) }
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if store.children.isEmpty {
-                        AppEmptyStateView(
-                            icon: "person.2",
-                            title: "还没有孩子档案",
-                            message: "先添加一个孩子，再开始记录身高体重吧。"
-                        )
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(store.children) { child in
-                                    AppChildCard(child: child)
-                                }
-                                Button {
-                                    showingAddChild = true
-                                } label: {
-                                    VStack(spacing: 6) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.title2)
-                                        Text("添加孩子")
-                                            .font(.caption)
+            Group {
+                if store.items.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        if !expiredItems.isEmpty {
+                            Section("已过期") {
+                                ForEach(expiredItems) { item in
+                                    NavigationLink {
+                                        AppMedicineDetailView(itemID: item.id)
+                                    } label: {
+                                        AppMedicineRow(item: item)
                                     }
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
                                 }
                             }
-                            .padding(.horizontal)
                         }
-                    }
-
-                    if sortedRecords.isEmpty {
-                        AppEmptyStateView(
-                            icon: "chart.xyaxis.line",
-                            title: "还没有成长记录",
-                            message: "点击右上角加号，记录第一条身高体重。"
-                        )
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("最近记录")
-                                .font(.title3.bold())
-                                .padding(.horizontal)
-
-                            ForEach(latestRecords) { record in
-                                AppRecordRow(record: record)
-                                Divider()
+                        if !expiringSoonItems.isEmpty {
+                            Section("30天内到期") {
+                                ForEach(expiringSoonItems) { item in
+                                    NavigationLink {
+                                        AppMedicineDetailView(itemID: item.id)
+                                    } label: {
+                                        AppMedicineRow(item: item)
+                                    }
+                                }
                             }
-                            .padding(.horizontal)
+                        }
+                        if !otherItems.isEmpty {
+                            Section("其他") {
+                                ForEach(otherItems) { item in
+                                    NavigationLink {
+                                        AppMedicineDetailView(itemID: item.id)
+                                    } label: {
+                                        AppMedicineRow(item: item)
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    Color.clear.frame(height: 96)
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
-                .padding(.top)
             }
-            .navigationTitle("成长日记")
+            .navigationTitle("家庭药箱")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        if store.children.isEmpty {
-                            showingAddChild = true
-                        } else {
-                            showingAddRecord = true
-                        }
+                        showingAddForm = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddRecord) {
-                AppAddRecordView()
-            }
-            .sheet(isPresented: $showingAddChild) {
-                AppAddChildView()
+            .sheet(isPresented: $showingAddForm) {
+                AppMedicineFormView()
             }
         }
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "pills.circle")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+            Text("药箱空空如也")
+                .font(.title3.weight(.semibold))
+            Text("点击右上角 + 添加第一盒药\n记录保质期和存放位置")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
-struct AppRecordListView: View {
-    @EnvironmentObject var store: AppStore
+struct AppMedicineDetailView: View {
+    @EnvironmentObject var store: AppMedicineStore
+    @Environment(\.dismiss) var dismiss
+    let itemID: UUID
+    @State private var showingEditForm = false
+    @State private var showingDeleteConfirm = false
 
-    var sortedRecords: [AppGrowthRecord] {
-        store.records.sorted { $0.date > $1.date }
-    }
-
-    private func childName(for childID: UUID) -> String {
-        store.children.first { $0.id == childID }?.name ?? "未知孩子"
+    var item: AppMedicineItem? {
+        store.items.first { $0.id == itemID }
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                if sortedRecords.isEmpty {
-                    AppEmptyStateView(
-                        icon: "list.bullet.rectangle",
-                        title: "暂无记录",
-                        message: "去首页添加第一条成长记录吧。"
-                    )
-                    .frame(maxWidth: .infinity)
-                    .listRowSeparator(.hidden)
-                } else {
-                    ForEach(sortedRecords) { record in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(childName(for: record.childID))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            AppRecordRow(record: record)
+        Group {
+            if let item = item {
+                List {
+                    Section("药品信息") {
+                        LabeledContent("名称", value: item.name)
+                        LabeledContent("有效期至", value: AppFormatters.expiryDisplay.string(from: item.expiryDate))
+                        LabeledContent("数量", value: "\(item.quantity)盒")
+                    }
+                    Section("存放位置") {
+                        Text(item.location)
+                    }
+                    if !item.notes.isEmpty {
+                        Section("备注") {
+                            Text(item.notes)
                         }
                     }
-                    .onDelete(perform: deleteRecords)
-                }
-
-                if !sortedRecords.isEmpty {
                     Section {
-                        Color.clear.frame(height: 80)
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            Text("删除这盒药")
+                        }
                     }
                 }
+                .listStyle(.insetGrouped)
+                .navigationTitle(item.name)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("编辑") {
+                            showingEditForm = true
+                        }
+                    }
+                }
+                .sheet(isPresented: $showingEditForm) {
+                    AppMedicineFormView(item: item)
+                }
+                .alert("确认删除？", isPresented: $showingDeleteConfirm) {
+                    Button("删除", role: .destructive) {
+                        store.delete(item)
+                        dismiss()
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("删除后无法恢复")
+                }
+            } else {
+                ContentUnavailableView("药品不存在", systemImage: "questionmark.circle")
             }
-            .navigationTitle("记录")
-            .contentMargins(.bottom, 96, for: .scrollContent)
         }
-    }
-
-    func deleteRecords(at offsets: IndexSet) {
-        let ids = offsets.map { sortedRecords[$0].id }
-        store.records.removeAll { ids.contains($0.id) }
-        store.save()
     }
 }
 
-struct AppAddRecordView: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
+struct AppMedicineFormView: View {
+    @EnvironmentObject var store: AppMedicineStore
+    @Environment(\.dismiss) var dismiss
+    let item: AppMedicineItem?
 
-    @State private var childID: UUID?
-    @State private var date = Date()
-    @State private var heightText = ""
-    @State private var weightText = ""
-    @State private var validationMessage: String?
+    @State private var name: String
+    @State private var expiryDate: Date
+    @State private var location: String
+    @State private var quantity: Int
+    @State private var notes: String
+
+    init(item: AppMedicineItem? = nil) {
+        self.item = item
+        _name = State(initialValue: item?.name ?? "")
+        _expiryDate = State(initialValue: item?.expiryDate ?? Date().addingTimeInterval(86400 * 365))
+        _location = State(initialValue: item?.location ?? "")
+        _quantity = State(initialValue: item?.quantity ?? 1)
+        _notes = State(initialValue: item?.notes ?? "")
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                if store.children.isEmpty {
-                    Section {
-                        Text("请先添加孩子档案")
-                            .foregroundStyle(.secondary)
+                Section("药品名称") {
+                    TextField("例如：阿莫西林胶囊", text: $name)
+                }
+                Section("有效期至") {
+                    DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
+                }
+                Section("存放位置") {
+                    TextField("例如：卧室药箱第一层", text: $location)
+                }
+                Section("数量") {
+                    Stepper("\(quantity) 盒", value: $quantity, in: 1...100)
+                }
+                Section("备注") {
+                    TextField("可选", text: $notes)
+                }
+            }
+            .navigationTitle(item == nil ? "添加药品" : "编辑药品")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
                     }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        save()
+                    }
+                }
+            }
+        }
+    }
+
+    func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLocation = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, !trimmedLocation.isEmpty else { return }
+        let newItem = AppMedicineItem(
+            id: item?.id ?? UUID(),
+            name: trimmedName,
+            expiryDate: expiryDate,
+            location: trimmedLocation,
+            quantity: quantity,
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        if item == nil {
+            store.add(newItem)
+        } else {
+            store.update(newItem)
+        }
+        dismiss()
+    }
+}
+
+struct AppExpiryReminderView: View {
+    @EnvironmentObject var store: AppMedicineStore
+
+    private var expiringItems: [AppMedicineItem] {
+        store.items
+            .filter { $0.expiryDate <= Date().addingTimeInterval(86400 * 30) }
+            .sorted { $0.expiryDate < $1.expiryDate }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if expiringItems.isEmpty {
+                    emptyState
                 } else {
-                    Section("孩子与日期") {
-                        Picker("孩子", selection: $childID) {
-                            ForEach(store.children) { child in
-                                Text(child.name).tag(child.id as UUID?)
+                    List {
+                        ForEach(expiringItems) { item in
+                            NavigationLink {
+                                AppMedicineDetailView(itemID: item.id)
+                            } label: {
+                                AppMedicineRow(item: item)
                             }
                         }
-                        DatePicker("日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
                     }
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
+                }
+            }
+            .navigationTitle("临期提醒")
+        }
+    }
 
-                    Section("身体数据") {
-                        TextField("身高 (cm)", text: $heightText)
-                            .keyboardType(.decimalPad)
-                        TextField("体重 (kg)", text: $weightText)
-                            .keyboardType(.decimalPad)
-                    }
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+            Text("没有临期药品")
+                .font(.title3.weight(.semibold))
+            Text("所有药品都在安全期内")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
 
-                    if let validationMessage {
-                        Section {
-                            Text(validationMessage)
-                                .foregroundStyle(.red)
+struct AppLocationView: View {
+    @EnvironmentObject var store: AppMedicineStore
+
+    private var groupedItems: [(key: String, value: [AppMedicineItem])] {
+        Dictionary(grouping: store.items, by: { $0.location })
+            .map { (key: $0.key, value: $0.value.sorted { $0.expiryDate < $1.expiryDate }) }
+            .sorted { $0.key < $1.key }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if groupedItems.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        ForEach(groupedItems, id: \.key) { group in
+                            Section(group.key) {
+                                ForEach(group.value) { item in
+                                    NavigationLink {
+                                        AppMedicineDetailView(itemID: item.id)
+                                    } label: {
+                                        AppMedicineRow(item: item)
+                                    }
+                                }
+                            }
                         }
                     }
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .navigationTitle("添加记录")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { addRecord() }
-                        .disabled(store.children.isEmpty)
-                }
-            }
-        }
-        .onAppear {
-            if childID == nil {
-                childID = store.children.first?.id
-            }
+            .navigationTitle("存放位置")
         }
     }
 
-    func addRecord() {
-        guard let selectedChildID = childID else {
-            validationMessage = "请先选择孩子。"
-            return
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "shippingbox")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+            Text("还没有存放位置")
+                .font(.title3.weight(.semibold))
+            Text("添加药品时填写存放位置\n这里会按位置分类显示")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
-
-        guard let height = Double(heightText), let weight = Double(weightText) else {
-            validationMessage = "请输入有效的数字。"
-            return
-        }
-
-        let record = AppGrowthRecord(
-            id: UUID(),
-            childID: selectedChildID,
-            date: date,
-            height: height,
-            weight: weight
-        )
-        store.records.append(record)
-        store.save()
-        dismiss()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-
-struct AppAddChildView: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var birthDate = Date()
-    @State private var gender: AppGender = .male
-    @State private var validationMessage: String?
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("基本信息") {
-                    TextField("姓名或昵称", text: $name)
-                    DatePicker("出生日期", selection: $birthDate, in: ...Date(), displayedComponents: .date)
-                    Picker("性别", selection: $gender) {
-                        Text("男孩").tag(AppGender.male)
-                        Text("女孩").tag(AppGender.female)
-                    }
-                }
-
-                if let validationMessage {
-                    Section {
-                        Text(validationMessage)
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("添加孩子")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { addChild() }
-                }
-            }
-        }
-    }
-
-    private func addChild() {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else {
-            validationMessage = "请输入孩子姓名或昵称。"
-            return
-        }
-
-        let child = AppChildProfile(
-            id: UUID(),
-            name: trimmedName,
-            gender: gender,
-            birthDate: birthDate
-        )
-        store.children.append(child)
-        store.save()
-        dismiss()
-    }
-}
-
-struct AppChildListView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showingAddChild = false
-
-    var body: some View {
-        NavigationStack {
-            List {
-                if store.children.isEmpty {
-                    AppEmptyStateView(
-                        icon: "person.2",
-                        title: "没有孩子档案",
-                        message: "点击右上角加号添加孩子。"
-                    )
-                    .frame(maxWidth: .infinity)
-                    .listRowSeparator(.hidden)
-                } else {
-                    ForEach(store.children) { child in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(child.name)
-                                .font(.headline)
-                            Text("出生日期：\(AppDateFormatter.zhShortDate.string(from: child.birthDate))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .onDelete(perform: deleteChildren)
-                }
-
-                if !store.children.isEmpty {
-                    Section {
-                        Color.clear.frame(height: 80)
-                    }
-                }
-            }
-            .navigationTitle("孩子档案")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showingAddChild = true } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddChild) {
-                AppAddChildView()
-            }
-            .contentMargins(.bottom, 96, for: .scrollContent)
-        }
-    }
-
-    private func deleteChildren(at offsets: IndexSet) {
-        store.children.remove(atOffsets: offsets)
-        store.save()
-    }
-}
-
-struct AppGrowthChartView: View {
-    @EnvironmentObject var store: AppStore
-
-    @State private var selectedChildID: UUID?
-    @State private var metric: ChartMetric = .height
-
-    enum ChartMetric: String, CaseIterable {
-        case height = "身高"
-        case weight = "体重"
-    }
-
-    private var filteredRecords: [AppGrowthRecord] {
-        guard let id = selectedChildID else { return [] }
-        return store.records
-            .filter { $0.childID == id }
-            .sorted { $0.date < $1.date }
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Picker("孩子", selection: $selectedChildID) {
-                    ForEach(store.children) { child in
-                        Text(child.name).tag(child.id as UUID?)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Picker("指标", selection: $metric) {
-                    ForEach(ChartMetric.allCases, id: \.self) { item in
-                        Text(item.rawValue).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                if filteredRecords.count < 2 {
-                    AppEmptyStateView(
-                        icon: "chart.xyaxis.line",
-                        title: "数据不足",
-                        message: "至少需要两次记录才能绘制曲线。"
-                    )
-                    .frame(maxHeight: .infinity)
-                } else {
-                    chart
-                        .frame(maxHeight: .infinity)
-                }
-            }
-            .padding()
-            .navigationTitle("成长曲线")
-        }
-        .onAppear {
-            if selectedChildID == nil {
-                selectedChildID = store.children.first?.id
-            }
-        }
-    }
-
-    var chart: some View {
-        GeometryReader { geo in
-            let values = filteredRecords.map { metric == .height ? $0.height : $0.weight }
-            let minValue = values.min() ?? 0
-            let maxValue = values.max() ?? 1
-            let range = max(maxValue - minValue, 0.1)
-
-            let points = values.enumerated().map { index, value -> CGPoint in
-                let x = filteredRecords.count <= 1
-                    ? geo.size.width / 2
-                    : (CGFloat(index) / CGFloat(filteredRecords.count - 1)) * geo.size.width
-                let y = geo.size.height - CGFloat((value - minValue) / range) * geo.size.height
-                return CGPoint(x: x, y: y)
-            }
-
-            ZStack {
-                Path { path in
-                    guard let first = points.first else { return }
-                    path.move(to: first)
-                    for point in points.dropFirst() {
-                        path.addLine(to: point)
-                    }
-                }
-                .stroke(Color.blue, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-
-                ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 8, height: 8)
-                        .position(point)
-                }
-            }
-        }
-    }
-}
-
-struct AppSettingsView: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("概览") {
-                    LabeledContent("孩子数", value: "\(store.children.count)")
-                    LabeledContent("记录数", value: "\(store.records.count)")
-                }
-
-                Section("关于") {
-                    Text("成长日记帮你随手记录孩子身高体重，自动生成成长曲线。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section {
-                    Color.clear.frame(height: 80)
-                }
-            }
-            .navigationTitle("设置")
-            .contentMargins(.bottom, 96, for: .scrollContent)
-        }
-    }
-}
-
-typealias AppDashboardView = AppHomeView
-typealias AppMainView = AppHomeView
-typealias AppRecordsView = AppRecordListView
-typealias AppHistoryView = AppRecordListView
-typealias AppAddView = AppAddRecordView
-typealias AppChartView = AppGrowthChartView
-typealias AppStatsView = AppGrowthChartView
-typealias AppChildrenView = AppChildListView
-typealias AppProfileView = AppChildListView
