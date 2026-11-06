@@ -1,7 +1,7 @@
 # App
 
-记录每天喂猫的时间和量，看有没有漏喂
+药品有效期和存放位置，一盒不漏
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 日历, 设置
+Screens: 药品列表, 添加一盒药, 临期提醒
