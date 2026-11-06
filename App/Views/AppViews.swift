@@ -79,11 +79,11 @@ struct AppMedicineListView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            AppFilterChip(title: "全部", isSelected: selectedLocation == nil) {
+                            AppFilterChip(title: "全部", isSelected: selectedLocation == nil, action: "") {
                                 selectedLocation = nil
                             }
                             ForEach(allLocations, id: \.self) { location in
-                                AppFilterChip(title: location, isSelected: selectedLocation == location) {
+                                AppFilterChip(title: location, isSelected: selectedLocation == location, action: "") {
                                     selectedLocation = location
                                 }
                             }
@@ -664,18 +664,7 @@ struct AppMedicineEditView: View {
 
         switch mode {
         case .add:
-            let medicine = AppMedicine(
-                id: UUID(),
-                name: trimmedName,
-                specification: trimmedSpecification,
-                quantity: quantity,
-                unit: trimmedUnit.isEmpty ? "盒" : trimmedUnit,
-                expiryDate: expiryDate,
-                location: trimmedLocation.isEmpty ? "未指定位置" : trimmedLocation,
-                dateAdded: Date(),
-                notes: notes,
-                isFavorite: isFavorite
-            )
+            let medicine = AppMedicine(id: UUID(), name: trimmedName, specification: trimmedSpecification, quantity: quantity, unit: trimmedUnit.isEmpty ? "盒" : trimmedUnit, expiryDate: expiryDate, location: trimmedLocation.isEmpty ? "未指定位置" : trimmedLocation, dateAdded: Date(), notes: notes, isFavorite: isFavorite, isExpired: false, daysUntilExpiry: 0)
             store.medicines.append(medicine)
             if !store.locations.contains(medicine.location) {
                 store.locations.append(medicine.location)
@@ -683,18 +672,7 @@ struct AppMedicineEditView: View {
             store.save()
         case .edit(let original):
             if let index = store.medicines.firstIndex(where: { $0.id == original.id }) {
-                let updated = AppMedicine(
-                    id: original.id,
-                    name: trimmedName,
-                    specification: trimmedSpecification,
-                    quantity: quantity,
-                    unit: trimmedUnit.isEmpty ? "盒" : trimmedUnit,
-                    expiryDate: expiryDate,
-                    location: trimmedLocation.isEmpty ? "未指定位置" : trimmedLocation,
-                    dateAdded: original.dateAdded,
-                    notes: notes,
-                    isFavorite: isFavorite
-                )
+                let updated = AppMedicine(id: original.id, name: trimmedName, specification: trimmedSpecification, quantity: quantity, unit: trimmedUnit.isEmpty ? "盒" : trimmedUnit, expiryDate: expiryDate, location: trimmedLocation.isEmpty ? "未指定位置" : trimmedLocation, dateAdded: original.dateAdded, notes: notes, isFavorite: isFavorite, isExpired: false, daysUntilExpiry: 0)
                 store.medicines[index] = updated
                 if !store.locations.contains(updated.location) {
                     store.locations.append(updated.location)

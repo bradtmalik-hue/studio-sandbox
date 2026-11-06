@@ -24,7 +24,7 @@ struct AppRootView: View {
             .tag(1)
             
             NavigationStack {
-                AppLocationView()
+                AppLocationView(locations: "")
             }
             .tabItem {
                 Label("位置", systemImage: "cabinet.fill")
