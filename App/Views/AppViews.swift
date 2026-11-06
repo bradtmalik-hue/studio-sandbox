@@ -1,11 +1,7 @@
 import SwiftUI
 
-struct AppViews: View {
+struct ContentView: View {
     var body: some View {
-        List {
-            ForEach(1...5, id: \.self) { number in
-                Text("Item \(number)")
-            }
-        }
+        Text("Hello, world!")
     }
 }
