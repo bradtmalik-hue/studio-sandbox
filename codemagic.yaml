@@ -7,9 +7,9 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.bradtmalik-hue.app
+        bundle_identifier: com.dassospizzirri-hash.battlelog
       vars:
-        BUNDLE_ID: com.bradtmalik-hue.app
+        BUNDLE_ID: com.dassospizzirri-hash.battlelog
     scripts:
       - name: Set up code signing
         script: |
@@ -18,7 +18,7 @@ workflows:
       - name: Build signed ipa
         script: |
           set -e
-          xcode-project build-ipa             --project "App.xcodeproj"             --scheme "App"             --config Release
+          xcode-project build-ipa             --project "BattleLog.xcodeproj"             --scheme "BattleLog"             --config Release
       - name: Upload to TestFlight (only if key provided)
         script: |
           set -e
@@ -44,8 +44,8 @@ workflows:
       - name: Compile
         script: |
           xcodebuild \
-            -project "App.xcodeproj" \
-            -scheme "App" \
+            -project "BattleLog.xcodeproj" \
+            -scheme "BattleLog" \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -60,14 +60,14 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: com.bradtmalik-hue.app
+        BUNDLE_ID: com.dassospizzirri-hash.battlelog
     scripts:
       - name: Build for simulator
         script: |
           set -e
           xcodebuild \
-            -project "App.xcodeproj" \
-            -scheme "App" \
+            -project "BattleLog.xcodeproj" \
+            -scheme "BattleLog" \
             -sdk iphonesimulator \
             -configuration Release \
             -derivedDataPath build \
@@ -84,7 +84,7 @@ workflows:
           DEV=$(xcrun simctl create Capture "$DT" "$RT")
           xcrun simctl boot "$DEV" || true
           xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/App.app"
+          APP="build/Build/Products/Release-iphonesimulator/BattleLog.app"
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
