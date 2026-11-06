@@ -1,7 +1,7 @@
-# BattleLog
+# App
 
-记录每局战绩
+随手记下孩子的身高体重，曲线自己长出来
 
-Bundle ID: `com.dassospizzirri-hash.battlelog`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 记录, 统计, 设置
+Screens: 记一笔, 成长曲线, 历史记录

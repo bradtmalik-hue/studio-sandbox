@@ -1,28 +1,34 @@
 import Foundation
 import Combine
 
-struct AppMealRecord: Codable, Identifiable {
+struct AppGrowthRecord: Identifiable, Codable, Equatable {
     let id: UUID
     var date: Date
-    var amount: Double // 单位：克
+    var heightCM: Double
+    var weightKG: Double
     var note: String
 
-    init(id: UUID = UUID(), date: Date = Date(), amount: Double = 0, note: String = "") {
+    init(id: UUID = UUID(), date: Date = Date(), heightCM: Double, weightKG: Double, note: String = "") {
         self.id = id
         self.date = date
-        self.amount = amount
+        self.heightCM = heightCM
+        self.weightKG = weightKG
         self.note = note
     }
 }
 
-final class AppMealStore: ObservableObject {
-    @Published var records: [AppMealRecord] = []
+final class AppGrowthStore: ObservableObject {
+    @Published var childName: String = "宝宝"
+    @Published var records: [AppGrowthRecord] = []
 
-    private let fileName = "meal_records.json"
-
+    private let fileName = "growth_records.json"
     private var fileURL: URL? {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        return documents?.appendingPathComponent(fileName)
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(fileName)
+    }
+
+    private struct Snapshot: Codable {
+        var childName: String
+        var records: [AppGrowthRecord]
     }
 
     init() {
@@ -32,85 +38,87 @@ final class AppMealStore: ObservableObject {
         }
     }
 
-    func add(_ record: AppMealRecord) {
+    var sortedRecords: [AppGrowthRecord] {
+        records.sorted { $0.date < $1.date }
+    }
+
+    var latestRecord: AppGrowthRecord? {
+        sortedRecords.last
+    }
+
+    func add(_ record: AppGrowthRecord) {
         records.append(record)
         save()
     }
 
-    func update(_ record: AppMealRecord) {
+    func update(_ record: AppGrowthRecord) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
         records[index] = record
         save()
     }
 
-    func delete(_ record: AppMealRecord) {
+    func delete(_ record: AppGrowthRecord) {
         records.removeAll { $0.id == record.id }
         save()
     }
 
-    func save() {
-        guard let url = fileURL else { return }
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(records)
-            try data.write(to: url)
-        } catch {
-            print("保存失败: \(error)")
-        }
+    func delete(at offsets: IndexSet) {
+        records.remove(atOffsets: offsets)
+        save()
     }
 
     func load() {
-        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else { return }
-        do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppMealRecord].self, from: data)
-        } catch {
-            print("加载失败: \(error)")
+        guard let url = fileURL,
+              let data = try? Data(contentsOf: url) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let snapshot = try? decoder.decode(Snapshot.self, from: data) {
+            childName = snapshot.childName
+            records = snapshot.records
+        }
+    }
+
+    func save() {
+        guard let url = fileURL else { return }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let snapshot = Snapshot(childName: childName, records: records)
+        if let data = try? encoder.encode(snapshot) {
+            try? data.write(to: url)
         }
     }
 }
 
 enum DemoSeed {
-    static func apply(into store: AppMealStore) {
-        // 只在启动参数包含 -demoData 时执行
+    static func apply() {
         guard CommandLine.arguments.contains("-demoData") else { return }
+    }
 
-        store.records = []
-
+    static func apply(into store: AppGrowthStore) {
+        guard CommandLine.arguments.contains("-demoData") else { return }
         let calendar = Calendar.current
-        let today = Date()
-        // 生成最近 7 天的喂食记录，尽量真实
-        let demoData: [(daysAgo: Int, hour: Int, minute: Int, amount: Double, note: String)] = [
-            (0, 7, 40, 35, "干粮"),
-            (0, 19, 15, 50, "湿粮"),
-            (1, 8, 5, 38, "干粮"),
-            (1, 20, 30, 45, "湿粮"),
-            (2, 7, 55, 32, "干粮"),
-            (2, 18, 45, 48, "湿粮"),
-            (3, 8, 20, 40, "干粮"),
-            (3, 21, 10, 55, "湿粮"),
-            (4, 7, 50, 30, "干粮"),
-            (4, 19, 40, 50, "湿粮"),
-            (5, 8, 15, 42, "干粮"),
-            (5, 20, 5, 46, "湿粮")
-        ]
+        let now = Date()
+        let startOfCurrentMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
+        let childName = "小糯米"
 
-        for item in demoData {
-            let date = calendar.date(byAdding: .day, value: -item.daysAgo, to: today) ?? today
-            let components = calendar.dateComponents([.year, .month, .day], from: date)
-            var finalComponents = DateComponents()
-            finalComponents.year = components.year
-            finalComponents.month = components.month
-            finalComponents.day = components.day
-            finalComponents.hour = item.hour
-            finalComponents.minute = item.minute
-            let finalDate = calendar.date(from: finalComponents) ?? date
-            store.records.append(AppMealRecord(date: finalDate, amount: item.amount, note: item.note))
+        func record(monthsAgo: Int, height: Double, weight: Double, note: String) -> AppGrowthRecord {
+            let date = calendar.date(byAdding: .month, value: -monthsAgo, to: startOfCurrentMonth) ?? startOfCurrentMonth
+            return AppGrowthRecord(date: date, heightCM: height, weightKG: weight, note: note)
         }
 
+        store.childName = childName
+        store.records = [
+            record(monthsAgo: 9, height: 50.0, weight: 3.20, note: "出生记录"),
+            record(monthsAgo: 8, height: 54.5, weight: 4.20, note: "满月体检"),
+            record(monthsAgo: 7, height: 58.0, weight: 5.10, note: "2月龄"),
+            record(monthsAgo: 6, height: 61.5, weight: 6.00, note: "3月龄"),
+            record(monthsAgo: 5, height: 64.0, weight: 6.70, note: "4月龄"),
+            record(monthsAgo: 4, height: 66.0, weight: 7.30, note: "5月龄"),
+            record(monthsAgo: 3, height: 68.0, weight: 7.80, note: "6月龄"),
+            record(monthsAgo: 2, height: 70.0, weight: 8.30, note: "7月龄"),
+            record(monthsAgo: 1, height: 72.0, weight: 8.70, note: "8月龄"),
+            record(monthsAgo: 0, height: 73.5, weight: 9.00, note: "9月龄")
+        ]
         store.save()
     }
 }
