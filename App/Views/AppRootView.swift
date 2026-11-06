@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AppRootView: View {
     @StateObject private var store = AppStore()
-    @State private var selectedLocation: String? = nil
     @State private var selectedTab = AppRootView.initialTab()
     
     var body: some View {
@@ -16,7 +15,7 @@ struct AppRootView: View {
             .tag(0)
             
             NavigationStack {
-                AppMedicineListView(allLocations: $selectedLocation)
+                AppMedicineListView()
             }
             .tabItem {
                 Label("药品", systemImage: "pills.fill")
@@ -24,7 +23,7 @@ struct AppRootView: View {
             .tag(1)
             
             NavigationStack {
-                AppLocationView(locations: "")
+                AppLocationView()
             }
             .tabItem {
                 Label("位置", systemImage: "cabinet.fill")
