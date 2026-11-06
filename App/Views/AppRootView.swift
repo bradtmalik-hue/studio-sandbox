@@ -2,46 +2,34 @@ import SwiftUI
 
 struct AppRootView: View {
     @StateObject private var store = AppStore()
-    @State private var selectedTab = AppRootView.initialTab()
-    
+    @State private var selectedTab = Self.initialTab()
+    private let categories = ["全部", "感冒用药", "退烧止痛", "肠胃用药", "外用药", "慢性病用药", "其他"]
+
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                AppSummaryView()
+                AppMedicineListView(categories: categories)
             }
             .tabItem {
-                Label("概览", systemImage: "chart.pie.fill")
+                Label("药箱", systemImage: "pills.fill")
             }
             .tag(0)
-            
+
             NavigationStack {
-                AppMedicineListView()
+                AppMedicineFormView(store: store, medicine: nil)
             }
             .tabItem {
-                Label("药品", systemImage: "pills.fill")
+                Label("添加", systemImage: "plus.circle.fill")
             }
             .tag(1)
-            
-            NavigationStack {
-                AppLocationView()
-            }
-            .tabItem {
-                Label("位置", systemImage: "cabinet.fill")
-            }
-            .tag(2)
         }
-        .environmentObject(store)
     }
-    
+
     private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let value = Int(args[index + 1]) {
-            return min(max(value, 0), 2)
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-startTab"), index + 1 < arguments.count, let value = Int(arguments[index + 1]) {
+            return value
         }
         return 0
     }
-}
-
-#Preview {
-    AppRootView()
 }
