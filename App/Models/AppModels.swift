@@ -1,116 +1,189 @@
 import Foundation
 import Combine
 
-struct AppMealRecord: Codable, Identifiable {
+enum AppGender: String, Codable, CaseIterable, Identifiable {
+    case male = "男"
+    case female = "女"
+    case unknown = "保密"
+    
+    var id: String { rawValue }
+}
+
+struct AppChildProfile: Codable, Identifiable {
+    var id: UUID = UUID()
+    var name: String
+    var birthDate: Date
+    var gender: AppGender
+}
+
+struct AppGrowthRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date
-    var amount: Double // 单位：克
-    var note: String
-
-    init(id: UUID = UUID(), date: Date = Date(), amount: Double = 0, note: String = "") {
+    var heightCm: Double
+    var weightKg: Double
+    var note: String?
+    
+    init(id: UUID = UUID(), date: Date, heightCm: Double, weightKg: Double, note: String? = nil) {
         self.id = id
         self.date = date
-        self.amount = amount
+        self.heightCm = heightCm
+        self.weightKg = weightKg
         self.note = note
     }
 }
 
-final class AppMealStore: ObservableObject {
-    @Published var records: [AppMealRecord] = []
-
-    private let fileName = "meal_records.json"
-
-    private var fileURL: URL? {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        return documents?.appendingPathComponent(fileName)
-    }
-
+final class AppStore: ObservableObject {
+    @Published var profile: AppChildProfile
+    @Published var records: [AppGrowthRecord]
+    
+    let profileURL: URL
+    let recordsURL: URL
+    
     init() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        profileURL = docs.appendingPathComponent("child_profile.json")
+        recordsURL = docs.appendingPathComponent("growth_records.json")
+        
+        let defaultBirth = Calendar.current.date(byAdding: .year, value: -2, to: Date()) ?? Date()
+        self.profile = AppChildProfile(name: "我的宝贝", birthDate: defaultBirth, gender: .unknown)
+        self.records = []
+        
         load()
+        
         if CommandLine.arguments.contains("-demoData") {
-            DemoSeed.apply(into: self)
+            DemoSeed.apply(self)
         }
     }
-
-    func add(_ record: AppMealRecord) {
-        records.append(record)
-        save()
+    
+    func load() {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        if FileManager.default.fileExists(atPath: profileURL.path) {
+            do {
+                let data = try Data(contentsOf: profileURL)
+                profile = try decoder.decode(AppChildProfile.self, from: data)
+            } catch {
+                print("加载孩子信息失败: \(error)")
+            }
+        }
+        
+        if FileManager.default.fileExists(atPath: recordsURL.path) {
+            do {
+                let data = try Data(contentsOf: recordsURL)
+                records = try decoder.decode([AppGrowthRecord].self, from: data)
+            } catch {
+                print("加载记录失败: \(error)")
+            }
+        }
     }
-
-    func update(_ record: AppMealRecord) {
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
-        records[index] = record
-        save()
-    }
-
-    func delete(_ record: AppMealRecord) {
-        records.removeAll { $0.id == record.id }
-        save()
-    }
-
+    
     func save() {
-        guard let url = fileURL else { return }
+        saveProfile()
+        saveRecords()
+    }
+    
+    private func saveProfile() {
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(records)
-            try data.write(to: url)
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(profile)
+            try data.write(to: profileURL)
         } catch {
-            print("保存失败: \(error)")
+            print("保存孩子信息失败: \(error)")
         }
     }
-
-    func load() {
-        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else { return }
+    
+    private func saveRecords() {
         do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppMealRecord].self, from: data)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(records)
+            try data.write(to: recordsURL)
         } catch {
-            print("加载失败: \(error)")
+            print("保存记录失败: \(error)")
         }
+    }
+    
+    func updateProfile(name: String, birthDate: Date, gender: AppGender) {
+        profile = AppChildProfile(name: name, birthDate: birthDate, gender: gender)
+        save()
+    }
+    
+    func addRecord(_ record: AppGrowthRecord) {
+        records.append(record)
+        save()
+    }
+    
+    func updateRecord(_ record: AppGrowthRecord) {
+        if let idx = records.firstIndex(where: { $0.id == record.id }) {
+            records[idx] = record
+            save()
+        }
+    }
+    
+    func deleteRecord(_ record: AppGrowthRecord) {
+        records.removeAll { $0.id == record.id }
+        save()
+    }
+    
+    func deleteRecords(at offsets: IndexSet) {
+        records.remove(atOffsets: offsets)
+        save()
+    }
+    
+    func sortedRecords() -> [AppGrowthRecord] {
+        records.sorted { $0.date < $1.date }
+    }
+    
+    func latestRecord() -> AppGrowthRecord? {
+        records.max { $0.date < $1.date }
+    }
+    
+    func records(inLastDays days: Int) -> [AppGrowthRecord] {
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date.distantPast
+        return records.filter { $0.date >= start }
     }
 }
 
 enum DemoSeed {
-    static func apply(into store: AppMealStore) {
-        // 只在启动参数包含 -demoData 时执行
+    static let sampleHeights: [Double] = [48.0, 51.2, 54.5, 57.8, 61.0, 64.5, 68.2, 71.6, 75.0, 78.3, 81.2, 84.5]
+    static let sampleWeights: [Double] = [3.2, 4.1, 5.0, 6.0, 7.2, 8.5, 9.8, 11.0, 12.1, 13.3, 14.2, 15.0]
+    static let monthIntervals: [Int] = [24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 3, 1]
+    
+    static func apply(_ store: AppStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
-
-        store.records = []
-
+        
+        store.profile = AppChildProfile(
+            name: "小团子",
+            birthDate: Calendar.current.date(byAdding: .year, value: -2, to: Date()) ?? Date(),
+            gender: .male
+        )
+        
         let calendar = Calendar.current
-        let today = Date()
-        // 生成最近 7 天的喂食记录，尽量真实
-        let demoData: [(daysAgo: Int, hour: Int, minute: Int, amount: Double, note: String)] = [
-            (0, 7, 40, 35, "干粮"),
-            (0, 19, 15, 50, "湿粮"),
-            (1, 8, 5, 38, "干粮"),
-            (1, 20, 30, 45, "湿粮"),
-            (2, 7, 55, 32, "干粮"),
-            (2, 18, 45, 48, "湿粮"),
-            (3, 8, 20, 40, "干粮"),
-            (3, 21, 10, 55, "湿粮"),
-            (4, 7, 50, 30, "干粮"),
-            (4, 19, 40, 50, "湿粮"),
-            (5, 8, 15, 42, "干粮"),
-            (5, 20, 5, 46, "湿粮")
+        let now = Date()
+        
+        let notes = [
+            "出生记录", "满月体检", "两个月啦", "百天记录", "四个月打卡",
+            "半岁体检", "八个月啦", "周岁体检", "一岁半记录", "两岁体检",
+            "两岁三个月", "两岁半记录"
         ]
-
-        for item in demoData {
-            let date = calendar.date(byAdding: .day, value: -item.daysAgo, to: today) ?? today
-            let components = calendar.dateComponents([.year, .month, .day], from: date)
-            var finalComponents = DateComponents()
-            finalComponents.year = components.year
-            finalComponents.month = components.month
-            finalComponents.day = components.day
-            finalComponents.hour = item.hour
-            finalComponents.minute = item.minute
-            let finalDate = calendar.date(from: finalComponents) ?? date
-            store.records.append(AppMealRecord(date: finalDate, amount: item.amount, note: item.note))
+        
+        for i in 0..<12 {
+            let monthsAgo = monthIntervals[i]
+            let date = calendar.date(byAdding: .month, value: -monthsAgo, to: now) ?? now
+            let dateWithTime = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: date) ?? date
+            let record = AppGrowthRecord(
+                date: dateWithTime,
+                heightCm: sampleHeights[i],
+                weightKg: sampleWeights[i],
+                note: notes[i]
+            )
+            store.records.append(record)
         }
-
+        
         store.save()
     }
 }
