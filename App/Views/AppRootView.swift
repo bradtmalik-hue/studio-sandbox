@@ -7,7 +7,7 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1()
+            AppPage1View(medicine: store)
                 .tabItem {
                     Label("药箱", systemImage: "pills")
                 }
@@ -19,7 +19,7 @@ struct AppRootView: View {
                 }
                 .tag(1)
 
-            AppPage3()
+            AppPage3View(store: store)
                 .tabItem {
                     Label("临期", systemImage: "clock")
                 }
