@@ -1,217 +1,255 @@
 import Foundation
 import Combine
 
-enum BattleResult: String, Codable, CaseIterable, Identifiable {
-    case win = "胜利"
-    case loss = "失败"
-    case draw = "平局"
-    
-    var id: String { rawValue }
+enum BattleResult: String, Codable, CaseIterable {
+    case win
+    case lose
+    case draw
+
+    var displayName: String {
+        switch self {
+        case .win:
+            return "胜利"
+        case .lose:
+            return "失败"
+        case .draw:
+            return "平局"
+        }
+    }
 }
 
-struct BattleRecord: Identifiable, Codable, Hashable {
-    var id: UUID = UUID()
+struct BattleLogRecord: Identifiable, Codable, Hashable {
+    var id: UUID
     var gameName: String
     var date: Date
     var result: BattleResult
     var score: Int
-    var kills: Int
-    var deaths: Int
-    var assists: Int
-    var durationMinutes: Double
     var note: String
+
+    var title: String { gameName }
+
+    var formattedDate: String {
+        BattleLogFormatters.chineseDateTime.string(from: date)
+    }
+
+    init(
+        id: UUID = UUID(),
+        gameName: String,
+        date: Date = Date(),
+        result: BattleResult,
+        score: Int = 0,
+        note: String = ""
+    ) {
+        self.id = id
+        self.gameName = gameName
+        self.date = date
+        self.result = result
+        self.score = score
+        self.note = note
+    }
 }
 
-class BattleLogStore: ObservableObject {
-    @Published var records: [BattleRecord] = []
-    
-    private let fileName = "battleLogRecords.json"
-    var fileURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
+enum BattleLogFormatters {
+    static let chineseDateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+}
+
+final class BattleLogStore: ObservableObject {
+    @Published var records: [BattleLogRecord] = []
+
+    private let fileName = "battleRecords.json"
+
+    private var fileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(fileName)
     }
-    
+
     init() {
         load()
+        if CommandLine.arguments.contains("-demoData") {
+            DemoSeed.apply(into: self)
+        }
     }
-    
-    func add(_ record: BattleRecord) {
+
+    var totalGames: Int { records.count }
+
+    var winCount: Int {
+        records.filter { $0.result == .win }.count
+    }
+
+    var loseCount: Int {
+        records.filter { $0.result == .lose }.count
+    }
+
+    var drawCount: Int {
+        records.filter { $0.result == .draw }.count
+    }
+
+    var winRate: Double {
+        guard totalGames > 0 else { return 0 }
+        return Double(winCount) / Double(totalGames)
+    }
+
+    var averageScore: Double {
+        guard totalGames > 0 else { return 0 }
+        return Double(records.reduce(0) { $0 + $1.score }) / Double(totalGames)
+    }
+
+    var sortedRecords: [BattleLogRecord] {
+        records.sorted { $0.date > $1.date }
+    }
+
+    func winRate(last gameCount: Int) -> Double {
+        guard gameCount > 0 else { return 0 }
+        let slice = sortedRecords.prefix(gameCount)
+        guard !slice.isEmpty else { return 0 }
+        return Double(slice.filter { $0.result == .win }.count) / Double(slice.count)
+    }
+
+    func add(_ record: BattleLogRecord) {
         records.append(record)
         save()
     }
-    
-    func delete(_ record: BattleRecord) {
+
+    func update(_ record: BattleLogRecord) {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        records[index] = record
+        save()
+    }
+
+    func delete(_ record: BattleLogRecord) {
         records.removeAll { $0.id == record.id }
         save()
     }
-    
+
     func delete(at offsets: IndexSet) {
         records.remove(atOffsets: offsets)
         save()
     }
-    
-    func update(_ record: BattleRecord) {
-        if let index = records.firstIndex(where: { $0.id == record.id }) {
-            records[index] = record
-            save()
-        }
-    }
-    
+
     func save() {
         do {
             let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(records)
             try data.write(to: fileURL)
         } catch {
-            print("保存失败: \(error.localizedDescription)")
+            // 保存失败时保持当前内存数据，便于下次继续尝试
         }
     }
-    
-    private func load() {
+
+    func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
         do {
             let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([BattleRecord].self, from: data)
+            let decoded = try JSONDecoder().decode([BattleLogRecord].self, from: data)
+            records = decoded
         } catch {
-            print("读取失败: \(error.localizedDescription)")
             records = []
         }
     }
-    
-    var totalGames: Int { records.count }
-    var wins: Int { records.filter { $0.result == .win }.count }
-    var losses: Int { records.filter { $0.result == .loss }.count }
-    var draws: Int { records.filter { $0.result == .draw }.count }
-    var winRate: Double { totalGames > 0 ? Double(wins) / Double(totalGames) : 0 }
-    var averageKills: Double { totalGames > 0 ? Double(records.reduce(0) { $0 + $1.kills }) / Double(totalGames) : 0 }
-    var averageScore: Double { totalGames > 0 ? Double(records.reduce(0) { $0 + $1.score }) / Double(totalGames) : 0 }
-    var bestScore: Int { records.map(\.score).max() ?? 0 }
-    var lastPlayedDate: Date? { records.map(\.date).max() }
 }
 
 enum DemoSeed {
-    static func apply() {
+    static func apply(into store: BattleLogStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
-        
-        let store = BattleLogStore()
-        guard store.records.isEmpty else { return }
-        
-        store.records = sampleRecords
+
+        let now = Date()
+        let hour: TimeInterval = 3600
+        let day: TimeInterval = 86400
+
+        let demoRecords: [BattleLogRecord] = [
+            BattleLogRecord(
+                gameName: "星际征途",
+                date: now.addingTimeInterval(-2 * hour),
+                result: .win,
+                score: 1280,
+                note: "开局顺利"
+            ),
+            BattleLogRecord(
+                gameName: "幻境冒险",
+                date: now.addingTimeInterval(-26 * hour),
+                result: .lose,
+                score: 850,
+                note: "团战没跟上"
+            ),
+            BattleLogRecord(
+                gameName: "极限竞速",
+                date: now.addingTimeInterval(-1 * day - 3 * hour),
+                result: .win,
+                score: 1540,
+                note: "刷新个人纪录"
+            ),
+            BattleLogRecord(
+                gameName: "火箭联盟",
+                date: now.addingTimeInterval(-2 * day - 1 * hour),
+                result: .draw,
+                score: 960,
+                note: "加时赛"
+            ),
+            BattleLogRecord(
+                gameName: "魔法学院",
+                date: now.addingTimeInterval(-3 * day - 4 * hour),
+                result: .win,
+                score: 1010,
+                note: "输出最高"
+            ),
+            BattleLogRecord(
+                gameName: "枪火前线",
+                date: now.addingTimeInterval(-3 * day - 7 * hour),
+                result: .lose,
+                score: 420,
+                note: "队友掉线"
+            ),
+            BattleLogRecord(
+                gameName: "棋艺对决",
+                date: now.addingTimeInterval(-4 * day - 2 * hour),
+                result: .win,
+                score: 1420,
+                note: "险胜"
+            ),
+            BattleLogRecord(
+                gameName: "卡牌战术",
+                date: now.addingTimeInterval(-5 * day - 5 * hour),
+                result: .lose,
+                score: 390,
+                note: "卡组被克制"
+            ),
+            BattleLogRecord(
+                gameName: "足球大师",
+                date: now.addingTimeInterval(-6 * day - 2 * hour),
+                result: .win,
+                score: 2100,
+                note: "帽子戏法"
+            ),
+            BattleLogRecord(
+                gameName: "篮球世界",
+                date: now.addingTimeInterval(-7 * day - 6 * hour),
+                result: .lose,
+                score: 780,
+                note: "最后时刻失误"
+            ),
+            BattleLogRecord(
+                gameName: "星际征途",
+                date: now.addingTimeInterval(-8 * day - 3 * hour),
+                result: .win,
+                score: 1320,
+                note: "三连胜"
+            ),
+            BattleLogRecord(
+                gameName: "幻境冒险",
+                date: now.addingTimeInterval(-9 * day - 8 * hour),
+                result: .lose,
+                score: 610,
+                note: "BOSS 战失败"
+            )
+        ]
+
+        store.records = demoRecords
         store.save()
     }
-    
-    private static let sampleRecords: [BattleRecord] = [
-        BattleRecord(
-            gameName: "王者荣耀",
-            date: Date().addingTimeInterval(-86400 * 2),
-            result: .win,
-            score: 1560,
-            kills: 8,
-            deaths: 2,
-            assists: 7,
-            durationMinutes: 18.5,
-            note: "打野节奏不错，控龙成功"
-        ),
-        BattleRecord(
-            gameName: "英雄联盟",
-            date: Date().addingTimeInterval(-86400 * 3),
-            result: .loss,
-            score: 980,
-            kills: 5,
-            deaths: 9,
-            assists: 12,
-            durationMinutes: 32.0,
-            note: "中期团战没打好，下次注意站位"
-        ),
-        BattleRecord(
-            gameName: "反恐精英2",
-            date: Date().addingTimeInterval(-86400 * 4),
-            result: .win,
-            score: 2350,
-            kills: 21,
-            deaths: 14,
-            assists: 3,
-            durationMinutes: 40.2,
-            note: "手枪局赢了，后期守点很稳"
-        ),
-        BattleRecord(
-            gameName: "守望先锋",
-            date: Date().addingTimeInterval(-86400 * 5),
-            result: .draw,
-            score: 1800,
-            kills: 15,
-            deaths: 6,
-            assists: 10,
-            durationMinutes: 15.8,
-            note: "加时赛平局，坦克位扛了很多伤害"
-        ),
-        BattleRecord(
-            gameName: "原神",
-            date: Date().addingTimeInterval(-86400 * 6),
-            result: .win,
-            score: 1200,
-            kills: 0,
-            deaths: 0,
-            assists: 0,
-            durationMinutes: 25.0,
-            note: "深渊满星，练度提升很明显"
-        ),
-        BattleRecord(
-            gameName: "英雄联盟",
-            date: Date().addingTimeInterval(-86400 * 7),
-            result: .win,
-            score: 1450,
-            kills: 10,
-            deaths: 4,
-            assists: 15,
-            durationMinutes: 28.6,
-            note: "下路组合配合默契，赢下关键局"
-        ),
-        BattleRecord(
-            gameName: "王者荣耀",
-            date: Date().addingTimeInterval(-86400 * 8),
-            result: .loss,
-            score: 760,
-            kills: 3,
-            deaths: 7,
-            assists: 5,
-            durationMinutes: 16.3,
-            note: "上路被针对，下次选英雄要更谨慎"
-        ),
-        BattleRecord(
-            gameName: "绝地求生",
-            date: Date().addingTimeInterval(-86400 * 9),
-            result: .win,
-            score: 1980,
-            kills: 11,
-            deaths: 1,
-            assists: 2,
-            durationMinutes: 29.9,
-            note: "决赛圈伏地魔，最后对枪成功吃鸡"
-        ),
-        BattleRecord(
-            gameName: "星际争霸2",
-            date: Date().addingTimeInterval(-86400 * 10),
-            result: .loss,
-            score: 640,
-            kills: 0,
-            deaths: 0,
-            assists: 0,
-            durationMinutes: 22.4,
-            note: "运营节奏慢了一拍，被一波带走"
-        ),
-        BattleRecord(
-            gameName: "Dota 2",
-            date: Date().addingTimeInterval(-86400 * 12),
-            result: .win,
-            score: 1700,
-            kills: 9,
-            deaths: 5,
-            assists: 18,
-            durationMinutes: 45.0,
-            note: "辅助视野做得好，团队配合很流畅"
-        )
-    ]
 }

@@ -13,6 +13,7 @@
 		AA0000000000000000000004 /* BattleLogViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* BattleLogViews.swift */; };
 		AA0000000000000000000005 /* BattleLogRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* BattleLogRootView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
+		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +23,7 @@
 		BB0000000000000000000004 /* BattleLogViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleLogViews.swift; sourceTree = "<group>"; };
 		BB0000000000000000000005 /* BattleLogRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleLogRootView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* BattleLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BattleLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000090 /* Assets.xcassets */,
+				BB0000000000000000000091 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -156,6 +159,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0000000000000000000090 /* Assets.xcassets in Resources */,
+				AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -225,7 +229,7 @@
 				"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.battlelog;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dassospizzirri-hash.battlelog;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -250,7 +254,7 @@
 				"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.battlelog;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dassospizzirri-hash.battlelog;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
