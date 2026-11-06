@@ -6,13 +6,13 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            AppHomeView(sortedRecords: store)
+            AppHomeView()
                 .tabItem {
                     Label("首页", systemImage: "house.fill")
                 }
                 .tag(0)
 
-            AppRecordListView(sortedRecords: store)
+            AppRecordListView()
                 .tabItem {
                     Label("记录", systemImage: "list.bullet.rectangle.fill")
                 }
