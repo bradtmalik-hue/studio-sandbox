@@ -1,7 +1,7 @@
-# Q
+# App
 
-Q版武将，一路砍过去
+随手记下孩子的身高体重，曲线自己长出来
 
-Bundle ID: `com.glodgalt947-dotcom.q`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 选将页, 闯关页, 结算页
+Screens: 记一笔, 成长曲线, 历史记录
