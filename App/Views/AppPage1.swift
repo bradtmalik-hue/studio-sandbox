@@ -1,162 +1,201 @@
 import SwiftUI
-import Foundation
+import Combine
 
 struct AppPage1View: View {
-    @EnvironmentObject private var store: AppStore
-    @State private var filterCategory: String = "全部"
-    @State private var activeSheet: AppPage1Sheet?
+    @EnvironmentObject var store: AppStore
+    @State private var searchText: String = ""
+    @State private var filter: AppPage1Filter = .all
+    @State private var editorMode: AppPage1EditorMode?
 
-    var categories: [String] {
-        var seen = Set<String>()
-        for entry in store.todayEntries {
-            seen.insert(entry.category)
+    private static let rowTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private var todayRecords: [AppFeedRecord] {
+        store.records
+            .filter { Calendar.current.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var filteredRecords: [AppFeedRecord] {
+        todayRecords.filter { record in
+            let matchesSearch = searchText.isEmpty
+                || record.foodType.localizedCaseInsensitiveContains(searchText)
+                || record.note.localizedCaseInsensitiveContains(searchText)
+
+            guard matchesSearch else { return false }
+
+            switch filter {
+            case .all:
+                return true
+            case .staple:
+                return record.foodType.contains("主食")
+                    || record.foodType.contains("干粮")
+                    || record.foodType.contains("粮")
+            case .snack:
+                return record.foodType.contains("零食")
+                    || record.foodType.contains("猫条")
+                    || record.foodType.contains("罐")
+                    || record.foodType.contains("湿粮")
+            case .other:
+                return !(record.foodType.contains("主食")
+                    || record.foodType.contains("干粮")
+                    || record.foodType.contains("粮")
+                    || record.foodType.contains("零食")
+                    || record.foodType.contains("猫条")
+                    || record.foodType.contains("罐")
+                    || record.foodType.contains("湿粮"))
+            }
         }
-        return ["全部"] + seen.sorted()
-    }
-
-    private var filteredEntries: [AppWorkoutEntry] {
-        if filterCategory == "全部" {
-            return store.todayEntries
-        }
-        return store.todayEntries.filter { $0.category == filterCategory }
-    }
-
-    var totalMinutes: Int {
-        store.todayEntries.reduce(0) { $0 + $1.durationMinutes }
-    }
-
-    private var totalCalories: Int {
-        store.todayEntries.reduce(0) { $0 + $1.calories }
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                AppPage1SummaryCard(
-                    todayCount: store.todayEntries.count,
-                    totalMinutes: totalMinutes,
-                    totalCalories: totalCalories,
-                    weeklyGoal: store.weeklyGoal,
-                    weekRemaining: store.weekRemaining
-                )
-
-                HStack {
-                    Text("筛选")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Picker("分类", selection: $filterCategory) {
-                        ForEach(categories, id: \.self) { category in
-                            Text(category).tag(category)
-                        }
-                    }
-                    .pickerStyle(.menu)
+        ZStack {
+            List {
+                if !todayRecords.isEmpty {
+                    AppPage1SummaryCard(
+                        count: todayRecords.count,
+                        totalAmount: todayRecords.reduce(0) { $0 + $1.amount },
+                        recentDate: todayRecords.first?.date,
+                        target: store.settings.dailyTarget
+                    )
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    .listRowSeparator(.hidden)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 6)
 
-                if filteredEntries.isEmpty {
-                    AppPage1EmptyView(hasAnyToday: !store.todayEntries.isEmpty, onAdd: {
-                        activeSheet = .add
-                    })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        Section {
-                            ForEach(filteredEntries) { entry in
-                                Button {
-                                    activeSheet = .edit(entry)
-                                } label: {
-                                    AppPage1Row(entry: entry)
-                                }
-                                .buttonStyle(.plain)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        delete(entry)
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
-                                }
+                Section {
+                    ForEach(filteredRecords) { record in
+                        Button {
+                            editorMode = .edit(record)
+                        } label: {
+                            AppPage1Row(
+                                record: record,
+                                timeText: Self.rowTimeFormatter.string(from: record.date)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                delete(record)
+                            } label: {
+                                Label("删除", systemImage: "trash")
                             }
-                        } header: {
-                            Text("今天 · \(filteredEntries.count) 条记录")
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
+                } header: {
+                    if !filteredRecords.isEmpty {
+                        Text("今日记录")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-            .navigationTitle("今天练了什么")
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索食物或备注")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        activeSheet = .add
-                    } label: {
-                        Image(systemName: "plus")
+                ToolbarItem(placement: .principal) {
+                    Picker("筛选", selection: $filter) {
+                        ForEach(AppPage1Filter.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
                     }
-                    .accessibilityLabel("添加训练")
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 280)
                 }
             }
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .add:
-                    AppPage1EntryEditor(entry: nil) { newEntry in
-                        save(newEntry)
-                    }
-                case .edit(let entry):
-                    AppPage1EntryEditor(entry: entry) { updatedEntry in
-                        save(updatedEntry)
+
+            if filteredRecords.isEmpty {
+                ContentUnavailableView {
+                    Label(
+                        todayRecords.isEmpty ? "今天还没有喂食记录" : "没有匹配的记录",
+                        systemImage: todayRecords.isEmpty ? "pawprint.fill" : "magnifyingglass"
+                    )
+                } description: {
+                    Text(todayRecords.isEmpty ? "点下面“记一笔”，给毛孩子记下第一顿" : "换个关键词或筛选条件试试")
+                } actions: {
+                    if todayRecords.isEmpty {
+                        Button("添加第一条") {
+                            editorMode = .new
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+            }
+        }
+        .navigationTitle("今天")
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                editorMode = .new
+            } label: {
+                Label("记一笔", systemImage: "plus")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+            .background(.ultraThinMaterial)
+        }
+        .sheet(item: $editorMode) { mode in
+            NavigationStack {
+                AppPage1EditorView(mode: mode)
+                    .environmentObject(store)
             }
         }
     }
 
-    func delete(_ entry: AppWorkoutEntry) {
+    func delete(_ record: AppFeedRecord) {
         withAnimation {
-            store.entries.removeAll { $0.id == entry.id }
-            store.save()
-            validateFilter()
-        }
-    }
-
-    func save(_ entry: AppWorkoutEntry) {
-        withAnimation {
-            if let index = store.entries.firstIndex(where: { $0.id == entry.id }) {
-                store.entries[index] = entry
-            } else {
-                store.entries.append(entry)
-            }
-            store.save()
-            validateFilter()
-        }
-    }
-
-    private func validateFilter() {
-        if filterCategory != "全部",
-           !store.todayEntries.contains(where: { $0.category == filterCategory }) {
-            filterCategory = "全部"
+            store.records.removeAll { $0.id == record.id }
         }
     }
 }
 
-enum AppPage1Sheet: Identifiable {
-    case add
-    case edit(AppWorkoutEntry)
+enum AppPage1Filter: String, CaseIterable, Identifiable {
+    case all = "全部"
+    case staple = "主食"
+    case snack = "零食"
+    case other = "其他"
 
-    var id: String {
+    var id: String { rawValue }
+}
+
+enum AppPage1EditorMode: Identifiable {
+    case new
+    case edit(AppFeedRecord)
+
+    var id: UUID {
         switch self {
-        case .add:
-            return "add"
-        case .edit(let entry):
-            return entry.id.uuidString
+        case .new:
+            return UUID()
+        case .edit(let record):
+            return record.id
         }
     }
 }
 
-struct AppPage1Row: View {
-    let entry: AppWorkoutEntry
+struct AppPage1SummaryCard: View {
+    let count: Int
+    let totalAmount: Double
+    let recentDate: Date?
+    let target: Int
 
-    private static let formatter: DateFormatter = {
+    private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 HH:mm"
@@ -164,308 +203,305 @@ struct AppPage1Row: View {
     }()
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(entry.title)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("今日喂食")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("\(count) 次")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("目标")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("\(target) 次")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+            }
+
+            Divider()
+
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("合计")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(totalAmount, specifier: "%.1f") 克")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("最近一次")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if let recentDate = recentDate {
+                        Text(Self.timeFormatter.string(from: recentDate))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.primary)
+                    } else {
+                        Text("—")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "fork.knife")
+                    .font(.title)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(.separator), lineWidth: 1)
+        )
+    }
+}
+
+struct AppPage1Row: View {
+    let record: AppFeedRecord
+    let timeText: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 46, height: 46)
+
+                Image(systemName: symbolName(for: record.foodType))
+                    .font(.title3)
+                    .foregroundColor(.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(record.foodType.isEmpty ? "未命名食物" : record.foodType)
                     .font(.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
 
-                Text(entry.category)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text("\(record.amount, specifier: "%.1f") 克")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
 
-                HStack(spacing: 12) {
-                    Label(Self.formatter.string(from: entry.date), systemImage: "clock")
-                    Label("\(entry.durationMinutes)分钟", systemImage: "timer")
+                    Text("·")
+                        .foregroundColor(.secondary)
+
+                    Text(timeText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
-                HStack(spacing: 12) {
-                    Label("\(entry.calories)千卡", systemImage: "flame")
-                    Label("\(entry.sets)组 × \(entry.reps)次", systemImage: "repeat")
+                if !record.note.isEmpty {
+                    Text(record.note)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Image(systemName: entry.isOutdoor ? "sun.max.fill" : "house.fill")
-                .foregroundStyle(entry.isOutdoor ? .orange : .blue)
-                .font(.title3)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
     }
-}
 
-struct AppPage1SummaryCard: View {
-    let todayCount: Int
-    let totalMinutes: Int
-    let totalCalories: Int
-    let weeklyGoal: Int
-    let weekRemaining: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("本周进度", systemImage: "target")
-                    .font(.headline)
-                Spacer()
-                Text("目标 \(weeklyGoal) 次")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 10) {
-                AppPage1Metric(
-                    value: "\(max(0, weekRemaining))",
-                    unit: "次",
-                    label: "还差",
-                    tint: .orange
-                )
-                AppPage1Metric(
-                    value: "\(todayCount)",
-                    unit: "条",
-                    label: "今日训练",
-                    tint: .blue
-                )
-            }
-
-            HStack(spacing: 10) {
-                AppPage1Metric(
-                    value: "\(totalMinutes)",
-                    unit: "分钟",
-                    label: "今日时长",
-                    tint: .green
-                )
-                AppPage1Metric(
-                    value: "\(totalCalories)",
-                    unit: "千卡",
-                    label: "今日消耗",
-                    tint: .pink
-                )
-            }
-
-            if weekRemaining <= 0 {
-                Label("本周目标已达成", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.green)
-            } else {
-                Text("再练 \(max(0, weekRemaining)) 次就能达成目标")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-        )
-        .padding(.horizontal)
-        .padding(.top, 8)
-    }
-}
-
-struct AppPage1Metric: View {
-    let value: String
-    let unit: String
-    let label: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                Text(unit)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(tint.opacity(0.12))
-        )
-    }
-}
-
-struct AppPage1EmptyView: View {
-    let hasAnyToday: Bool
-    let onAdd: () -> Void
-
-    var body: some View {
-        if hasAnyToday {
-            ContentUnavailableView {
-                Label("没有符合筛选的记录", systemImage: "line.3.horizontal.decrease.circle")
-            } description: {
-                Text("换个分类看看。")
-            }
+    private func symbolName(for foodType: String) -> String {
+        if foodType.contains("主食") || foodType.contains("干粮") || foodType.contains("粮") {
+            return "circle.hexagongrid.fill"
+        } else if foodType.contains("零食") || foodType.contains("猫条") || foodType.contains("罐") || foodType.contains("湿粮") {
+            return "heart.fill"
         } else {
-            ContentUnavailableView {
-                Label("今天还没练", systemImage: "figure.run")
-            } description: {
-                Text("记下今天的一组训练，清楚看到自己的进步。")
-            } actions: {
-                Button("添加第一条训练", action: onAdd)
-                    .buttonStyle(.borderedProminent)
-            }
+            return "pawprint.fill"
         }
     }
 }
 
-struct AppPage1EntryEditor: View {
-    let entry: AppWorkoutEntry?
-    let onSave: (AppWorkoutEntry) -> Void
-
+struct AppPage1EditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
 
-    @State private var title: String
-    @State private var category: String
+    let mode: AppPage1EditorMode
+
+    @State private var foodType: String
+    @State private var amountText: String
+    @State private var note: String
     @State private var date: Date
-    @State private var durationMinutes: Int
-    @State private var calories: Int
-    @State private var reps: Int
-    @State private var sets: Int
-    @State private var isOutdoor: Bool
-    @State private var notes: String
-    @State private var showValidationError = false
-    @State private var showCancelConfirmation = false
+    @State private var confirmed: Bool = false
+    @State private var showDiscardAlert: Bool = false
+    @State private var amountMessage: String?
 
-    init(entry: AppWorkoutEntry?, onSave: @escaping (AppWorkoutEntry) -> Void) {
-        self.entry = entry
-        self.onSave = onSave
-        _title = State(initialValue: entry?.title ?? "")
-        _category = State(initialValue: entry?.category ?? "力量训练")
-        _date = State(initialValue: entry?.date ?? Date())
-        _durationMinutes = State(initialValue: max(1, entry?.durationMinutes ?? 30))
-        _calories = State(initialValue: max(0, entry?.calories ?? 0))
-        _reps = State(initialValue: max(1, entry?.reps ?? 10))
-        _sets = State(initialValue: max(1, entry?.sets ?? 3))
-        _isOutdoor = State(initialValue: entry?.isOutdoor ?? false)
-        _notes = State(initialValue: entry?.notes ?? "")
-    }
-
-    private var isFormValid: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        durationMinutes > 0 &&
-        durationMinutes <= 600 &&
-        calories >= 0 &&
-        calories <= 5000 &&
-        reps > 0 &&
-        reps <= 1000 &&
-        sets > 0 &&
-        sets <= 100
-    }
-
-    private var hasChanges: Bool {
-        guard let original = entry else {
-            return !title.isEmpty ||
-                !category.isEmpty ||
-                date != Date() ||
-                durationMinutes != 30 ||
-                calories != 0 ||
-                reps != 10 ||
-                sets != 3 ||
-                isOutdoor ||
-                !notes.isEmpty
+    private var originalRecord: AppFeedRecord? {
+        if case .edit(let record) = mode {
+            return record
         }
-        return title != original.title ||
-            category != original.category ||
-            date != original.date ||
-            durationMinutes != original.durationMinutes ||
-            calories != original.calories ||
-            reps != original.reps ||
-            sets != original.sets ||
-            isOutdoor != original.isOutdoor ||
-            notes != original.notes
+        return nil
+    }
+
+    init(mode: AppPage1EditorMode) {
+        self.mode = mode
+        switch mode {
+        case .new:
+            _foodType = State(initialValue: "")
+            _amountText = State(initialValue: "")
+            _note = State(initialValue: "")
+            _date = State(initialValue: Date())
+        case .edit(let record):
+            _foodType = State(initialValue: record.foodType)
+            _amountText = State(initialValue: String(format: "%.1f", record.amount))
+            _note = State(initialValue: record.note)
+            _date = State(initialValue: record.date)
+        }
+    }
+
+    private var trimmedFoodType: String {
+        foodType.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var parsedAmount: Double? {
+        Double(amountText.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private var isValid: Bool {
+        guard !trimmedFoodType.isEmpty else { return false }
+        guard let amount = parsedAmount, amount > 0 else { return false }
+        return confirmed && amountMessage == nil
+    }
+
+    private var hasUnsavedChanges: Bool {
+        let base = originalRecord
+        let currentAmount = parsedAmount ?? 0
+        let originalAmount = base?.amount ?? 0
+
+        return trimmedFoodType != (base?.foodType ?? "")
+            || currentAmount != originalAmount
+            || note != (base?.note ?? "")
+            || !Calendar.current.isDate(date, inSameDayAs: base?.date ?? Date())
+            || (base == nil && (!trimmedFoodType.isEmpty || !amountText.isEmpty || !note.isEmpty))
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("训练内容") {
-                    TextField("标题，例如：卧推", text: $title)
-                    TextField("分类，例如：力量训练", text: $category)
-                }
-
-                Section("训练量") {
-                    Stepper("时长 \(durationMinutes) 分钟", value: $durationMinutes, in: 1...600)
-                    Stepper("消耗 \(calories) 千卡", value: $calories, in: 0...5000)
-                    Stepper("组数 \(sets)", value: $sets, in: 1...100)
-                    Stepper("每组次数 \(reps)", value: $reps, in: 1...1000)
-                }
-
-                Section("日期与状态") {
-                    DatePicker("训练时间", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                    Toggle("户外训练", isOn: $isOutdoor)
-                }
-
-                Section("备注") {
-                    TextField("补充说明（可选）", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+        Form {
+            Section {
+                TextField("食物名称，例如：渴望鸡猫粮", text: $foodType)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+            } header: {
+                Text("基础信息")
+            } footer: {
+                Text("请填写主食、零食或罐头等具体名称。")
             }
-            .navigationTitle(entry == nil ? "添加训练" : "编辑训练")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        if hasChanges {
-                            showCancelConfirmation = true
+
+            Section {
+                TextField("重量（克）", text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .onChange(of: amountText) { newValue in
+                        guard !newValue.isEmpty else {
+                            amountMessage = nil
+                            return
+                        }
+                        if let value = Double(newValue.replacingOccurrences(of: ",", with: ".")), value > 0 {
+                            amountMessage = nil
                         } else {
-                            dismiss()
+                            amountMessage = "请输入大于 0 的数值。"
                         }
                     }
+
+                if let message = amountMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        save()
-                    }
-                    .disabled(!isFormValid)
-                }
+
+                DatePicker("喂食时间", selection: $date)
+            } header: {
+                Text("喂食信息")
             }
-            .alert("请检查输入", isPresented: $showValidationError) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("标题和分类不能为空，时长、组数、次数必须大于 0，数值需在合理范围内。")
+
+            Section {
+                TextField("备注，例如：胃口不错、剩了一点", text: $note, axis: .vertical)
+                    .lineLimit(2...4)
+            } header: {
+                Text("备注")
             }
-            .alert("放弃修改？", isPresented: $showCancelConfirmation) {
-                Button("继续编辑", role: .cancel) {}
-                Button("放弃", role: .destructive) {
-                    dismiss()
+
+            Section {
+                Toggle("我确认这份记录无误", isOn: $confirmed)
+            }
+
+            if isValid {
+                Section {
+                    Label("保存后会立即更新今天列表", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
-            } message: {
-                Text("未保存的修改会丢失。")
             }
         }
-        .interactiveDismissDisabled(hasChanges)
+        .navigationTitle(originalRecord == nil ? "新增加喂食记录" : "编辑喂食记录")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("取消") {
+                    if hasUnsavedChanges {
+                        showDiscardAlert = true
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("保存") {
+                    save()
+                }
+                .disabled(!isValid)
+            }
+        }
+        .alert("放弃修改？", isPresented: $showDiscardAlert) {
+            Button("继续编辑", role: .cancel) { }
+            Button("放弃修改", role: .destructive) {
+                dismiss()
+            }
+        } message: {
+            Text("你有未保存的修改。")
+        }
+        .interactiveDismissDisabled(hasUnsavedChanges)
     }
 
-    func save() {
-        guard isFormValid else {
-            showValidationError = true
-            return
-        }
-        let newEntry = AppWorkoutEntry(
-            id: entry?.id ?? UUID(),
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: category.trimmingCharacters(in: .whitespacesAndNewlines),
+    private func save() {
+        guard isValid, let amount = parsedAmount else { return }
+        let record = AppFeedRecord(
+            id: originalRecord?.id ?? UUID(),
             date: date,
-            durationMinutes: durationMinutes,
-            calories: calories,
-            reps: reps,
-            sets: sets,
-            isOutdoor: isOutdoor,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            foodType: trimmedFoodType,
+            amount: amount,
+            note: note
         )
-        onSave(newEntry)
+
+        if let original = originalRecord,
+           let index = store.records.firstIndex(where: { $0.id == original.id }) {
+            store.records[index] = record
+        } else {
+            store.records.append(record)
+        }
+
         dismiss()
     }
 }

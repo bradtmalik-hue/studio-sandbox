@@ -16,8 +16,7 @@
 		AA0000000000000000000007 /* AppPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppPage3.swift */; };
 		AA0000000000000000000008 /* AppPage2AddView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppPage2AddView.swift */; };
 		AA0000000000000000000009 /* AppPage2DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppPage2DetailView.swift */; };
-		AA0000000000000000000010 /* AppPage2AddSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppPage2AddSheetView.swift */; };
-		AA0000000000000000000011 /* AppPage2DetailSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* AppPage2DetailSheetView.swift */; };
+		AA0000000000000000000010 /* AppPage2EmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppPage2EmptyView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -32,8 +31,7 @@
 		BB0000000000000000000007 /* AppPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3.swift; sourceTree = "<group>"; };
 		BB0000000000000000000008 /* AppPage2AddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2AddView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000009 /* AppPage2DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2DetailView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppPage2AddSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2AddSheetView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* AppPage2DetailSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2DetailSheetView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* AppPage2EmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2EmptyView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,8 +93,7 @@
 				BB0000000000000000000007 /* AppPage3.swift */,
 				BB0000000000000000000008 /* AppPage2AddView.swift */,
 				BB0000000000000000000009 /* AppPage2DetailView.swift */,
-				BB0000000000000000000010 /* AppPage2AddSheetView.swift */,
-				BB0000000000000000000011 /* AppPage2DetailSheetView.swift */,
+				BB0000000000000000000010 /* AppPage2EmptyView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -197,8 +194,7 @@
 				AA0000000000000000000007 /* AppPage3.swift in Sources */,
 				AA0000000000000000000008 /* AppPage2AddView.swift in Sources */,
 				AA0000000000000000000009 /* AppPage2DetailView.swift in Sources */,
-				AA0000000000000000000010 /* AppPage2AddSheetView.swift in Sources */,
-				AA0000000000000000000011 /* AppPage2DetailSheetView.swift in Sources */,
+				AA0000000000000000000010 /* AppPage2EmptyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
