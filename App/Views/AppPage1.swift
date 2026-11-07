@@ -72,12 +72,7 @@ struct AppPage1View: View {
     }
 
     func addRecord() {
-        let record = AppWaterRecord(
-            id: UUID(),
-            date: Date(),
-            amount: 250,
-            note: "快速添加"
-        )
+        let record = AppWaterRecord()
         store.records.append(record)
         store.save()
     }
