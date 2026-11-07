@@ -1,7 +1,7 @@
 # App
 
-正在读、摘录、年度目标一页看完
+每天记一笔，练得更清楚
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.dassospizzirri-hash.app`
 
-Screens: 正在读的书, 摘录列表, 设置
+Screens: 今天练了什么, 历史, 设置
