@@ -1,6 +1,15 @@
 import SwiftUI
 import Combine
 
+final class AppDataStore: ObservableObject {
+    @Published var records: [AppWaterRecord] = []
+    @Published var dailyGoalML: Int = 2000
+
+    func save() {
+        // Persistence logic can be added here.
+    }
+}
+
 struct AppPage3View: View {
     @EnvironmentObject var store: AppDataStore
     @State private var goalText: String = ""

@@ -1,6 +1,42 @@
 import Foundation
 import SwiftUI
 
+struct AppWaterRecord: Identifiable, Codable {
+    let id: UUID
+    var date: Date
+    var amountML: Int
+    var note: String
+}
+
+class AppDataStore: ObservableObject {
+    @Published var records: [AppWaterRecord] = []
+    @Published var dailyGoalML: Int = 2000
+
+    private let recordsKey = "records"
+    private let goalKey = "dailyGoalML"
+
+    init() {
+        load()
+    }
+
+    func save() {
+        if let data = try? JSONEncoder().encode(records) {
+            UserDefaults.standard.set(data, forKey: recordsKey)
+        }
+        UserDefaults.standard.set(dailyGoalML, forKey: goalKey)
+    }
+
+    private func load() {
+        if let data = UserDefaults.standard.data(forKey: recordsKey),
+           let decoded = try? JSONDecoder().decode([AppWaterRecord].self, from: data) {
+            records = decoded
+        }
+        if UserDefaults.standard.object(forKey: goalKey) != nil {
+            dailyGoalML = UserDefaults.standard.integer(forKey: goalKey)
+        }
+    }
+}
+
 struct AppPage1View: View {
     @EnvironmentObject private var store: AppDataStore
     @State private var selectedFilter: AppPage1Filter = .all
@@ -131,7 +167,7 @@ struct AppPage1View: View {
             }
             .sheet(isPresented: $showingEdit) {
                 if let editingRecord {
-                    AppPage1EditSheet(record: editingRecord, onSave: "") { updated in
+                    AppPage1EditSheet(record: editingRecord) { updated in
                         saveUpdated(updated)
                     }
                 }
@@ -140,12 +176,7 @@ struct AppPage1View: View {
     }
 
     private func addWater() {
-        let newRecord = AppWaterRecord(
-            id: UUID(),
-            date: Date(),
-            amountML: 250,
-            note: "快速添加"
-        )
+        let newRecord = AppWaterRecord()
         store.records.append(newRecord)
         store.save()
     }
@@ -365,12 +396,7 @@ struct AppPage1EditSheet: View {
             return
         }
 
-        let updated = AppWaterRecord(
-            id: record.id,
-            date: date,
-            amountML: amount,
-            note: note
-        )
+        let updated = AppWaterRecord()
         onSave(updated)
         dismiss()
     }
