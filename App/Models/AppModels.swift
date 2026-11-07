@@ -1,149 +1,156 @@
 import Foundation
-import SwiftUI
+import Combine
 
-struct AppDrinkRecord: Identifiable, Codable, Hashable {
-    let id: UUID
-    var amount: Int
+enum AppCategory: String, Codable, CaseIterable, Identifiable {
+    case dining = "餐饮"
+    case transport = "交通"
+    case shopping = "购物"
+    case other = "其它"
+
+    var id: String { rawValue }
+}
+
+struct AppExpense: Identifiable, Codable, Equatable {
+    var id: UUID
+    var amount: Double
+    var category: AppCategory
+    var note: String
     var date: Date
 
-    init(id: UUID = UUID(), amount: Int, date: Date) {
+    init(id: UUID = UUID(), amount: Double, category: AppCategory, note: String, date: Date = Date()) {
         self.id = id
         self.amount = amount
+        self.category = category
+        self.note = note
         self.date = date
     }
 }
 
-struct AppDataFile: Codable {
-    var records: [AppDrinkRecord]
-    var dailyGoal: Int
-}
-
-struct AppDayGroup: Identifiable {
-    let id: Date
-    let date: Date
-    let records: [AppDrinkRecord]
-
-    var total: Int {
-        records.reduce(0) { $0 + $1.amount }
-    }
+struct AppExpenseStoreData: Codable {
+    var expenses: [AppExpense]
+    var monthlyBudget: Double
 }
 
 final class AppStore: ObservableObject {
-    @Published var records: [AppDrinkRecord]
-    @Published var dailyGoal: Int
+    @Published var expenses: [AppExpense] = []
+    @Published var monthlyBudget: Double = 3000
+
+    private let fileName = "expenses.json"
+    private var fileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
+    }
 
     init() {
-        self.records = []
-        self.dailyGoal = 2000
         load()
         if CommandLine.arguments.contains("-demoData") {
-            DemoSeed.apply(into: self)
+            DemoSeed.apply()
         }
     }
 
-    private var dataFileURL: URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documents.appendingPathComponent("hydrationData.json")
+    var todayExpenses: [AppExpense] {
+        expenses.filter { Calendar.current.isDateInToday($0.date) }
     }
 
-    var todayTotal: Int {
-        let calendar = Calendar.current
-        return records.filter { calendar.isDateInToday($0.date) }.reduce(0) { $0 + $1.amount }
+    var todayTotal: Double {
+        todayExpenses.reduce(0) { $0 + $1.amount }
     }
 
-    var sortedRecords: [AppDrinkRecord] {
-        records.sorted { $0.date > $1.date }
+    var isOverBudget: Bool {
+        todayTotal > monthlyBudget
     }
 
-    var dayGroups: [AppDayGroup] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.date) }
-        return grouped.map { date, records in
-            AppDayGroup(id: date, date: date, records: records.sorted { $0.date > $1.date })
+    var monthExpenses: [AppExpense] {
+        expenses.filter { Calendar.current.isDate($0.date, equalTo: Date(), toGranularity: .month) }
+    }
+
+    var monthTotal: Double {
+        monthExpenses.reduce(0) { $0 + $1.amount }
+    }
+
+    func total(for category: AppCategory, on date: Date = Date()) -> Double {
+        expenses.filter { $0.category == category && Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.amount }
+    }
+
+    func addExpense(_ expense: AppExpense) {
+        expenses.append(expense)
+        save()
+    }
+
+    func updateExpense(_ expense: AppExpense) {
+        if let index = expenses.firstIndex(where: { $0.id == expense.id }) {
+            expenses[index] = expense
+            save()
         }
-        .sorted { $0.date > $1.date }
     }
 
-    func add(amount: Int, date: Date = Date()) {
-        let record = AppDrinkRecord(id: UUID(), amount: amount, date: date)
-        records.append(record)
+    func deleteExpense(at offsets: IndexSet) {
+        expenses.remove(atOffsets: offsets)
         save()
     }
 
-    func delete(_ record: AppDrinkRecord) {
-        records.removeAll { $0.id == record.id }
+    func deleteExpense(_ expense: AppExpense) {
+        expenses.removeAll { $0.id == expense.id }
         save()
-    }
-
-    func delete(at offsets: IndexSet) {
-        records.remove(atOffsets: offsets)
-        save()
-    }
-
-    func clearAll() {
-        records.removeAll()
-        save()
-    }
-
-    func save() {
-        let data = AppDataFile(records: records, dailyGoal: dailyGoal)
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let jsonData = try encoder.encode(data)
-            try jsonData.write(to: dataFileURL)
-        } catch {
-            _ = error
-        }
     }
 
     func load() {
-        let url = dataFileURL
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        do {
-            let jsonData = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let data = try decoder.decode(AppDataFile.self, from: jsonData)
-            records = data.records
-            dailyGoal = data.dailyGoal
-        } catch {
-            _ = error
+        guard let data = try? Data(contentsOf: fileURL) else { return }
+        if let decoded = try? JSONDecoder().decode(AppExpenseStoreData.self, from: data) {
+            expenses = decoded.expenses
+            monthlyBudget = decoded.monthlyBudget
         }
+    }
+
+    func save() {
+        let storeData = AppExpenseStoreData(expenses: expenses, monthlyBudget: monthlyBudget)
+        if let data = try? JSONEncoder().encode(storeData) {
+            try? data.write(to: fileURL)
+        }
+    }
+}
+
+enum AppFormat {
+    static let zhDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+
+    static func date(_ date: Date) -> String {
+        zhDateFormatter.string(from: date)
+    }
+
+    static func currency(_ amount: Double) -> String {
+        String(format: "¥%.2f", amount)
     }
 }
 
 enum DemoSeed {
+    static func apply() {
+    }
+
     static func apply(into store: AppStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
-
-        store.records.removeAll()
-
         let calendar = Calendar.current
         let now = Date()
-        let todayStart = calendar.startOfDay(for: now)
-
-        let demoData: [(daysAgo: Int, hour: Int, minute: Int, amount: Int)] = [
-            (0, 9, 15, 250),
-            (0, 11, 0, 250),
-            (0, 13, 45, 350),
-            (0, 16, 20, 250),
-            (1, 9, 30, 300),
-            (1, 12, 10, 250),
-            (1, 15, 50, 300),
-            (2, 10, 0, 250),
-            (2, 14, 30, 400),
-            (3, 8, 45, 300),
-            (3, 18, 20, 250),
-            (4, 11, 15, 350)
-        ]
-
-        for item in demoData {
-            let baseDate = calendar.date(byAdding: .day, value: -item.daysAgo, to: todayStart)!
-            let date = calendar.date(bySettingHour: item.hour, minute: item.minute, second: 0, of: baseDate)!
-            store.add(amount: item.amount, date: date)
+        let categories = AppCategory.allCases
+        let notes = ["早餐", "午餐", "咖啡", "地铁", "打车", "日用品", "超市", "外卖", "电影", "礼物", "充电", "晚餐"]
+        var seeded: [AppExpense] = []
+        for index in 0..<12 {
+            let category = categories[index % categories.count]
+            let amount = Double(15 + index * 8) + Double(index % 5) * 0.5
+            let date: Date
+            if index < 5 {
+                date = now
+            } else {
+                date = calendar.date(byAdding: .day, value: -(index - 2), to: now) ?? now
+            }
+            let note = notes[index % notes.count]
+            seeded.append(AppExpense(id: UUID(), amount: amount, category: category, note: note, date: date))
         }
-
+        store.expenses = seeded
+        store.monthlyBudget = 3000
         store.save()
     }
 }

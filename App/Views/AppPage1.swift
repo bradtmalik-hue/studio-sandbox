@@ -2,279 +2,220 @@ import SwiftUI
 import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject private var store: AppStore
+    @EnvironmentObject var store: AppStore
+    @State private var searchText = ""
     @State private var showingAddSheet = false
-
-    var todayRecords: [AppDrinkRecord] {
-        store.records
-            .filter { Calendar.current.isDateInToday($0.date) }
-            .sorted { $0.date > $1.date }
+    
+    private var filteredExpenses: [AppExpense] {
+        let all = store.todayExpenses
+        guard !searchText.isEmpty else { return all }
+        return all.filter { expense in
+            expense.note.localizedCaseInsensitiveContains(searchText) ||
+            expense.category.rawValue.localizedCaseInsensitiveContains(searchText)
+        }
     }
-
-    var todayTotal: Int {
-        todayRecords.reduce(0) { $0 + $1.amount }
-    }
-
-    private var progress: Double {
-        let goal = max(store.dailyGoal, 1)
-        return min(max(Double(todayTotal) / Double(goal), 0), 1)
-    }
-
+    
     var body: some View {
         NavigationStack {
-            Group {
-                if todayRecords.isEmpty {
-                    AppPage1Empty {
-                        showingAddSheet = true
-                    }
+            List {
+                summarySection
+                if filteredExpenses.isEmpty {
+                    emptySection
                 } else {
-                    List {
-                        Section {
-                            AppPage1SummaryCard(
-                                todayTotal: todayTotal,
-                                goal: store.dailyGoal,
-                                progress: progress
-                            ) {
-                                addQuickRecord()
+                    ForEach(filteredExpenses) { expense in
+                        AppPage1Row(expense: expense)
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    store.delete(expense)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
                             }
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                        }
-
-                        Section {
-                            ForEach(todayRecords) { record in
-                                AppPage1Row(record: record)
-                                    .swipeActions {
-                                        Button(role: .destructive) {
-                                            delete(record)
-                                        } label: {
-                                            Label("删除", systemImage: "trash")
-                                        }
-                                    }
-                            }
-                        } header: {
-                            Text("今日记录")
-                        }
                     }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("今天")
+            .searchable(text: $searchText, prompt: "搜索备注或分类")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .bottomBar) {
                     Button {
                         showingAddSheet = true
                     } label: {
-                        Image(systemName: "plus")
+                        Label("记一笔", systemImage: "plus.circle.fill")
                     }
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
                 AppPage1AddSheet()
+                    .environmentObject(store)
+            }
+            .contentMargins(.bottom, 96, for: .scrollContent)
+        }
+    }
+    
+    var summarySection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("今日合计")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text(String(format: "¥%.2f", store.todayTotal))
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .foregroundColor(store.isOverBudget ? .red : .primary)
+                HStack {
+                    Text("共 \(store.todayExpenses.count) 笔")
+                    Spacer()
+                    if let last = store.todayExpenses.first {
+                        Text("最近: \(formatDate(last.date))")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                if store.isOverBudget {
+                    Label("已超过本月预算", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    
+    var emptySection: some View {
+        Section {
+            ContentUnavailableView {
+                Label("今天还没有支出", systemImage: "tray")
+            } description: {
+                Text("点击下方加号，记录今天的第一笔")
+            } actions: {
+                Button("添加第一条") {
+                    showingAddSheet = true
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
     }
-
-    private func addQuickRecord() {
-        let record = AppDrinkRecord(id: UUID(), amount: 250, date: Date())
-        store.records.append(record)
-        store.save()
-    }
-
-    func delete(_ record: AppDrinkRecord) {
-        withAnimation {
-            store.records.removeAll { $0.id == record.id }
-            store.save()
-        }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: date)
     }
 }
 
-private struct AppPage1Row: View {
-    let record: AppDrinkRecord
-
+struct AppPage1Row: View {
+    let expense: AppExpense
+    
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "drop.fill")
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 34, height: 34)
-                .background(Color.accentColor.opacity(0.12), in: Circle())
-
+            Image(systemName: iconName)
+                .font(.title2)
+                .foregroundColor(.accentColor)
+                .frame(width: 36, height: 36)
+                .background(.quaternary, in: Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(record.amount) 毫升")
-                    .font(.headline)
-                Text(AppPage1Format.timeString(for: record.date))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(expense.note.isEmpty ? expense.category.rawValue : expense.note)
+                    .font(.body)
+                    .lineLimit(1)
+                Text(expense.category.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-
             Spacer()
-
-            Text("一杯")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(String(format: "¥%.2f", expense.amount))
+                    .font(.headline)
+                Text(formatTime(expense.date))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.vertical, 4)
     }
-}
-
-private struct AppPage1Empty: View {
-    let onAdd: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("今天还没喝水", systemImage: "drop")
-        } description: {
-            Text("点右上角或下方按钮，开始记录第一杯水")
-        } actions: {
-            Button("添加记录") {
-                onAdd()
-            }
-            .buttonStyle(.borderedProminent)
+    
+    private var iconName: String {
+        switch expense.category {
+        case .food: return "fork.knife"
+        case .transport: return "car.fill"
+        case .shopping: return "bag.fill"
+        case .other: return "ellipsis.circle.fill"
         }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 }
 
-private struct AppPage1SummaryCard: View {
-    let todayTotal: Int
-    let goal: Int
-    let progress: Double
-    let onAdd: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            HStack(spacing: 18) {
-                ZStack {
-                    AppPage1ProgressRing(progress: progress)
-                        .frame(width: 120, height: 120)
-
-                    VStack(spacing: 0) {
-                        Text("\(todayTotal)")
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                        Text("毫升")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("今日目标")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("\(goal) 毫升")
-                        .font(.title3.bold())
-
-                    if todayTotal >= goal {
-                        Text("已达标")
-                            .font(.caption)
-                            .foregroundStyle(Color.green)
-                    } else {
-                        Text("还差 \(goal - todayTotal) 毫升")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            Button(action: onAdd) {
-                Label("快速加 250 毫升", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
-private struct AppPage1ProgressRing: View {
-    let progress: Double
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.gray.opacity(0.15), lineWidth: 14)
-
-            Circle()
-                .trim(from: 0, to: max(0, min(progress, 1)))
-                .stroke(
-                    Color.accentColor,
-                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.easeInOut, value: progress)
-        }
-    }
-}
-
-private struct AppPage1AddSheet: View {
+struct AppPage1AddSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: AppStore
-    @State private var amount: Int = 250
-
+    @EnvironmentObject var store: AppStore
+    
+    @State private var amountText = ""
+    @State private var category: AppCategory = .food
+    @State private var note = ""
+    @State private var date = Date()
+    @State private var useNow = false
+    
     private var isAmountValid: Bool {
-        amount > 0 && amount <= 5000
+        guard let value = Double(amountText), value > 0 else { return false }
+        return true
     }
-
+    
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Stepper(value: $amount, in: 50...5000, step: 50) {
-                        HStack {
-                            Text("喝水量")
-                            Spacer()
-                            Text("\(amount) 毫升")
-                                .foregroundStyle(.secondary)
+                Section("金额") {
+                    TextField("0.00", text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                Section("分类") {
+                    Picker("分类", selection: $category) {
+                        ForEach(AppCategory.allCases, id: \.self) { cat in
+                            Text(cat.rawValue).tag(cat)
                         }
                     }
-                } header: {
-                    Text("记录一杯水")
-                } footer: {
-                    Text("也可以直接点主页的快速按钮加 250 毫升。")
+                    .pickerStyle(.segmented)
+                }
+                Section("备注") {
+                    TextField("备注（可选）", text: $note)
+                }
+                Section("时间") {
+                    Toggle("使用当前时间", isOn: $useNow)
+                    if !useNow {
+                        DatePicker("日期与时间", selection: $date)
+                    }
                 }
             }
-            .navigationTitle("添加记录")
+            .navigationTitle("记一笔")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
+                    Button("取消") { dismiss() }
                 }
-
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        save()
+                        let amount = Double(amountText) ?? 0
+                        let expense = AppExpense(
+                            id: UUID(),
+                            amount: amount,
+                            category: category,
+                            note: note,
+                            date: useNow ? Date() : date
+                        )
+                        store.add(expense)
+                        dismiss()
                     }
                     .disabled(!isAmountValid)
                 }
             }
         }
-    }
-
-    func save() {
-        guard isAmountValid else { return }
-
-        let record = AppDrinkRecord(id: UUID(), amount: amount, date: Date())
-        store.records.append(record)
-        store.save()
-        dismiss()
-    }
-}
-
-private enum AppPage1Format {
-    static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 HH:mm"
-        return formatter
-    }()
-
-    static func timeString(for date: Date) -> String {
-        timeFormatter.string(from: date)
     }
 }

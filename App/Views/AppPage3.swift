@@ -1,199 +1,176 @@
 import SwiftUI
-import Foundation
+import Combine
 
 struct AppPage3View: View {
     @EnvironmentObject var store: AppStore
-    @State private var goalText: String = ""
-    @State private var showClearConfirm: Bool = false
-    @State private var showSavedToast: Bool = false
+    @State private var budgetText: String = ""
+    @State private var showingSavedAlert = false
+    @State private var showingResetAlert = false
 
     var body: some View {
         NavigationStack {
-            Form {
+            List {
                 Section {
-                    AppPage3GoalCard(goalText: $goalText) {
-                        saveGoal()
-                    }
+                    AppPage3BudgetCard(
+                        monthlyBudget: store.monthlyBudget,
+                        todayTotal: store.todayTotal
+                    )
                 } header: {
-                    Text("每日目标")
-                } footer: {
-                    if !isGoalValid {
-                        Text("目标需在 500–5000 毫升之间")
-                            .foregroundStyle(.red)
-                    } else {
-                        Text("每天喝够水，身体更轻松")
-                    }
+                    Text("当前预算")
                 }
 
                 Section {
-                    AppPage3InfoCard(store: store)
+                    HStack {
+                        Text("每月预算")
+                        Spacer()
+                        TextField("3000", text: $budgetText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                        Text("元")
+                    }
+
+                    Stepper(
+                        value: Binding(
+                            get: { Double(budgetText) ?? 3000 },
+                            set: { budgetText = String(format: "%.0f", $0) }
+                        ),
+                        in: 100.0...100000.0,
+                        step: 100.0
+                    ) {
+                        Text("调整金额")
+                    }
+
+                    Button {
+                        saveBudget()
+                    } label: {
+                        Text("保存预算")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .disabled(parsedBudget == nil || (parsedBudget ?? 0) <= 0)
                 } header: {
-                    Text("数据概览")
+                    Text("修改预算")
+                } footer: {
+                    Text("默认预算是 3000 元。超过后首页合计会显示为红色。")
+                }
+
+                Section {
+                    AppPage3InfoRow(
+                        icon: "info.circle",
+                        text: "预算金额只影响首页合计的颜色提醒，不会阻止记录支出。"
+                    )
+                    AppPage3InfoRow(
+                        icon: "exclamationmark.triangle.fill",
+                        text: "当今日合计超过每月预算时，首页金额会变为红色。"
+                    )
                 }
 
                 Section {
                     Button(role: .destructive) {
-                        showClearConfirm = true
+                        showingResetAlert = true
                     } label: {
-                        Label("清空所有记录", systemImage: "trash")
+                        Text("恢复默认预算")
                     }
-                    .disabled(store.records.isEmpty)
-                } header: {
-                    Text("数据管理")
-                } footer: {
-                    Text("清空后所有饮水记录将被删除，无法恢复。")
                 }
             }
             .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
             .onAppear {
-                goalText = "\(store.dailyGoal)"
+                if budgetText.isEmpty {
+                    budgetText = String(format: "%.0f", store.monthlyBudget)
+                }
             }
-            .alert("确认清空", isPresented: $showClearConfirm) {
-                Button("取消", role: .cancel) { }
-                Button("清空", role: .destructive) {
-                    clearAll()
+            .alert("预算已保存", isPresented: $showingSavedAlert) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("新的每月预算已生效。")
+            }
+            .alert("恢复默认预算？", isPresented: $showingResetAlert) {
+                Button("取消", role: .cancel) {}
+                Button("恢复", role: .destructive) {
+                    budgetText = "3000"
+                    saveBudget()
                 }
             } message: {
-                Text("将删除所有饮水记录，且无法恢复。")
-            }
-            .alert("已保存", isPresented: $showSavedToast) {
-                Button("好", role: .cancel) { }
-            } message: {
-                Text("每日目标已更新")
+                Text("预算将恢复为 3000 元。")
             }
         }
     }
 
-    private var isGoalValid: Bool {
-        guard let value = Int(goalText), (500...5000).contains(value) else {
-            return false
-        }
-        return true
+    private var parsedBudget: Double? {
+        Double(budgetText.replacingOccurrences(of: ",", with: ""))
     }
 
-    private func saveGoal() {
-        guard let newGoal = Int(goalText), (500...5000).contains(newGoal) else {
-            return
-        }
-        store.dailyGoal = newGoal
+    private func saveBudget() {
+        guard let value = parsedBudget, value > 0 else { return }
+        store.monthlyBudget = value
         store.save()
-        showSavedToast = true
-    }
-
-    func clearAll() {
-        store.records.removeAll()
-        store.save()
+        showingSavedAlert = true
     }
 }
 
-struct AppPage3GoalCard: View {
-    @Binding var goalText: String
-    let onSave: () -> Void
+struct AppPage3BudgetCard: View {
+    let monthlyBudget: Double
+    let todayTotal: Double
 
-    @State private var draftValue: Double = 2000
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("每天目标")
-                    .font(.body)
-                Spacer()
-                TextField("2000", text: $goalText)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.trailing)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 96)
-                Text("毫升")
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(value: $draftValue, in: 500...5000, step: 50) {
-                Text("目标")
-            } onEditingChanged: { editing in
-                if !editing {
-                    goalText = "\(Int(draftValue))"
-                }
-            }
-
-            HStack {
-                Text("范围 500–5000 毫升")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("保存") {
-                    onSave()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!isValid)
-            }
-        }
-        .padding(.vertical, 4)
-        .onAppear {
-            if let value = Double(goalText) {
-                draftValue = min(max(value, 500), 5000)
-            }
-        }
-        .onChange(of: goalText) { _, newValue in
-            if let value = Double(newValue) {
-                draftValue = min(max(value, 500), 5000)
-            }
-        }
+    private var overAmount: Double {
+        max(0, todayTotal - monthlyBudget)
     }
-
-    private var isValid: Bool {
-        guard let value = Int(goalText), (500...5000).contains(value) else {
-            return false
-        }
-        return true
-    }
-}
-
-struct AppPage3InfoCard: View {
-    @ObservedObject var store: AppStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("今日饮水", systemImage: "drop.fill")
-                    .foregroundStyle(.primary)
+                Label("每月预算", systemImage: "creditcard")
                 Spacer()
-                Text("\(todayTotal) 毫升")
-                    .font(.title3.bold())
+                Text(String(format: "¥%.2f", monthlyBudget))
+                    .font(.title2.bold())
             }
 
             HStack {
-                Label("今日记录", systemImage: "list.bullet")
+                Label("今日已花", systemImage: "yensign.circle")
                 Spacer()
-                Text("\(todayCount) 条")
+                Text(String(format: "¥%.2f", todayTotal))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(todayTotal > monthlyBudget ? Color.red : Color.primary)
             }
 
-            HStack {
-                Label("总记录", systemImage: "archivebox")
-                Spacer()
-                Text("\(store.records.count) 条")
-            }
-
-            HStack {
-                Label("每日目标", systemImage: "target")
-                Spacer()
-                Text("\(store.dailyGoal) 毫升")
+            if todayTotal > monthlyBudget {
+                Label(
+                    String(format: "已超过预算 ¥%.2f", overAmount),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.red)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 4)
     }
+}
 
-    var todayRecords: [AppDrinkRecord] {
-        store.records.filter { Calendar.current.isDateInToday($0.date) }
+struct AppPage3InfoRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
+}
 
-    var todayTotal: Int {
-        todayRecords.reduce(0) { $0 + $1.amount }
-    }
-
-    private var todayCount: Int {
-        todayRecords.count
+struct AppPage3EmptyState: View {
+    var body: some View {
+        ContentUnavailableView(
+            "还没有设置",
+            systemImage: "gearshape",
+            description: Text("每月预算会显示在这里。")
+        )
     }
 }
