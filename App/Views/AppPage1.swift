@@ -15,7 +15,7 @@ struct AppPage1View: View {
 
                 Section {
                     if store.todayRecords.isEmpty {
-                        AppPage1EmptyView(onAdd: addRecord)
+                        AppPage1EmptyView(onAdd: { addRecord() })
                     } else {
                         ForEach(store.todayRecords) { record in
                             AppPage1Row(record: record)

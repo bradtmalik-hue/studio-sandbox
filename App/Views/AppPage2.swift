@@ -95,7 +95,7 @@ struct AppPage2View: View {
                 } else {
                     List {
                         Section {
-                            AppPage2SummaryView(groups: filteredDayGroups)
+                            AppPage2SummaryView()
                         }
                         Section {
                             Picker("筛选范围", selection: $filterRange) {
@@ -108,7 +108,7 @@ struct AppPage2View: View {
                         Section("历史记录") {
                             ForEach(filteredDayGroups) { group in
                                 NavigationLink {
-                                    AppPage2DayDetailView(day: group)
+                                    AppPage2DayDetailView()
                                 } label: {
                                     AppPage2HistoryRow(day: group, dailyGoalML: store.dailyGoalML)
                                 }
