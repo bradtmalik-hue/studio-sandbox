@@ -1,240 +1,258 @@
 import SwiftUI
 
-private enum AppPage3Format {
-    static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter
-    }()
-}
-
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var searchText = ""
-    @State private var onlyReminderEnabled = false
-    @State private var daysFilter = 30
-
+    @EnvironmentObject var store: AppHydrationStore
+    @State private var selectedDays: Int = 7
+    @State private var showGoalLine = true
+    @State private var showValues = true
+    
+    var calendar: Calendar { Calendar.current }
+    
+    private var startDate: Date {
+        calendar.date(byAdding: .day, value: -(selectedDays - 1), to: calendar.startOfDay(for: Date())) ?? Date()
+    }
+    
+    private var periodRecords: [AppWaterRecord] {
+        store.records.filter { $0.date >= startDate }
+    }
+    
+    private var dailyAmounts: [Date: Double] {
+        Dictionary(grouping: periodRecords, by: { calendar.startOfDay(for: $0.date) })
+            .mapValues { records in records.reduce(0) { $0 + $1.amount } }
+    }
+    
+    private var dailyData: [AppPage3DailyTotal] {
+        let days = (0..<selectedDays).compactMap { calendar.date(byAdding: .day, value: $0, to: startDate) }
+        return days.map { day in
+            AppPage3DailyTotal(id: Date(), date: Date(), amount: 0)
+        }
+    }
+    
+    private var totalInPeriod: Double {
+        dailyData.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var averageInPeriod: Double {
+        totalInPeriod / Double(selectedDays)
+    }
+    
+    private var metGoalDays: Int {
+        dailyData.filter { $0.amount >= 2000 }.count
+    }
+    
+    private var recentRecords: [AppWaterRecord] {
+        Array(periodRecords.sorted { $0.date > $1.date }.prefix(7))
+    }
+    
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                AppPage3FilterBar(searchText: $searchText,
-                                  onlyReminderEnabled: $onlyReminderEnabled,
-                                  daysFilter: $daysFilter)
-                AppPage3SummaryCard(total: filteredMedicines.count,
-                                    soonest: filteredMedicines.first?.expiryDate,
-                                    enabledCount: filteredMedicines.filter(\.reminderEnabled).count)
-                List {
-                    ForEach(filteredMedicines) { medicine in
-                        AppPage3Row(medicine: medicine, expiryColor: "")
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    delete(medicine)
-                                } label: {
-                                    Label("删除", systemImage: "trash")
+            Group {
+                if store.records.isEmpty {
+                    VStack {
+                        controls
+                        AppPage3EmptyState()
+                        Spacer()
+                    }
+                    .padding()
+                } else {
+                    VStack(spacing: 0) {
+                        controls
+                        List {
+                            Section {
+                                summaryCards
+                                AppPage3BarChart(dailyData: dailyData, showGoalLine: showGoalLine, showValues: showValues)
+                            }
+                            Section("最近记录") {
+                                if recentRecords.isEmpty {
+                                    Text("所选周期内没有记录")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    ForEach(recentRecords) { record in
+                                        AppPage3RecordRow(record: record)
+                                    }
                                 }
                             }
+                        }
+                        .listStyle(.insetGrouped)
+                        .scrollContentBackground(.hidden)
+                        .background(Color(red: 0.94, green: 0.96, blue: 0.99))
+                        .contentMargins(.bottom, 96, for: .scrollContent)
                     }
                 }
-                .listStyle(.insetGrouped)
-                .contentMargins(.bottom, 96, for: .scrollContent)
-                .overlay {
-                    if filteredMedicines.isEmpty {
-                        emptyState
-                    }
-                }
             }
-            .navigationTitle("临期提醒")
+            .navigationTitle("统计")
+            .background(Color(red: 0.94, green: 0.96, blue: 0.99))
         }
     }
-
-    var filteredMedicines: [AppMedicineBox] {
-        let now = Date()
-        let calendar = Calendar.current
-        return store.medicines
-            .filter { medicine in
-                let days = calendar.dateComponents([.day], from: now, to: medicine.expiryDate).day ?? 0
-                return days >= 0 && days <= 30
+    
+    private var controls: some View {
+        VStack(spacing: 12) {
+            Picker("统计周期", selection: $selectedDays) {
+                Text("7天").tag(7)
+                Text("30天").tag(30)
             }
-            .filter { medicine in
-                !onlyReminderEnabled || medicine.reminderEnabled
+            .pickerStyle(.segmented)
+            
+            HStack {
+                Toggle("显示达标线", isOn: $showGoalLine)
+                Toggle("显示数值", isOn: $showValues)
             }
-            .filter { medicine in
-                let days = calendar.dateComponents([.day], from: now, to: medicine.expiryDate).day ?? 0
-                return days <= daysFilter
-            }
-            .filter { medicine in
-                if searchText.isEmpty { return true }
-                return medicine.name.localizedCaseInsensitiveContains(searchText) ||
-                       medicine.category.localizedCaseInsensitiveContains(searchText) ||
-                       medicine.storageLocation.localizedCaseInsensitiveContains(searchText)
-            }
-            .sorted { $0.expiryDate < $1.expiryDate }
-    }
-
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("暂无临期药品", systemImage: "calendar.badge.checkmark")
-        } description: {
-            Text("未来30天内没有到期的药。")
-        } actions: {
-            Button("去添加药品") { }
+            .font(.subheadline)
         }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
-
-    func delete(_ medicine: AppMedicineBox) {
-        withAnimation {
-            store.medicines.removeAll { $0.id == medicine.id }
-            saveMedicines()
+    
+    private var summaryCards: some View {
+        HStack(spacing: 12) {
+            AppPage3SummaryCard(title: "日均", value: String(format: "%.0f", averageInPeriod), unit: "毫升", icon: "drop.fill", tint: .blue)
+            AppPage3SummaryCard(title: "达标", value: "\(metGoalDays)", unit: "天", icon: "checkmark.circle.fill", tint: .green)
+            AppPage3SummaryCard(title: "总量", value: String(format: "%.0f", totalInPeriod), unit: "毫升", icon: "sum", tint: .cyan)
         }
-    }
-
-    private func saveMedicines() {
-        do {
-            let data = try JSONEncoder().encode(store.medicines)
-            try data.write(to: store.fileURL)
-        } catch {
-            // 忽略写入失败，界面数据仍然更新
-        }
+        .padding(.vertical, 4)
     }
 }
 
-struct AppPage3FilterBar: View {
-    @Binding var searchText: String
-    @Binding var onlyReminderEnabled: Bool
-    @Binding var daysFilter: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索药名、位置或分类", text: $searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(10)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal)
-
-            HStack {
-                Toggle(isOn: $onlyReminderEnabled) {
-                    Text("只看已开启提醒")
-                        .font(.subheadline)
-                }
-                .toggleStyle(.switch)
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            Picker("提醒窗口", selection: $daysFilter) {
-                Text("7天内").tag(7)
-                Text("14天内").tag(14)
-                Text("30天内").tag(30)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-        }
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
-    }
+struct AppPage3DailyTotal: Identifiable {
+    var id: Date { date }
+    let date: Date
+    let amount: Double
 }
 
 struct AppPage3SummaryCard: View {
-    let total: Int
-    let soonest: Date?
-    let enabledCount: Int
-
-    var body: some View {
-        HStack(spacing: 16) {
-            AppPage3Metric(title: "临期总数",
-                           value: "\(total)",
-                           unit: "盒",
-                           icon: "pills.fill",
-                           color: .orange)
-            AppPage3Metric(title: "最近到期",
-                           value: soonest.map { AppPage3Format.dateFormatter.string(from: $0) } ?? "--",
-                           unit: "",
-                           icon: "calendar.badge.clock",
-                           color: .red)
-            AppPage3Metric(title: "已开启提醒",
-                           value: "\(enabledCount)",
-                           unit: "盒",
-                           icon: "bell.badge.fill",
-                           color: .blue)
-        }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-        .padding(.horizontal)
-        .padding(.bottom, 8)
-    }
-}
-
-struct AppPage3Metric: View {
     let title: String
     let value: String
     let unit: String
     let icon: String
-    let color: Color
-
+    let tint: Color
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: icon)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .foregroundStyle(tint)
+                    .font(.caption)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.title2.weight(.bold))
-                    .foregroundColor(color)
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    .font(.title2.bold())
+                Text(unit)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
 }
 
-struct AppPage3Row: View {
-    let medicine: AppMedicineBox
-
+struct AppPage3BarChart: View {
+    let dailyData: [AppPage3DailyTotal]
+    let showGoalLine: Bool
+    let showValues: Bool
+    
+    private let chartHeight: CGFloat = 160
+    private let goal: Double = 2000
+    
+    private var maxValue: Double {
+        max(goal, dailyData.map(\.amount).max() ?? 0) * 1.1
+    }
+    
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(medicine.name)
-                    .font(.headline)
-                HStack(spacing: 8) {
-                    Label(medicine.category, systemImage: "tag")
-                    Label(medicine.storageLocation, systemImage: "location")
+        VStack(spacing: 6) {
+            ZStack(alignment: .bottom) {
+                HStack(alignment: .bottom, spacing: 6) {
+                    ForEach(dailyData) { item in
+                        VStack(spacing: 2) {
+                            if showValues {
+                                Text("\(Int(item.amount))")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.secondary)
+                            }
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(barColor(amount: item.amount))
+                                .frame(height: max(4, CGFloat(item.amount / maxValue) * chartHeight))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
                 }
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .frame(height: chartHeight, alignment: .bottom)
+                
+                if showGoalLine {
+                    Rectangle()
+                        .fill(Color.red.opacity(0.5))
+                        .frame(height: 1)
+                        .offset(y: -CGFloat(goal / maxValue) * chartHeight)
+                        .frame(maxWidth: .infinity, alignment: .bottom)
+                }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(expiryText)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(expiryColor)
-                Text("\(medicine.quantity) \(medicine.unit)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Image(systemName: medicine.reminderEnabled ? "bell.fill" : "bell.slash")
-                    .font(.caption)
-                    .foregroundColor(medicine.reminderEnabled ? .blue : .secondary)
+            .frame(height: chartHeight)
+            
+            HStack(spacing: 6) {
+                ForEach(dailyData) { item in
+                    Text(shortDate(item.date))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
-
-    private var expiryText: String {
-        AppPage3Format.dateFormatter.string(from: medicine.expiryDate)
+    
+    private func barColor(amount: Double) -> Color {
+        amount >= goal ? Color.green : Color.blue
     }
+    
+    private func shortDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M/d"
+        return f.string(from: date)
+    }
+}
 
-    var expiryColor: Color {
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: medicine.expiryDate).day ?? 0
-        if days <= 7 { return .red }
-        if days <= 14 { return .orange }
-        return .yellow
+struct AppPage3RecordRow: View {
+    let record: AppWaterRecord
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "drop.fill")
+                .foregroundStyle(.blue)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(record.amount, specifier: "%.0f") 毫升")
+                    .font(.headline)
+                Text(record.container)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(formattedDate(record.date))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+    
+    private func formattedDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f.string(from: date)
+    }
+}
+
+struct AppPage3EmptyState: View {
+    var body: some View {
+        ContentUnavailableView("暂无饮水记录", systemImage: "drop.circle", description: Text("记录每天的饮水后，这里会显示趋势和达标情况"))
     }
 }
