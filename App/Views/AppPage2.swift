@@ -25,7 +25,7 @@ struct AppPage2View: View {
             summarySection
 
             if filteredRecords.isEmpty {
-                AppPage2EmptyView(message: searchText.isEmpty ? "去今天的页面添加第一条饮水记录" : "没有与“\(searchText)”匹配的记录")
+                AppPage2EmptyView()
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
@@ -67,7 +67,7 @@ struct AppPage2View: View {
         }
     }
 
-    var groups: [AppPage2DayGroup] {
+    fileprivate var groups: [AppPage2DayGroup] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: filteredRecords) { calendar.startOfDay(for: $0.date) }
         return grouped.map { day, records in

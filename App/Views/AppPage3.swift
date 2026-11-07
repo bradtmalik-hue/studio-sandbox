@@ -7,7 +7,7 @@ struct AppPage3View: View {
     @State private var showInfo = false
     @State private var showGoalEditor = false
 
-    var last7DaysStats: [AppPage3DayStat] {
+    private var last7DaysStats: [AppPage3DayStat] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
@@ -114,19 +114,19 @@ struct AppPage3View: View {
     }
 }
 
-private enum AppPage3DisplayMode: Hashable {
+fileprivate enum AppPage3DisplayMode: Hashable {
     case chart
     case list
 }
 
-private struct AppPage3DayStat: Identifiable {
+fileprivate struct AppPage3DayStat: Identifiable {
     let id: Date
     let day: Date
     let total: Int
     let records: [AppWaterRecord]
 }
 
-private struct AppPage3SummaryCard: View {
+fileprivate struct AppPage3SummaryCard: View {
     let title: String
     let value: Int
     let unit: String
@@ -158,7 +158,7 @@ private struct AppPage3SummaryCard: View {
     }
 }
 
-private struct AppPage3BarChart: View {
+fileprivate struct AppPage3BarChart: View {
     let stats: [AppPage3DayStat]
     let dailyGoal: Int
 
@@ -211,7 +211,7 @@ private struct AppPage3BarChart: View {
     }
 }
 
-private struct AppPage3DayRow: View {
+fileprivate struct AppPage3DayRow: View {
     let stat: AppPage3DayStat
     let dailyGoal: Int
 
@@ -244,7 +244,7 @@ private struct AppPage3DayRow: View {
     }
 }
 
-private struct AppPage3EmptyState: View {
+fileprivate struct AppPage3EmptyState: View {
     var body: some View {
         ContentUnavailableView {
             Label("暂无饮水记录", systemImage: "drop.triangle")
@@ -254,7 +254,7 @@ private struct AppPage3EmptyState: View {
     }
 }
 
-private struct AppPage3GoalEditor: View {
+fileprivate struct AppPage3GoalEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var goal: Int
     let onSave: () -> Void
