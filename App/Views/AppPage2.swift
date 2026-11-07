@@ -1,6 +1,13 @@
 import SwiftUI
 import Foundation
 
+struct AppWaterRecord: Identifiable, Codable {
+    let id: UUID
+    var date: Date
+    var amount: Double
+    var note: String
+}
+
 struct AppPage2DayGroup: Identifiable {
     let id: Date
     let records: [AppWaterRecord]
@@ -31,7 +38,7 @@ struct AppPage2View: View {
         }
         return grouped
             .map { day, records in
-                AppPage2DayGroup()
+                AppPage2DayGroup(id: day, records: records)
             }
             .sorted { $0.id > $1.id }
     }
@@ -98,7 +105,7 @@ struct AppPage2View: View {
     }
 
     private func addSampleRecord() {
-        let record = AppWaterRecord(id: UUID(), date: Date(), amount: 250, note: "手动添加")
+        let record = AppWaterRecord()
         store.records.append(record)
         saveStore()
     }
