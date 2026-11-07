@@ -1,8 +1,6 @@
 import SwiftUI
 import Combine
 
-extension AppPayload: ObservableObject {}
-
 struct AppPage2View: View {
     @EnvironmentObject var store: AppPayload
     @State private var searchText = ""
