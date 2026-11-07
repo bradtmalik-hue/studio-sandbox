@@ -9,7 +9,7 @@ private enum AppPage2FilterRange: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-private struct AppPage2DayGroup: Identifiable {
+struct AppPage2DayGroup: Identifiable {
     let id: Date
     let date: Date
     let totalML: Int
@@ -134,31 +134,6 @@ struct AppPage2View: View {
     }
 }
 
-private struct AppPage2SummaryView: View {
-    let groups: [AppPage2DayGroup]
-
-    var totalML: Int {
-        groups.reduce(0) { $0 + $1.totalML }
-    }
-
-    private var totalDays: Int {
-        groups.count
-    }
-
-    private var averageML: Int {
-        totalDays == 0 ? 0 : totalML / totalDays
-    }
-
-    var body: some View {
-        HStack(spacing: 16) {
-            AppPage2SummaryItem(title: "天数", value: "\(totalDays)", unit: "天")
-            AppPage2SummaryItem(title: "总量", value: "\(totalML)", unit: "毫升")
-            AppPage2SummaryItem(title: "日均", value: "\(averageML)", unit: "毫升")
-        }
-        .padding(.vertical, 8)
-    }
-}
-
 private struct AppPage2SummaryItem: View {
     let title: String
     let value: String
@@ -206,62 +181,5 @@ private struct AppPage2HistoryRow: View {
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-private struct AppPage2DayDetailView: View {
-    @EnvironmentObject var store: AppStore
-    let day: AppPage2DayGroup
-
-    var body: some View {
-        List {
-            Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppPage2Formatters.day.string(from: day.date))
-                            .font(.title2.bold())
-                        Text("\(day.records.count) 条记录")
-                            .font(.caption)
-                            .foregroundStyle(Color.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(day.totalML) 毫升")
-                            .font(.title3.bold())
-                        if store.dailyGoalML > 0 {
-                            Text("目标 \(store.dailyGoalML) 毫升")
-                                .font(.caption)
-                                .foregroundStyle(Color.secondary)
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            Section("记录") {
-                ForEach(day.records) { record in
-                    HStack(spacing: 12) {
-                        Image(systemName: "drop.fill")
-                            .foregroundStyle(Color.blue)
-                            .frame(width: 24)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(AppPage2Formatters.time.string(from: record.date))
-                                .font(.body.monospacedDigit())
-                            if !record.note.isEmpty {
-                                Text(record.note)
-                                    .font(.caption)
-                                    .foregroundStyle(Color.secondary)
-                            }
-                        }
-                        Spacer()
-                        Text("\(record.amountML) 毫升")
-                            .font(.body.bold())
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-        }
-        .contentMargins(.bottom, 96, for: .scrollContent)
-        .navigationTitle(AppPage2Formatters.day.string(from: day.date))
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
