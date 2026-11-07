@@ -7,19 +7,19 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppTodayView()
+            AppPage1View(store: store, filter: .all, selectedRecord: nil, goal: 2000)
                 .tabItem {
                     Label("今天", systemImage: "drop.fill")
                 }
                 .tag(0)
 
-            AppHistoryView()
+            AppPage2View(store: store, filter: .all, selectedRecord: nil)
                 .tabItem {
                     Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
 
-            AppStatsView()
+            AppPage3View(store: store, selectedDays: 7)
                 .tabItem {
                     Label("统计", systemImage: "chart.bar.fill")
                 }

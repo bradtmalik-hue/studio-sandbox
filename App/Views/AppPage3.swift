@@ -24,7 +24,7 @@ struct AppPage3View: View {
     private var dailyData: [AppPage3DailyTotal] {
         let days = (0..<selectedDays).compactMap { calendar.date(byAdding: .day, value: $0, to: startDate) }
         return days.map { day in
-            AppPage3DailyTotal(id: Date(), date: Date(), amount: 0)
+            AppPage3DailyTotal()
         }
     }
     
