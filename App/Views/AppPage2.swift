@@ -35,7 +35,7 @@ struct AppPage2View: View {
         .sorted { $0.id > $1.id }
     }
 
-    private var content: some View {
+    var content: some View {
         Group {
             if filteredRecords.isEmpty {
                 emptyState
