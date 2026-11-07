@@ -1,7 +1,7 @@
 # App
 
-记下每本书里打动你的那句话
+一针不落，到期先知道
 
-Bundle ID: `com.dassospizzirri-hash.app`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 录一条摘录, 摘录列表, 设置
+Screens: 宠物档案, 疫苗记录, 提醒
