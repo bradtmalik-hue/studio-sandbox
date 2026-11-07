@@ -1,155 +1,138 @@
 import SwiftUI
+import Combine
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showResetConfirmation = false
+    @EnvironmentObject var store: AppPayload
+    @State private var petName: String = ""
+    @State private var dailyGoal: Int = 3
+    @State private var showSaveAlert = false
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    AppPage3SummaryCard(store: store)
+                    AppPage3SummaryCard(
+                        totalMeals: store.meals.count,
+                        dailyGoal: dailyGoal,
+                        petName: petName
+                    )
                 }
-                .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
 
-                Section("默认参与人数") {
+                Section("宠物信息") {
                     HStack {
-                        Text("默认人数")
+                        Label("宠物名字", systemImage: "pawprint.fill")
                         Spacer()
-                        Stepper(value: $store.defaultParticipantCount, in: 1...100) {
-                            Text("\(store.defaultParticipantCount) 人")
-                                .frame(minWidth: 48, alignment: .trailing)
-                        }
+                        TextField("请输入宠物名字", text: $petName)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 220)
                     }
-                    Picker("快速选择", selection: $store.defaultParticipantCount) {
-                        ForEach([2, 3, 4, 5, 6, 8, 10, 12], id: \.self) { count in
-                            Text("\(count) 人").tag(count)
-                        }
+                    HStack {
+                        Label("每日喂食目标", systemImage: "target")
+                        Spacer()
+                        Stepper("\(dailyGoal) 次", value: $dailyGoal, in: 1...12)
                     }
+                }
+
+                Section {
                     Button {
-                        store.defaultParticipantCount = 4
-                        showResetConfirmation = true
+                        saveSettings()
                     } label: {
-                        Label("恢复默认 4 人", systemImage: "arrow.counterclockwise")
+                        Label("保存设置", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
                     }
+                    .disabled(petName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
-                Section("说明") {
-                    AppPage3InfoRow(icon: "person.2.fill", text: "记账时参与人数会自动填入这里设置的默认值")
-                    AppPage3InfoRow(icon: "checkmark.circle.fill", text: "可以在记账页手动修改单笔参与人数")
-                    AppPage3InfoRow(icon: "square.and.arrow.down.fill", text: "修改后立即生效，无需额外保存")
-                }
-
-                if store.expenses.isEmpty {
-                    Section {
-                        AppPage3EmptyView()
-                    }
-                } else {
-                    Section("数据概览") {
-                        HStack {
-                            Text("账单总数")
-                            Spacer()
-                            Text("\(store.expenses.count) 笔")
-                        }
-                        HStack {
-                            Text("合计金额")
-                            Spacer()
-                            Text(currencyString(store.totalAmount))
-                        }
-                        HStack {
-                            Text("平均每笔")
-                            Spacer()
-                            Text(currencyString(store.averagePerExpense))
-                        }
-                        HStack {
-                            Text("最近一笔")
-                            Spacer()
-                            if let latest = store.expenses.sorted(by: { $0.date > $1.date }).first {
-                                Text(latest.title)
-                                    .lineLimit(1)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("无")
-                            }
-                        }
-                    }
+                Section {
+                    AppPage3InfoRow(icon: "fork.knife", title: "记录每一餐", detail: "今天页面点击添加即可记录")
+                    AppPage3InfoRow(icon: "chart.bar.fill", title: "历史回看", detail: "按天分组浏览喂食次数")
                 }
             }
             .navigationTitle("设置")
             .contentMargins(.bottom, 96, for: .scrollContent)
-            .alert("已恢复默认参与人数", isPresented: $showResetConfirmation) {
+            .alert("设置已保存", isPresented: $showSaveAlert) {
                 Button("好", role: .cancel) { }
             } message: {
-                Text("新的账单将默认填入 4 人")
+                Text("宠物名字和每日喂食目标已更新。")
+            }
+            .onAppear {
+                petName = store.settings.petName
+                dailyGoal = store.settings.dailyMealGoal
             }
         }
     }
 
-    private func currencyString(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: "zh_CN")
-        return formatter.string(from: NSNumber(value: value)) ?? "¥0.00"
+    private func saveSettings() {
+        store.settings.petName = petName.trimmingCharacters(in: .whitespacesAndNewlines)
+        store.settings.dailyMealGoal = dailyGoal
+        store.save()
+        showSaveAlert = true
     }
 }
 
-struct AppPage3SummaryCard: View {
-    let store: AppStore
+private struct AppPage3SummaryCard: View {
+    let totalMeals: Int
+    let dailyGoal: Int
+    let petName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("当前设置", systemImage: "gear")
+                Label("喂养概览", systemImage: "pawprint.circle.fill")
                     .font(.headline)
                 Spacer()
+                Text(petName.isEmpty ? "未命名宠物" : petName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            HStack {
-                Text("默认参与人数")
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(totalMeals)")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text("总记录")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(dailyGoal)")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text("次/天")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                Text("\(store.defaultParticipantCount) 人")
-                    .bold()
-            }
-            Divider()
-            if store.expenses.isEmpty {
-                Text("还没有账单，新增时会自动带入此人数")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("已有 \(store.expenses.count) 笔账单，最近使用 \(store.expenses.sorted(by: { $0.date > $1.date }).first?.title ?? "无")")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemGray6))
+        )
     }
 }
 
-struct AppPage3InfoRow: View {
+private struct AppPage3InfoRow: View {
     let icon: String
-    let text: String
+    let title: String
+    let detail: String
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack {
             Image(systemName: icon)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-            Text(text)
-                .font(.subheadline)
+                .foregroundStyle(.tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
         }
         .padding(.vertical, 4)
-    }
-}
-
-struct AppPage3EmptyView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label("暂无账单", systemImage: "tray")
-        } description: {
-            Text("去「记一笔」添加第一笔聚会花费")
-        }
     }
 }
