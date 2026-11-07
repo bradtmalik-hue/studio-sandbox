@@ -1,7 +1,7 @@
 # App
 
-每天 2000ml，一眼看到还差多少
+每天记一笔，喝够 2000 毫升
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 历史, 统计
+Screens: 今天, 历史, 设置

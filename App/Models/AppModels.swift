@@ -5,144 +5,106 @@ import Combine
 struct AppWaterRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date
-    var amount: Double
-    var container: String
-    var note: String
-
-    init(id: UUID = UUID(), date: Date, amount: Double, container: String, note: String) {
-        self.id = id
-        self.date = date
-        self.amount = amount
-        self.container = container
-        self.note = note
-    }
+    var amountMl: Double
 }
 
-final class AppHydrationStore: ObservableObject {
-    @Published var records: [AppWaterRecord] = []
-    static let dailyGoal: Double = 2000
+struct AppWaterData: Codable {
+    var dailyGoalMl: Double
+    var records: [AppWaterRecord]
+}
 
-    private let fileURL: URL
+class AppStore: ObservableObject {
+    @Published var records: [AppWaterRecord] = []
+    @Published var dailyGoalMl: Double = 2000
+
+    private let saveURL: URL
 
     init() {
-        fileURL = Self.defaultFileURL()
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        saveURL = docs.appendingPathComponent("AppWaterData.json")
         load()
         if CommandLine.arguments.contains("-demoData") {
             DemoSeed.apply(into: self)
         }
     }
 
-    private static func defaultFileURL() -> URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return docs.appendingPathComponent("hydration_records.json")
-    }
-
-    func addRecord(amount: Double, container: String, note: String, date: Date = Date()) {
-        let record = AppWaterRecord(date: date, amount: amount, container: container, note: note)
-        records.append(record)
-        records.sort { $0.date > $1.date }
-        save()
-    }
-
-    func deleteRecord(_ record: AppWaterRecord) {
-        records.removeAll { $0.id == record.id }
-        save()
-    }
-
-    var todayRecords: [AppWaterRecord] {
-        let calendar = Calendar.current
-        return records.filter { calendar.isDateInToday($0.date) }
-            .sorted { $0.date > $1.date }
-    }
-
-    var todayTotal: Double {
-        todayRecords.reduce(0) { $0 + $1.amount }
-    }
-
-    var remainingToday: Double {
-        max(0, Self.dailyGoal - todayTotal)
-    }
-
-    var dailyAverageLast7Days: Double {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
-        let last7Records = records.filter { $0.date >= startOf7DaysAgo && $0.date < Date() }
-        let days = Set(last7Records.map { calendar.startOfDay(for: $0.date) }).count
-        guard days > 0 else { return 0 }
-        return last7Records.reduce(0) { $0 + $1.amount } / Double(days)
-    }
-
-    var reachDaysLast7Days: Int {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
-        var count = 0
-        for dayOffset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: startOfToday) else { continue }
-            let dayRecords = records.filter { calendar.isDate($0.date, inSameDayAs: day) }
-            let total = dayRecords.reduce(0) { $0 + $1.amount }
-            if total >= Self.dailyGoal {
-                count += 1
-            }
+    private func load() {
+        guard let data = try? Data(contentsOf: saveURL) else { return }
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let decoded = try decoder.decode(AppWaterData.self, from: data)
+            self.records = decoded.records
+            self.dailyGoalMl = decoded.dailyGoalMl
+        } catch {
+            print("Load failed: \(error)")
         }
-        return count
     }
 
     func save() {
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(records)
-            try data.write(to: fileURL)
+            let data = try encoder.encode(AppWaterData(dailyGoalMl: dailyGoalMl, records: records))
+            try data.write(to: saveURL)
         } catch {
+            print("Save failed: \(error)")
         }
     }
 
-    private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        do {
-            let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppWaterRecord].self, from: data)
-            records.sort { $0.date > $1.date }
-        } catch {
-            records = []
+    func addRecord(amountMl: Double, date: Date = Date()) {
+        let record = AppWaterRecord(id: UUID(), date: date, amountMl: amountMl)
+        records.append(record)
+        save()
+    }
+
+    func deleteRecord(id: UUID) {
+        records.removeAll { $0.id == id }
+        save()
+    }
+
+    func updateRecord(id: UUID, amountMl: Double, date: Date) {
+        if let index = records.firstIndex(where: { $0.id == id }) {
+            records[index].amountMl = amountMl
+            records[index].date = date
+            save()
         }
+    }
+
+    func totalAmount(for date: Date) -> Double {
+        let calendar = Calendar.current
+        return records
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + $1.amountMl }
+    }
+
+    func records(for date: Date) -> [AppWaterRecord] {
+        let calendar = Calendar.current
+        return records
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.date > $1.date }
     }
 }
 
 enum DemoSeed {
-    static let seedFlagID = UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!
-
-    static func apply(into store: AppHydrationStore) {
-        guard CommandLine.arguments.contains("-demoData") else { return }
-        if store.records.contains(where: { $0.id == seedFlagID }) { return }
-
+    static func apply(into store: AppStore) {
+        var demoRecords: [AppWaterRecord] = []
         let calendar = Calendar.current
-        func makeDate(_ dayOffset: Int, _ hour: Int, _ minute: Int) -> Date {
-            let base = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) ?? Date()
-            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
+        let now = Date()
+        let amounts: [Double] = [350, 500, 250, 400, 600, 300, 450, 550, 200, 500, 350, 400]
+        let daysAgo: [Int] = [0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7]
+
+        for (index, amount) in amounts.enumerated() {
+            let days = daysAgo[index]
+            let dayOffset = -days
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            let hour = [8, 12, 20][index % 3]
+            let minute = [15, 0, 45][index % 3]
+            guard let finalDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date) else { continue }
+            demoRecords.append(AppWaterRecord(id: UUID(), date: finalDate, amountMl: amount))
         }
-
-        let seeds: [AppWaterRecord] = [
-            AppWaterRecord(id: seedFlagID, date: makeDate(0, 8, 30), amount: 250, container: "玻璃杯", note: "晨起第一杯"),
-            AppWaterRecord(date: makeDate(0, 10, 0), amount: 350, container: "随行杯", note: "工作间隙"),
-            AppWaterRecord(date: makeDate(0, 12, 30), amount: 300, container: "水壶", note: "午餐后"),
-            AppWaterRecord(date: makeDate(0, 15, 0), amount: 300, container: "玻璃杯", note: "下午补水"),
-            AppWaterRecord(date: makeDate(0, 18, 0), amount: 400, container: "水壶", note: "运动后"),
-            AppWaterRecord(date: makeDate(1, 9, 0), amount: 300, container: "玻璃杯", note: "周一早晨"),
-            AppWaterRecord(date: makeDate(1, 13, 0), amount: 350, container: "随行杯", note: "午餐"),
-            AppWaterRecord(date: makeDate(2, 8, 45), amount: 250, container: "玻璃杯", note: "起床"),
-            AppWaterRecord(date: makeDate(2, 20, 0), amount: 300, container: "水壶", note: "晚间"),
-            AppWaterRecord(date: makeDate(3, 11, 0), amount: 500, container: "水壶", note: "户外"),
-            AppWaterRecord(date: makeDate(4, 16, 0), amount: 200, container: "玻璃杯", note: "下午")
-        ]
-
-        store.records.removeAll()
-        store.records.append(contentsOf: seeds)
-        store.records.sort { $0.date > $1.date }
+        store.records = demoRecords.sorted(by: { $0.date > $1.date })
+        store.dailyGoalMl = 2000
         store.save()
     }
 }
