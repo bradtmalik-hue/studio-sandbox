@@ -1,7 +1,7 @@
 # App
 
-每天 2000ml，一眼看到还差多少
+药品有效期和存放位置，一盒不漏
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 历史, 统计
+Screens: 药品列表, 添加一盒药, 临期提醒
