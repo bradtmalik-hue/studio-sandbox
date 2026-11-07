@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
     @StateObject private var store = AppStore()
@@ -10,21 +11,21 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(store: store)
+            AppPage1View()
                 .tabItem {
-                    Label("今天", systemImage: "figure.run.circle.fill")
+                    Label("正在读", systemImage: "book.fill")
                 }
                 .tag(0)
 
-            AppPage2View(totalMinutes: store)
+            AppPage2View()
                 .tabItem {
-                    Label("历史", systemImage: "calendar.circle.fill")
+                    Label("摘录", systemImage: "quote.bubble")
                 }
                 .tag(1)
 
             AppPage3View()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape.circle.fill")
+                    Label("目标", systemImage: "target")
                 }
                 .tag(2)
         }
@@ -32,11 +33,11 @@ struct AppRootView: View {
     }
 
     private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"),
-           index + 1 < args.count,
-           let value = Int(args[index + 1]) {
-            return value
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-startTab"),
+           index + 1 < arguments.count,
+           let value = Int(arguments[index + 1]) {
+            return min(max(value, 0), 2)
         }
         return 0
     }
