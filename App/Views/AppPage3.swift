@@ -1,198 +1,169 @@
 import SwiftUI
+import Foundation
 
-enum AppPage3Filter: CaseIterable, Identifiable {
-    case all
-    case dueSoon
-    case overdue
-    case upcoming
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .all:
-            return "全部"
-        case .dueSoon:
-            return "即将到期"
-        case .overdue:
-            return "已逾期"
-        case .upcoming:
-            return "未来"
-        }
-    }
-}
-
-struct AppPage3MetricView: View {
-    let title: String
-    let value: String
-    let unit: String
-    let color: Color
+private struct AppPage3SummaryCard: View {
+    let goal: Int
+    let readCount: Int
+    let progress: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.title2.bold())
-                    .foregroundColor(color)
-                Text(unit)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-struct AppPage3SummaryCard: View {
-    let reminders: [AppReminder]
-    let upcomingCount: Int
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppPage3MetricView(
-                title: "总提醒",
-                value: "\(reminders.count)",
-                unit: "条",
-                color: .blue
-            )
-            AppPage3MetricView(
-                title: "即将到期",
-                value: "\(upcomingCount)",
-                unit: "条",
-                color: .orange
-            )
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct AppPage3Row: View {
-    let reminder: AppReminder
-    let daysRemaining: Int
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(reminder.petName)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(readCount)")
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                Text("/ \(goal) 本")
                     .font(.headline)
-                Text(reminder.vaccineName)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "books.vertical.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(Color.accentColor)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(reminder.dueDate, style: .date)
-                    .font(.subheadline)
-                Text(daysRemainingText)
-                    .font(.caption)
-                    .foregroundColor(daysRemaining < 0 ? .red : .secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
 
-    private var daysRemainingText: String {
-        if daysRemaining < 0 {
-            return "逾期 \(-daysRemaining) 天"
+            ProgressView(value: progress)
+                .progressViewStyle(.linear)
+
+            HStack {
+                Text("已完成 \(Int(progress * 100))%")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(readCount >= goal ? "已达成年度目标" : "继续加油")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
         }
-        if daysRemaining == 0 {
-            return "今天到期"
-        }
-        return "\(daysRemaining) 天后"
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
     }
 }
 
-struct AppPage3Empty: View {
-    let hasReminders: Bool
-    let searchText: String
-
+private struct AppPage3EmptyView: View {
     var body: some View {
-        if hasReminders {
-            ContentUnavailableView.search(text: searchText)
-        } else {
-            ContentUnavailableView("暂无提醒", systemImage: "bell.slash", description: Text("暂时没有需要关注的疫苗提醒。"))
-        }
+        ContentUnavailableView(
+            "还没有读书记录",
+            systemImage: "book.closed",
+            description: Text("开始记录书摘后，这里会显示你的年度阅读进度。")
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
     }
 }
 
 struct AppPage3View: View {
-    let result: [AppReminder]
-    let calendar: Calendar
-    let today: Date
-    let days: Int
+    @EnvironmentObject var store: AppStore
+    @State private var showingResetAlert = false
 
-    @State private var filter: AppPage3Filter = .all
-    @State private var searchText = ""
+    private var readBookCount: Int {
+        Set(store.quotes.map { $0.bookTitle }).count
+    }
+
+    var goal: Binding<Int> {
+        Binding(
+            get: { store.settings.yearlyReadingGoal },
+            set: { newValue in
+                store.objectWillChange.send()
+                store.settings.yearlyReadingGoal = max(1, newValue)
+                store.settings.updatedAt = Date()
+                persistSettings()
+            }
+        )
+    }
+
+    private var progress: Double {
+        let goalValue = max(1, goal.wrappedValue)
+        return min(Double(readBookCount) / Double(goalValue), 1.0)
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if result.isEmpty {
-                    AppPage3Empty(hasReminders: false, searchText: searchText)
-                } else {
-                    reminderList
+            List {
+                Section {
+                    AppPage3SummaryCard(
+                        goal: goal.wrappedValue,
+                        readCount: readBookCount,
+                        progress: progress
+                    )
+                } header: {
+                    Text("年度阅读")
                 }
-            }
-            .navigationTitle("疫苗提醒")
-            .searchable(text: $searchText)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("筛选", selection: $filter) {
-                        ForEach(AppPage3Filter.allCases) { filter in
-                            Text(filter.title).tag(filter)
+
+                Section {
+                    HStack {
+                        Stepper(value: goal, in: 1...365, step: 1) {
+                            Label("每年读书目标", systemImage: "target")
                         }
+                        Spacer()
+                        Text("\(goal.wrappedValue) 本")
+                            .foregroundStyle(.secondary)
                     }
-                    .pickerStyle(.segmented)
+
+                    HStack {
+                        Label("已读本数", systemImage: "books.vertical")
+                        Spacer()
+                        Text("\(readBookCount) 本")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Label("目标进度", systemImage: "chart.pie")
+                        Spacer()
+                        Text("\(Int(progress * 100))%")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("目标与进度")
+                } footer: {
+                    Text("已读本数按书摘中出现的不同书名统计。")
                 }
+
+                if store.quotes.isEmpty {
+                    Section {
+                        AppPage3EmptyView()
+                    }
+                } else {
+                    Section {
+                        Button {
+                            showingResetAlert = true
+                        } label: {
+                            Label("重置目标", systemImage: "arrow.counterclockwise")
+                        }
+                        .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("设置")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .alert("重置目标？", isPresented: $showingResetAlert) {
+                Button("取消", role: .cancel) { }
+                Button("重置") {
+                    goal.wrappedValue = 12
+                    persistSettings()
+                }
+            } message: {
+                Text("将年度目标恢复为 12 本。")
             }
         }
     }
 
-    private var filteredReminders: [AppReminder] {
-        var reminders = result
-        if !searchText.isEmpty {
-            reminders = reminders.filter {
-                $0.petName.localizedCaseInsensitiveContains(searchText) ||
-                    $0.vaccineName.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-
-        switch filter {
-        case .all:
-            return reminders
-        case .dueSoon:
-            return reminders.filter { $0.daysRemaining >= 0 && $0.daysRemaining <= days }
-        case .overdue:
-            return reminders.filter { $0.daysRemaining < 0 }
-        case .upcoming:
-            return reminders.filter { $0.daysRemaining > days }
-        }
+    private var settingsFileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("settings.json")
     }
 
-    private var reminderList: some View {
-        List {
-            Section {
-                AppPage3SummaryCard(
-                    reminders: result,
-                    upcomingCount: result.filter { $0.daysRemaining >= 0 && $0.daysRemaining <= days }.count
-                )
-            }
-
-            Section("提醒列表") {
-                ForEach(filteredReminders) { reminder in
-                    AppPage3Row(reminder: reminder, daysRemaining: reminder.daysRemaining)
-                }
-            }
-        }
-        .overlay {
-            if filteredReminders.isEmpty {
-                AppPage3Empty(hasReminders: true, searchText: searchText)
-            }
+    private func persistSettings() {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(store.settings)
+            try data.write(to: settingsFileURL)
+        } catch {
         }
     }
 }

@@ -14,6 +14,7 @@
 		AA0000000000000000000005 /* AppPage1.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppPage1.swift */; };
 		AA0000000000000000000006 /* AppPage2.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppPage2.swift */; };
 		AA0000000000000000000007 /* AppPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppPage3.swift */; };
+		AA0000000000000000000008 /* AppPage3EmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppPage3EmptyView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -26,6 +27,7 @@
 		BB0000000000000000000005 /* AppPage1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage1.swift; sourceTree = "<group>"; };
 		BB0000000000000000000006 /* AppPage2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2.swift; sourceTree = "<group>"; };
 		BB0000000000000000000007 /* AppPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppPage3EmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3EmptyView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -85,6 +87,7 @@
 				BB0000000000000000000005 /* AppPage1.swift */,
 				BB0000000000000000000006 /* AppPage2.swift */,
 				BB0000000000000000000007 /* AppPage3.swift */,
+				BB0000000000000000000008 /* AppPage3EmptyView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -183,6 +186,7 @@
 				AA0000000000000000000005 /* AppPage1.swift in Sources */,
 				AA0000000000000000000006 /* AppPage2.swift in Sources */,
 				AA0000000000000000000007 /* AppPage3.swift in Sources */,
+				AA0000000000000000000008 /* AppPage3EmptyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,7 +241,7 @@
 				"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bradtmalik-hue.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dassospizzirri-hash.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -262,7 +266,7 @@
 				"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bradtmalik-hue.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dassospizzirri-hash.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
