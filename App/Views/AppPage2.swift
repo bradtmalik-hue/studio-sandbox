@@ -1,252 +1,272 @@
 import SwiftUI
 import Foundation
 
-struct AppWaterRecord: Identifiable, Codable {
-    let id: UUID
-    var date: Date
-    var amount: Double
-    var note: String
-}
+enum AppPage2Filter: String, CaseIterable, Identifiable {
+    case all = "全部"
+    case week = "近7天"
+    case month = "近30天"
 
-struct AppPage2DayGroup: Identifiable {
-    let id: Date
-    let records: [AppWaterRecord]
+    var id: String { rawValue }
 }
 
 struct AppPage2View: View {
     @EnvironmentObject var store: AppStore
-    @State private var searchText = ""
+    @State private var filter: AppPage2Filter = .all
+
+    private var filteredDays: [AppDaySummary] {
+        let sorted = store.historyDays.sorted { $0.date > $1.date }
+        switch filter {
+        case .all:
+            return sorted
+        case .week:
+            guard let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) else {
+                return sorted
+            }
+            return sorted.filter { $0.date >= cutoff }
+        case .month:
+            guard let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) else {
+                return sorted
+            }
+            return sorted.filter { $0.date >= cutoff }
+        }
+    }
+
+    var totalML: Int {
+        filteredDays.reduce(0) { $0 + $1.totalML }
+    }
+
+    private var averageML: Int {
+        filteredDays.isEmpty ? 0 : totalML / filteredDays.count
+    }
 
     var body: some View {
         NavigationStack {
-            content
-        }
-    }
+            Group {
+                if filteredDays.isEmpty {
+                    AppPage2EmptyView()
+                } else {
+                    List {
+                        Section {
+                            AppPage2SummaryCard(
+                                dayCount: filteredDays.count,
+                                totalML: totalML,
+                                averageML: averageML
+                            )
+                        }
 
-    private var filteredRecords: [AppWaterRecord] {
-        if searchText.isEmpty {
-            return store.records
-        }
-        return store.records.filter {
-            $0.note.localizedCaseInsensitiveContains(searchText)
-        }
-    }
+                        Section {
+                            Picker("范围", selection: $filter) {
+                                ForEach(AppPage2Filter.allCases) { option in
+                                    Text(option.rawValue).tag(option)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
 
-    private var groupedDays: [AppPage2DayGroup] {
-        let grouped = Dictionary(grouping: filteredRecords) {
-            Calendar.current.startOfDay(for: $0.date)
-        }
-        return grouped
-            .map { day, records in
-                AppPage2DayGroup(id: day, records: records)
-            }
-            .sorted { $0.id > $1.id }
-    }
-
-    var content: some View {
-        Group {
-            if filteredRecords.isEmpty {
-                emptyState
-            } else {
-                recordList
-            }
-        }
-        .navigationTitle("历史")
-        .searchable(text: $searchText, prompt: "搜索备注")
-    }
-
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("暂无饮水记录", systemImage: "drop")
-        } description: {
-            Text("点击下方按钮快速添加一杯水")
-        } actions: {
-            Button("添加第一条") {
-                addSampleRecord()
-            }
-            .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private var recordList: some View {
-        List {
-            summaryHeader
-            ForEach(groupedDays) { group in
-                NavigationLink(destination: AppPage2DayDetailView(day: group.id, records: group.records)) {
-                    AppPage2DayRow(day: group.id, records: group.records)
-                }
-                .swipeActions {
-                    Button(role: .destructive) {
-                        deleteDay(group.id)
-                    } label: {
-                        Label("删除", systemImage: "trash")
+                        Section {
+                            ForEach(filteredDays) { day in
+                                NavigationLink {
+                                    AppPage2DetailView(day: day)
+                                } label: {
+                                    AppPage2DayRow(day: day, dailyGoalML: store.dailyGoalML)
+                                }
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        deleteDay(day)
+                                    } label: {
+                                        Label("删除当天", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
                     }
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
+            .navigationTitle("历史")
         }
-        .contentMargins(.bottom, 96, for: .scrollContent)
     }
 
-    private var summaryHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("共 \(filteredRecords.count) 条记录")
-                .font(.headline)
-            HStack {
-                Text("合计 \(String(format: "%.0f", filteredRecords.reduce(0) { $0 + $1.amount })) 毫升")
-                Spacer()
-                if let recent = filteredRecords.map(\.date).max() {
-                    Text("最近 \(Self.dateFormatter.string(from: recent))")
-                }
+    private func deleteDay(_ day: AppDaySummary) {
+        withAnimation {
+            store.entries.removeAll { entry in
+                Calendar.current.isDate(entry.date, inSameDayAs: day.date)
             }
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func addSampleRecord() {
-        let record = AppWaterRecord()
-        store.records.append(record)
-        saveStore()
-    }
-
-    private func deleteDay(_ day: Date) {
-        store.records.removeAll {
-            Calendar.current.isDate($0.date, inSameDayAs: day)
-        }
-        saveStore()
-    }
-
-    private func saveStore() {
-        let data = AppPersistedData(records: store.records, dailyGoal: store.dailyGoal)
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let jsonData = try encoder.encode(data)
-            try jsonData.write(to: store.fileURL)
-        } catch {
+            store.save()
         }
     }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter
-    }()
 }
 
-struct AppPage2DayRow: View {
-    let day: Date
-    let records: [AppWaterRecord]
+struct AppPage2SummaryCard: View {
+    let dayCount: Int
+    let totalML: Int
+    let averageML: Int
 
     var body: some View {
         HStack {
+            AppPage2SummaryItem(title: "记录天数", value: "\(dayCount)")
+            Divider()
+            AppPage2SummaryItem(title: "总喝水量", value: "\(totalML) 毫升")
+            Divider()
+            AppPage2SummaryItem(title: "日均", value: "\(averageML) 毫升")
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct AppPage2SummaryItem: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(.headline, design: .rounded))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct AppPage2DayRow: View {
+    let day: AppDaySummary
+    let dailyGoalML: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(Self.dayFormatter.string(from: day))
+                Text(Self.dateString(day.date))
                     .font(.headline)
-                Text("\(records.count) 条记录")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                Text("\(day.entries.count) 次记录")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+
             Spacer()
-            Text("\(String(format: "%.0f", records.reduce(0) { $0 + $1.amount })) 毫升")
-                .font(.headline)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(day.totalML) 毫升")
+                    .font(.headline)
+                Text("目标 \(dailyGoalML) 毫升")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
     }
 
-    private static let dayFormatter: DateFormatter = {
+    static func dateString(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 EEE"
-        return formatter
-    }()
+        return formatter.string(from: date)
+    }
 }
 
-struct AppPage2DayDetailView: View {
+struct AppPage2DetailView: View {
     @EnvironmentObject var store: AppStore
-    let day: Date
-    let records: [AppWaterRecord]
+    let day: AppDaySummary
+
+    var sortedEntries: [AppWaterEntry] {
+        day.entries.sorted { $0.date > $1.date }
+    }
 
     var body: some View {
         List {
             Section {
-                HStack {
-                    Text("合计")
-                    Spacer()
-                    Text("\(String(format: "%.0f", records.reduce(0) { $0 + $1.amount })) 毫升")
-                        .fontWeight(.semibold)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(AppPage2DayRow.dateString(day.date))
+                        .font(.title3.bold())
+
+                    HStack {
+                        Text("总喝水量")
+                        Spacer()
+                        Text("\(day.totalML) 毫升")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("记录次数")
+                        Spacer()
+                        Text("\(day.entries.count) 次")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("每日目标")
+                        Spacer()
+                        Text("\(store.dailyGoalML) 毫升")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    ProgressView(
+                        value: Double(day.totalML),
+                        total: Double(max(store.dailyGoalML, 1))
+                    ) {
+                        Text("达标进度")
+                            .font(.caption)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+
+            Section("记录") {
+                ForEach(sortedEntries) { entry in
+                    AppPage2EntryRow(entry: entry)
                 }
             }
-            ForEach(sortedRecords) { record in
-                AppPage2RecordRow(record: record)
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            deleteRecord(record)
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
-                    }
-            }
         }
-        .navigationTitle(Self.dayFormatter.string(from: day))
+        .listStyle(.insetGrouped)
+        .navigationTitle("历史详情")
         .navigationBarTitleDisplayMode(.inline)
+        .contentMargins(.bottom, 96, for: .scrollContent)
     }
-
-    private var sortedRecords: [AppWaterRecord] {
-        records.sorted { $0.date > $1.date }
-    }
-
-    private func deleteRecord(_ record: AppWaterRecord) {
-        store.records.removeAll { $0.id == record.id }
-        saveStore()
-    }
-
-    private func saveStore() {
-        let data = AppPersistedData(records: store.records, dailyGoal: store.dailyGoal)
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let jsonData = try encoder.encode(data)
-            try jsonData.write(to: store.fileURL)
-        } catch {
-        }
-    }
-
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 EEEE"
-        return formatter
-    }()
 }
 
-struct AppPage2RecordRow: View {
-    let record: AppWaterRecord
+struct AppPage2EntryRow: View {
+    let entry: AppWaterEntry
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(Self.timeFormatter.string(from: record.date))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                if !record.note.isEmpty {
-                    Text(record.note)
-                        .font(.body)
+                Text("\(entry.amountML) 毫升")
+                    .font(.headline)
+                if !entry.note.isEmpty {
+                    Text(entry.note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
             }
+
             Spacer()
-            Text("\(String(format: "%.0f", record.amount)) 毫升")
-                .font(.headline)
+
+            Text(Self.timeString(entry.date))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
     }
 
-    private static let timeFormatter: DateFormatter = {
+    static func timeString(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
+        return formatter.string(from: date)
+    }
+}
+
+struct AppPage2EmptyView: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("暂无历史记录", systemImage: "drop")
+        } description: {
+            Text("从今天开始记录喝水，这里会按天汇总。")
+        }
+    }
 }

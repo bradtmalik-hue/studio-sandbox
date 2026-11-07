@@ -1,6 +1,6 @@
 # App
 
-每天喝了多少水，一眼看清
+每天喝够水，一眼看明白
 
 Bundle ID: `com.bradtmalik-hue.app`
 

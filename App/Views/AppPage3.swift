@@ -1,105 +1,223 @@
 import SwiftUI
-import Combine
-import Foundation
-
-struct AppWaterRecord: Identifiable {
-    let id = UUID()
-    var date: Date
-    var amount: Double
-    var note: String = ""
-}
-
-class AppStore: ObservableObject {
-    @Published var dailyGoal: Double
-    @Published var records: [AppWaterRecord]
-
-    init(dailyGoal: Double = 2000, records: [AppWaterRecord] = []) {
-        self.dailyGoal = dailyGoal
-        self.records = records
-    }
-
-    var totalToday: Double {
-        let calendar = Calendar.current
-        return records
-            .filter { calendar.isDateInToday($0.date) }
-            .reduce(0) { $0 + $1.amount }
-    }
-
-    func save() {
-        // 实际项目中可在此持久化
-    }
-}
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showClearConfirm = false
+    @EnvironmentObject private var store: AppStore
+    @State private var goalText: String = ""
+    @State private var sliderValue: Double = 2000
+    @State private var showClearAlert = false
+    @State private var showGoalSavedAlert = false
+    @State private var showClearDoneAlert = false
 
     var body: some View {
         NavigationStack {
-            Form {
+            List {
                 Section {
-                    AppPage3GoalEditor()
-                    Stepper("调整目标", value: $store.dailyGoal, in: 500...5000, step: 50)
-                    Text("建议每日饮水 1500–2500 毫升")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Button("保存目标") {
-                        store.save()
-                    }
-                    .disabled(store.dailyGoal < 500 || store.dailyGoal > 5000)
+                    AppPage3GoalCard(
+                        goalText: $goalText,
+                        sliderValue: $sliderValue,
+                        onSave: saveGoal
+                    )
                 } header: {
                     Text("每日目标")
                 } footer: {
-                    Text("修改后请点击保存，目标会用于今日进度计算。")
+                    Text("建议在 500–5000 ml 之间设置。")
                 }
 
                 Section {
-                    LabeledContent("记录总数", value: "\(store.records.count) 条")
-                    LabeledContent("今日已饮", value: "\(Int(store.totalToday)) 毫升")
-                    Button(role: .destructive) {
-                        showClearConfirm = true
-                    } label: {
-                        Label("清空所有记录", systemImage: "trash")
+                    AppPage3Row(
+                        icon: "drop.fill",
+                        title: "今日已喝",
+                        detail: "\(store.totalToday) ml"
+                    )
+                    AppPage3Row(
+                        icon: "target",
+                        title: "当前目标",
+                        detail: "\(store.dailyGoalML) ml"
+                    )
+                    AppPage3Row(
+                        icon: "list.bullet.rectangle",
+                        title: "历史记录总数",
+                        detail: "\(store.entries.count) 条"
+                    )
+                } header: {
+                    Text("当前数据")
+                }
+
+                if store.entries.isEmpty {
+                    Section {
+                        AppPage3Empty()
                     }
-                    .disabled(store.records.isEmpty)
-                } header: {
-                    Text("数据管理")
                 }
 
                 Section {
-                    LabeledContent("存储位置", value: "本机")
-                    LabeledContent("数据同步", value: "无")
+                    Button(role: .destructive) {
+                        showClearAlert = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("清空所有记录")
+                        }
+                    }
                 } header: {
-                    Text("关于")
+                    Text("数据维护")
+                } footer: {
+                    Text("清空后将无法恢复，请确认后再操作。")
                 }
             }
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
-            .alert("确认清空所有记录？", isPresented: $showClearConfirm) {
-                Button("取消", role: .cancel) {}
+            .onAppear {
+                goalText = "\(store.dailyGoalML)"
+                sliderValue = Double(store.dailyGoalML)
+            }
+            .alert("确认清空所有记录？", isPresented: $showClearAlert) {
+                Button("取消", role: .cancel) { }
                 Button("清空", role: .destructive) {
-                    store.records.removeAll()
-                    store.save()
+                    clearAllRecords()
                 }
             } message: {
-                Text("此操作不可撤销，所有饮水记录都会被删除。")
+                Text("将删除 \(store.entries.count) 条喝水记录，此操作无法恢复。")
+            }
+            .alert("已保存", isPresented: $showGoalSavedAlert) {
+                Button("好", role: .cancel) { }
+            } message: {
+                Text("每日目标已更新。")
+            }
+            .alert("已清空", isPresented: $showClearDoneAlert) {
+                Button("好", role: .cancel) { }
+            } message: {
+                Text("所有喝水记录均已删除。")
             }
         }
     }
+
+    private func saveGoal() {
+        guard let value = Int(goalText), value >= 500, value <= 5000 else { return }
+        store.dailyGoalML = value
+        sliderValue = Double(value)
+        store.save()
+        showGoalSavedAlert = true
+    }
+
+    private func clearAllRecords() {
+        store.entries.removeAll()
+        store.save()
+        showClearDoneAlert = true
+    }
 }
 
-struct AppPage3GoalEditor: View {
-    @Binding var dailyGoal: Double
+private struct AppPage3GoalCard: View {
+    @Binding var goalText: String
+    @Binding var sliderValue: Double
+    let onSave: () -> Void
+
+    private var isValidGoal: Bool {
+        guard let value = Int(goalText), value >= 500, value <= 5000 else { return false }
+        return true
+    }
 
     var body: some View {
-        HStack {
-            Label("每日目标", systemImage: "target")
-            Spacer()
-            TextField("2000", value: $dailyGoal, format: .number)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "drop.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                Text("每天喝够水")
+                    .font(.headline)
+            }
+
+            TextField("目标毫升数", text: $goalText)
                 .keyboardType(.numberPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 90)
-            Text("毫升")
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: .infinity)
+
+            Slider(value: $sliderValue, in: 500...5000, step: 50) { editing in
+                if !editing {
+                    goalText = "\(Int(sliderValue))"
+                }
+            }
+
+            HStack {
+                Text("500 ml")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(sliderValue)) ml")
+                    .font(.headline)
+                    .foregroundStyle(.blue)
+                Spacer()
+                Text("5000 ml")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button {
+                onSave()
+            } label: {
+                Text("保存目标")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!isValidGoal)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.1))
+        )
+    }
+}
+
+private struct AppPage3Row: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .frame(width: 28, height: 28)
+                .foregroundStyle(.blue)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.blue.opacity(0.1))
+                )
+
+            Text(title)
+                .font(.body)
+
+            Spacer()
+
+            Text(detail)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct AppPage3Empty: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "drop.triangle")
+                .font(.title2)
+                .foregroundStyle(.blue)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("还没有喝水记录")
+                    .font(.headline)
+                Text("去「今天」页添加第一条记录吧。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.1))
+        )
     }
 }

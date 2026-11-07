@@ -1,8 +1,20 @@
-import Foundation
 import SwiftUI
 
 struct AppRootView: View {
-    @State private var selectedTab = AppRootView.initialTab()
+    @StateObject private var store = AppStore()
+    @State private var selectedTab: Int = AppRootView.initialTab()
+
+    init() {
+        // 使用 static 方法初始化 selectedTab
+    }
+
+    private static func initialTab() -> Int {
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
+            return v
+        }
+        return 0
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -24,15 +36,6 @@ struct AppRootView: View {
                 }
                 .tag(2)
         }
-    }
-
-    private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return min(max(value, 0), 2)
-        }
-        return 0
+        .environmentObject(store)
     }
 }
