@@ -1,7 +1,7 @@
 # App
 
-一笔记清，谁该给谁多少
+每天记一笔，练得更清楚
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.dassospizzirri-hash.app`
 
-Screens: 记一笔, 结果, 设置
+Screens: 今天练了什么, 历史, 设置

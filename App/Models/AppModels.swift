@@ -1,178 +1,294 @@
 import Foundation
+import SwiftUI
 import Combine
 
-struct AppExpense: Identifiable, Codable, Equatable {
+struct AppWorkoutEntry: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
     var title: String
-    var amount: Double
-    var paidBy: String
-    var participants: [String]
-    var date: Date
-    var note: String
+    var category: String = "力量"
+    var date: Date = Date()
+    var durationMinutes: Int = 30
+    var calories: Int = 100
+    var reps: Int = 10
+    var sets: Int = 3
+    var isOutdoor: Bool = false
+    var notes: String = ""
+    
+    static let categories: [String] = ["力量", "有氧", "柔韧", "核心", "其他"]
 }
 
-struct AppSettings: Codable, Equatable {
-    var defaultParticipantCount: Int
-    var defaultPayer: String
-    var currencyCode: String
-
-    static let defaultCurrency = "CNY"
-}
-
-struct AppBalance: Identifiable {
-    var id: String { name }
-    var name: String
-    var amount: Double
-}
-
-struct AppTransfer: Identifiable {
-    var id: String { "\(from)-\(to)" }
-    var from: String
-    var to: String
-    var amount: Double
+struct AppWorkoutDayGroup: Identifiable {
+    var id: Date { dayStart }
+    let dayStart: Date
+    let entries: [AppWorkoutEntry]
 }
 
 struct AppPersistedData: Codable {
-    var expenses: [AppExpense]
-    var settings: AppSettings
+    var entries: [AppWorkoutEntry]
+    var weeklyGoal: Int
 }
 
 final class AppStore: ObservableObject {
-    @Published var expenses: [AppExpense] = []
-    @Published var settings = AppSettings(defaultParticipantCount: 4, defaultPayer: "我", currencyCode: AppSettings.defaultCurrency)
-
-    private let fileURL: URL
-
+    @Published var entries: [AppWorkoutEntry]
+    @Published var weeklyGoal: Int
+    
+    private let fileName = "workouts.json"
+    
+    private var fileURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(fileName)
+    }
+    
     init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        fileURL = docs.appendingPathComponent("SplitBillData.json")
+        entries = []
+        weeklyGoal = 3
         load()
         if CommandLine.arguments.contains("-demoData") {
             DemoSeed.apply(into: self)
         }
     }
-
-    func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(AppPersistedData.self, from: data) else {
-            return
-        }
-        expenses = decoded.expenses
-        settings = decoded.settings
+    
+    var sortedEntries: [AppWorkoutEntry] {
+        entries.sorted { $0.date > $1.date }
     }
-
+    
+    var todayEntries: [AppWorkoutEntry] {
+        entries
+            .filter { Calendar.current.isDateInToday($0.date) }
+            .sorted { $0.date < $1.date }
+    }
+    
+    var groupedEntriesByDay: [AppWorkoutDayGroup] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: entries) { entry in
+            calendar.startOfDay(for: entry.date)
+        }
+        return grouped.keys.sorted(by: >).map { dayStart in
+            AppWorkoutDayGroup(
+                dayStart: dayStart,
+                entries: grouped[dayStart]!.sorted { $0.date < $1.date }
+            )
+        }
+    }
+    
+    var workoutsThisWeek: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) else {
+            return 0
+        }
+        return entries.filter { weekInterval.contains($0.date) }.count
+    }
+    
+    var weekRemaining: Int {
+        max(0, weeklyGoal - workoutsThisWeek)
+    }
+    
+    var averageDuration: Double {
+        guard !entries.isEmpty else { return 0 }
+        return Double(entries.reduce(0) { $0 + $1.durationMinutes }) / Double(entries.count)
+    }
+    
+    func delete(at offsets: IndexSet) {
+        entries.remove(atOffsets: offsets)
+        save()
+    }
+    
+    func entries(on date: Date) -> [AppWorkoutEntry] {
+        let dayStart = Calendar.current.startOfDay(for: date)
+        return entries
+            .filter { Calendar.current.startOfDay(for: $0.date) == dayStart }
+            .sorted { $0.date < $1.date }
+    }
+    
+    func setWeeklyGoal(_ value: Int) {
+        weeklyGoal = max(1, value)
+        save()
+    }
+    
     func save() {
+        guard let url = fileURL else { return }
         do {
-            let container = AppPersistedData(expenses: expenses, settings: settings)
-            let data = try JSONEncoder().encode(container)
-            try data.write(to: fileURL)
-        } catch {
-        }
+            let payload = AppPersistedData(entries: entries, weeklyGoal: weeklyGoal)
+            let data = try JSONEncoder().encode(payload)
+            try data.write(to: url)
+        } catch { }
     }
-
-    func addExpense(_ expense: AppExpense) {
-        expenses.append(expense)
-        save()
-    }
-
-    func deleteExpense(id: UUID) {
-        expenses.removeAll { $0.id == id }
-        save()
-    }
-
-    func updateExpense(_ expense: AppExpense) {
-        guard let index = expenses.firstIndex(where: { $0.id == expense.id }) else { return }
-        expenses[index] = expense
-        save()
-    }
-
-    var totalAmount: Double {
-        expenses.reduce(0) { $0 + $1.amount }
-    }
-
-    var latestExpenseDate: Date? {
-        expenses.map(\.date).max()
-    }
-
-    func balances() -> [AppBalance] {
-        var dict: [String: Double] = [:]
-        for expense in expenses {
-            let participantCount = max(expense.participants.count, 1)
-            let share = expense.amount / Double(participantCount)
-            dict[expense.paidBy, default: 0] += expense.amount - share
-            for participant in expense.participants where participant != expense.paidBy {
-                dict[participant, default: 0] -= share
-            }
-        }
-        return dict
-            .map { AppBalance(name: $0.key, amount: $0.value) }
-            .sorted { $0.amount > $1.amount }
-    }
-
-    func transfers() -> [AppTransfer] {
-        let balances = balances()
-        var debtors = balances
-            .filter { $0.amount < 0 }
-            .map { (name: $0.name, amount: -$0.amount) }
-        var creditors = balances
-            .filter { $0.amount > 0 }
-            .map { (name: $0.name, amount: $0.amount) }
-
-        var result: [AppTransfer] = []
-        var i = 0
-        var j = 0
-
-        while i < debtors.count && j < creditors.count {
-            let payment = min(debtors[i].amount, creditors[j].amount)
-            if payment > 0.0001 {
-                result.append(AppTransfer(from: debtors[i].name, to: creditors[j].name, amount: payment))
-            }
-            debtors[i].amount -= payment
-            creditors[j].amount -= payment
-
-            if debtors[i].amount < 0.0001 {
-                i += 1
-            }
-            if creditors[j].amount < 0.0001 {
-                j += 1
-            }
-        }
-
-        return result
+    
+    private func load() {
+        guard let url = fileURL else { return }
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let payload = try JSONDecoder().decode(AppPersistedData.self, from: data)
+            entries = payload.entries
+            weeklyGoal = payload.weeklyGoal
+        } catch { }
     }
 }
 
 enum DemoSeed {
     static func apply(into store: AppStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
-
+        
         let calendar = Calendar.current
-        let now = Date()
-
-        func date(daysAgo: Int, hour: Int, minute: Int) -> Date {
-            let day = calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
+        let today = calendar.startOfDay(for: Date())
+        
+        func makeDate(daysAgo: Int, hour: Int, minute: Int) -> Date {
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: today) ?? today
             return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
         }
-
-        let samples: [AppExpense] = [
-            AppExpense(id: UUID(), title: "川味火锅聚餐", amount: 428.50, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏"], date: date(daysAgo: 1, hour: 19, minute: 30), note: "部门小聚"),
-            AppExpense(id: UUID(), title: "周末桌游吧", amount: 168.00, paidBy: "李娜", participants: ["陈晨", "李娜", "王强"], date: date(daysAgo: 3, hour: 14, minute: 10), note: "三国杀包间"),
-            AppExpense(id: UUID(), title: "生日蛋糕", amount: 238.00, paidBy: "王强", participants: ["陈晨", "李娜", "王强", "赵敏", "刘洋"], date: date(daysAgo: 5, hour: 20, minute: 0), note: "给赵敏庆生"),
-            AppExpense(id: UUID(), title: "烧烤夜宵", amount: 312.40, paidBy: "刘洋", participants: ["刘洋", "陈晨", "李娜", "赵敏"], date: date(daysAgo: 7, hour: 23, minute: 15), note: "路边摊"),
-            AppExpense(id: UUID(), title: "KTV 欢唱", amount: 456.00, paidBy: "赵敏", participants: ["赵敏", "陈晨", "李娜", "王强", "刘洋"], date: date(daysAgo: 10, hour: 21, minute: 0), note: "周末包夜"),
-            AppExpense(id: UUID(), title: "团建午餐", amount: 680.00, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏", "刘洋", "孙悦"], date: date(daysAgo: 12, hour: 12, minute: 20), note: "团建日料"),
-            AppExpense(id: UUID(), title: "咖啡下午茶", amount: 96.50, paidBy: "孙悦", participants: ["孙悦", "陈晨", "李娜"], date: date(daysAgo: 15, hour: 15, minute: 45), note: "拿铁+蛋糕"),
-            AppExpense(id: UUID(), title: "羽毛球场地费", amount: 120.00, paidBy: "王强", participants: ["王强", "陈晨", "李娜", "赵敏"], date: date(daysAgo: 18, hour: 18, minute: 30), note: "两小时"),
-            AppExpense(id: UUID(), title: "外卖午餐", amount: 89.90, paidBy: "李娜", participants: ["李娜", "陈晨", "王强"], date: date(daysAgo: 20, hour: 12, minute: 5), note: "麻辣香锅"),
-            AppExpense(id: UUID(), title: "电影票", amount: 160.00, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏"], date: date(daysAgo: 22, hour: 19, minute: 40), note: "IMAX"),
-            AppExpense(id: UUID(), title: "打车拼车", amount: 45.60, paidBy: "刘洋", participants: ["刘洋", "陈晨", "李娜"], date: date(daysAgo: 25, hour: 22, minute: 10), note: "回家"),
-            AppExpense(id: UUID(), title: "野餐食材", amount: 278.30, paidBy: "赵敏", participants: ["赵敏", "陈晨", "李娜", "王强", "刘洋"], date: date(daysAgo: 28, hour: 11, minute: 30), note: "公园野餐")
+        
+        func makeEntry(
+            title: String,
+            category: String,
+            daysAgo: Int,
+            hour: Int,
+            minute: Int,
+            duration: Int,
+            calories: Int,
+            reps: Int,
+            sets: Int,
+            isOutdoor: Bool,
+            notes: String
+        ) -> AppWorkoutEntry {
+            AppWorkoutEntry(id: UUID(), title: title, category: category, date: makeDate(daysAgo: daysAgo, hour: hour, minute: minute), durationMinutes: duration, calories: calories, reps: reps, sets: sets, isOutdoor: isOutdoor, notes: notes)
+        }
+        
+        let demoEntries: [AppWorkoutEntry] = [
+            makeEntry(
+                title: "深蹲",
+                category: "力量",
+                daysAgo: 0,
+                hour: 7,
+                minute: 30,
+                duration: 35,
+                calories: 210,
+                reps: 15,
+                sets: 4,
+                isOutdoor: false,
+                notes: "状态不错，最后一组有点吃力"
+            ),
+            makeEntry(
+                title: "跑步",
+                category: "有氧",
+                daysAgo: 0,
+                hour: 18,
+                minute: 20,
+                duration: 40,
+                calories: 320,
+                reps: 0,
+                sets: 0,
+                isOutdoor: true,
+                notes: "公园慢跑，配速稳定"
+            ),
+            makeEntry(
+                title: "引体向上",
+                category: "力量",
+                daysAgo: 1,
+                hour: 8,
+                minute: 0,
+                duration: 25,
+                calories: 150,
+                reps: 8,
+                sets: 5,
+                isOutdoor: false,
+                notes: "窄距握法，背部感受明显"
+            ),
+            makeEntry(
+                title: "平板支撑",
+                category: "核心",
+                daysAgo: 1,
+                hour: 19,
+                minute: 45,
+                duration: 15,
+                calories: 60,
+                reps: 1,
+                sets: 3,
+                isOutdoor: false,
+                notes: "每组坚持 60 秒"
+            ),
+            makeEntry(
+                title: "骑行",
+                category: "有氧",
+                daysAgo: 2,
+                hour: 17,
+                minute: 30,
+                duration: 55,
+                calories: 410,
+                reps: 0,
+                sets: 0,
+                isOutdoor: true,
+                notes: "沿江骑行，风不大"
+            ),
+            makeEntry(
+                title: "卧推",
+                category: "力量",
+                daysAgo: 3,
+                hour: 7,
+                minute: 50,
+                duration: 30,
+                calories: 180,
+                reps: 10,
+                sets: 4,
+                isOutdoor: false,
+                notes: "重量比上周加了 2.5 公斤"
+            ),
+            makeEntry(
+                title: "瑜伽",
+                category: "柔韧",
+                daysAgo: 4,
+                hour: 21,
+                minute: 0,
+                duration: 45,
+                calories: 130,
+                reps: 0,
+                sets: 0,
+                isOutdoor: false,
+                notes: "睡前拉伸，肩颈舒服很多"
+            ),
+            makeEntry(
+                title: "跳操",
+                category: "有氧",
+                daysAgo: 4,
+                hour: 12,
+                minute: 15,
+                duration: 30,
+                calories: 260,
+                reps: 0,
+                sets: 0,
+                isOutdoor: false,
+                notes: "跟着视频跳，强度适中"
+            ),
+            makeEntry(
+                title: "俯卧撑",
+                category: "力量",
+                daysAgo: 5,
+                hour: 7,
+                minute: 10,
+                duration: 20,
+                calories: 120,
+                reps: 20,
+                sets: 5,
+                isOutdoor: false,
+                notes: "胸肌和三头肌都有感觉"
+            ),
+            makeEntry(
+                title: "划船机",
+                category: "有氧",
+                daysAgo: 6,
+                hour: 18,
+                minute: 40,
+                duration: 35,
+                calories: 280,
+                reps: 0,
+                sets: 0,
+                isOutdoor: false,
+                notes: "阻力调到 5，心率控制得不错"
+            )
         ]
-
-        store.expenses = samples
-        store.settings.defaultParticipantCount = 4
-        store.settings.defaultPayer = "陈晨"
+        
+        store.entries = demoEntries
+        store.weeklyGoal = 5
         store.save()
     }
 }
