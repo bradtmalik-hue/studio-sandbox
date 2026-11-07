@@ -1,39 +1,42 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
-    @State private var store = DemoSeed(store: AppPayload(), calendar: Calendar.current, day: Date()).store
-    @State private var selectedTab = AppRootView.initialTab()
+    @StateObject private var store = AppStore()
+    @State private var selectedTab = Self.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(store: store)
+            AppPage1View()
                 .tabItem {
-                    Label("今天", systemImage: "sun.max.fill")
+                    Label("录摘录", systemImage: "square.and.pencil")
                 }
                 .tag(0)
 
             AppPage2View()
                 .tabItem {
-                    Label("历史", systemImage: "calendar")
+                    Label("摘录", systemImage: "books.vertical")
                 }
                 .tag(1)
 
-            AppPage3View(store: store)
+            AppPage3View()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
+                    Label("设置", systemImage: "gearshape")
                 }
                 .tag(2)
         }
-        .tint(.brown)
+        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return value
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-startTab"), i + 1 < a.count, let v = Int(a[i + 1]) {
+            return v
         }
         return 0
     }
+}
+
+#Preview {
+    AppRootView()
 }

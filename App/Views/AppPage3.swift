@@ -1,138 +1,164 @@
 import SwiftUI
-import Combine
+import Foundation
+
+private struct AppPage3SummaryCard: View {
+    let goal: Int
+    let readCount: Int
+    let progress: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(readCount)")
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                Text("/ \(goal) 本")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "books.vertical.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            ProgressView(value: progress)
+                .progressViewStyle(.linear)
+
+            HStack {
+                Text("已完成 \(Int(progress * 100))%")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(readCount >= goal ? "已达成年度目标" : "继续加油")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+}
+
+private struct AppPage3EmptyView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "还没有读书记录",
+            systemImage: "book.closed",
+            description: Text("开始记录书摘后，这里会显示你的年度阅读进度。")
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+}
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppPayload
-    @State private var petName: String = ""
-    @State private var dailyGoal: Int = 3
-    @State private var showSaveAlert = false
+    @EnvironmentObject var store: AppStore
+    @State private var showingResetAlert = false
+
+    private var readBookCount: Int {
+        Set(store.quotes.map { $0.bookTitle }).count
+    }
+
+    var goal: Binding<Int> {
+        Binding(
+            get: { store.settings.yearlyReadingGoal },
+            set: { newValue in
+                store.objectWillChange.send()
+                store.settings.yearlyReadingGoal = max(1, newValue)
+                store.settings.updatedAt = Date()
+                persistSettings()
+            }
+        )
+    }
+
+    private var progress: Double {
+        let goalValue = max(1, goal.wrappedValue)
+        return min(Double(readBookCount) / Double(goalValue), 1.0)
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     AppPage3SummaryCard(
-                        totalMeals: store.meals.count,
-                        dailyGoal: dailyGoal,
-                        petName: petName
+                        goal: goal.wrappedValue,
+                        readCount: readBookCount,
+                        progress: progress
                     )
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-
-                Section("宠物信息") {
-                    HStack {
-                        Label("宠物名字", systemImage: "pawprint.fill")
-                        Spacer()
-                        TextField("请输入宠物名字", text: $petName)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 220)
-                    }
-                    HStack {
-                        Label("每日喂食目标", systemImage: "target")
-                        Spacer()
-                        Stepper("\(dailyGoal) 次", value: $dailyGoal, in: 1...12)
-                    }
+                } header: {
+                    Text("年度阅读")
                 }
 
                 Section {
-                    Button {
-                        saveSettings()
-                    } label: {
-                        Label("保存设置", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
+                    HStack {
+                        Stepper(value: goal, in: 1...365, step: 1) {
+                            Label("每年读书目标", systemImage: "target")
+                        }
+                        Spacer()
+                        Text("\(goal.wrappedValue) 本")
+                            .foregroundStyle(.secondary)
                     }
-                    .disabled(petName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    HStack {
+                        Label("已读本数", systemImage: "books.vertical")
+                        Spacer()
+                        Text("\(readBookCount) 本")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Label("目标进度", systemImage: "chart.pie")
+                        Spacer()
+                        Text("\(Int(progress * 100))%")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("目标与进度")
+                } footer: {
+                    Text("已读本数按书摘中出现的不同书名统计。")
                 }
 
-                Section {
-                    AppPage3InfoRow(icon: "fork.knife", title: "记录每一餐", detail: "今天页面点击添加即可记录")
-                    AppPage3InfoRow(icon: "chart.bar.fill", title: "历史回看", detail: "按天分组浏览喂食次数")
+                if store.quotes.isEmpty {
+                    Section {
+                        AppPage3EmptyView()
+                    }
+                } else {
+                    Section {
+                        Button {
+                            showingResetAlert = true
+                        } label: {
+                            Label("重置目标", systemImage: "arrow.counterclockwise")
+                        }
+                        .foregroundStyle(.red)
+                    }
                 }
             }
             .navigationTitle("设置")
             .contentMargins(.bottom, 96, for: .scrollContent)
-            .alert("设置已保存", isPresented: $showSaveAlert) {
-                Button("好", role: .cancel) { }
+            .alert("重置目标？", isPresented: $showingResetAlert) {
+                Button("取消", role: .cancel) { }
+                Button("重置") {
+                    goal.wrappedValue = 12
+                    persistSettings()
+                }
             } message: {
-                Text("宠物名字和每日喂食目标已更新。")
-            }
-            .onAppear {
-                petName = store.settings.petName
-                dailyGoal = Int(store.settings.dailyMealTarget)
+                Text("将年度目标恢复为 12 本。")
             }
         }
     }
 
-    private func saveSettings() {
-        store.settings.petName = petName.trimmingCharacters(in: .whitespacesAndNewlines)
-        store.settings.dailyMealTarget = Double(dailyGoal)
-        store.save()
-        showSaveAlert = true
-    }
-}
-
-private struct AppPage3SummaryCard: View {
-    let totalMeals: Int
-    let dailyGoal: Int
-    let petName: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("喂养概览", systemImage: "pawprint.circle.fill")
-                    .font(.headline)
-                Spacer()
-                Text(petName.isEmpty ? "未命名宠物" : petName)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(totalMeals)")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("总记录")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Divider()
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(dailyGoal)")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("次/天")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
+    private func persistSettings() {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(store.settings)
+            try data.write(to: store.settingsFileURL)
+        } catch {
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemGray6))
-        )
-    }
-}
-
-private struct AppPage3InfoRow: View {
-    let icon: String
-    let title: String
-    let detail: String
-
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.vertical, 4)
     }
 }
