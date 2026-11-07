@@ -57,8 +57,11 @@ struct AppPage1View: View {
                     }
                 } else {
                     List {
-                        AppPage1SummaryCard(medicines: filteredMedicines, totalQuantity: 0)
-                        AppPage1FilterControls(categories: $selectedCategory)
+                        AppPage1SummaryCard(medicines: filteredMedicines)
+                        AppPage1FilterControls(
+                            selectedCategory: $selectedCategory,
+                            categories: store.categories
+                        )
                         ForEach(filteredMedicines) { medicine in
                             Button {
                                 selectedMedicine = medicine
@@ -91,10 +94,12 @@ struct AppPage1View: View {
             }
             .searchable(text: $searchText, prompt: "搜索药名、位置或分类")
             .sheet(isPresented: $showingAddSheet) {
-                AppPage1AddSheet(availableCategories: "", canSave: false)
+                AppPage1AddSheet()
+                    .environmentObject(store)
             }
             .sheet(item: $selectedMedicine) { medicine in
                 AppPage1DetailView(medicine: medicine)
+                    .environmentObject(store)
             }
         }
     }
@@ -437,7 +442,7 @@ struct AppPage1DetailView: View {
             Form {
                 Section("基本信息") {
                     TextField("药名", text: $name)
-                    TextField("规格", text: $specification)
+                    TextField("规格，如 0.5g×20片", text: $specification)
                     TextField("厂家", text: $manufacturer)
                 }
                 Section("分类与位置") {
@@ -446,7 +451,7 @@ struct AppPage1DetailView: View {
                             Text(category).tag(category)
                         }
                     }
-                    TextField("存放位置", text: $location)
+                    TextField("存放位置，如 客厅药箱第2层", text: $location)
                 }
                 Section("数量与效期") {
                     Stepper("数量：\(quantity) \(unit)", value: $quantity, in: 1...999)
@@ -461,49 +466,38 @@ struct AppPage1DetailView: View {
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
                 }
-                Section {
-                    Button(role: .destructive) {
-                        deleteMedicine()
-                    } label: {
-                        Label("删除这盒药", systemImage: "trash")
-                    }
-                }
             }
-            .navigationTitle("药品详情")
+            .navigationTitle("编辑药品")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { cancelTapped() }
+                    Button("取消") {
+                        if hasChanges {
+                            showDiscardAlert = true
+                        } else {
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { saveChanges() }
                         .disabled(!canSave)
                 }
             }
-            .interactiveDismissDisabled(hasChanges)
             .alert("放弃更改？", isPresented: $showDiscardAlert) {
                 Button("继续编辑", role: .cancel) { }
                 Button("放弃", role: .destructive) { dismiss() }
             } message: {
-                Text("有未保存的修改。")
+                Text("你有未保存的修改。")
             }
         }
     }
 
-    private func cancelTapped() {
-        if hasChanges {
-            showDiscardAlert = true
-        } else {
-            dismiss()
-        }
-    }
-
     private func saveChanges() {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, quantity > 0 else { return }
+        guard canSave else { return }
         let updated = AppMedicine(
             id: medicine.id,
-            name: trimmedName,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             specification: specification.trimmingCharacters(in: .whitespacesAndNewlines),
             manufacturer: manufacturer.trimmingCharacters(in: .whitespacesAndNewlines),
             category: category,
@@ -517,13 +511,10 @@ struct AppPage1DetailView: View {
         )
         if let index = store.medicines.firstIndex(where: { $0.id == medicine.id }) {
             store.medicines[index] = updated
-            store.save()
         }
-        dismiss()
-    }
-
-    private func deleteMedicine() {
-        store.medicines.removeAll { $0.id == medicine.id }
+        if !store.categories.contains(category) {
+            store.categories.append(category)
+        }
         store.save()
         dismiss()
     }
