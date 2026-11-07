@@ -1,7 +1,7 @@
 # App
 
-每顿都记下来，宠物吃得好不好一眼看清
+每天三秒，记清今天花了多少
 
-Bundle ID: `com.dassospizzirri-hash.app`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 历史, 设置
+Screens: 今天, 分类, 设置
