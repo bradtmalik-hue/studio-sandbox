@@ -2,7 +2,7 @@ import SwiftUI
 import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject var store: AppModel
+    @EnvironmentObject var store: AppStore
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -38,12 +38,14 @@ struct AppPage1View: View {
                     List {
                         ForEach(store.todayRecords) { record in
                             AppPage1Row(
-                                record: record,
+                                amount: record.amount,
+                                note: record.note,
                                 timeText: Self.timeFormatter.string(from: record.date)
                             )
                             .swipeActions {
                                 Button(role: .destructive) {
-                                    delete(record)
+                                    store.records.removeAll { $0.id == record.id }
+                                    store.save()
                                 } label: {
                                     Label("删除", systemImage: "trash")
                                 }
@@ -72,13 +74,7 @@ struct AppPage1View: View {
     }
 
     func addRecord() {
-        let record = AppWaterRecord()
-        store.records.append(record)
-        store.save()
-    }
-
-    private func delete(_ record: AppWaterRecord) {
-        store.records.removeAll { $0.id == record.id }
+        store.records.append(.init())
         store.save()
     }
 }
@@ -174,15 +170,16 @@ struct AppPage1SummaryCard: View {
 }
 
 struct AppPage1Row: View {
-    var record: AppWaterRecord
+    var amount: Double
+    var note: String
     var timeText: String
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(Int(record.amount)) 毫升")
+                Text("\(Int(amount)) 毫升")
                     .font(.headline)
-                Text(record.note.isEmpty ? "无备注" : record.note)
+                Text(note.isEmpty ? "无备注" : note)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

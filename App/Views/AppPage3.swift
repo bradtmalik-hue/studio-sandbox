@@ -2,12 +2,6 @@ import SwiftUI
 import Combine
 import Foundation
 
-struct AppWaterRecord: Identifiable {
-    let id = UUID()
-    var date: Date
-    var amount: Double
-}
-
 class AppStore: ObservableObject {
     @Published var dailyGoal: Double
     @Published var records: [AppWaterRecord]
