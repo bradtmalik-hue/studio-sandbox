@@ -1,104 +1,153 @@
 import Foundation
 import Combine
 
-struct AppBook: Identifiable, Codable {
-    let id: UUID
-    var title: String
-    var author: String
-    var category: String
-    var pages: Int
-    var rating: Double
-    var isRead: Bool
-    var isFinished: Bool
-    var readDate: Date?
-    var notes: String
+enum AppCategory: String, Codable, CaseIterable, Identifiable {
+    case dining = "餐饮"
+    case transport = "交通"
+    case shopping = "购物"
+    case other = "其它"
 
-    init(
-        id: UUID = UUID(),
-        title: String = "",
-        author: String = "",
-        category: String = "",
-        pages: Int = 0,
-        rating: Double = 0,
-        isRead: Bool = false,
-        isFinished: Bool = false,
-        readDate: Date? = nil,
-        notes: String = ""
-    ) {
-        self.id = id
-        self.title = title
-        self.author = author
-        self.category = category
-        self.pages = pages
-        self.rating = rating
-        self.isRead = isRead
-        self.isFinished = isFinished
-        self.readDate = readDate
-        self.notes = notes
-    }
+    var id: String { rawValue }
 }
 
-struct AppExcerpt: Identifiable, Codable {
-    let originalID: UUID
-    var text: String
-    var pageText: String
+struct AppExpense: Identifiable, Codable, Equatable {
+    var id: UUID
+    var amount: Double
+    var category: AppCategory
     var note: String
-    var selectedBookID: UUID?
-    var createdAt: Date
+    var date: Date
 
-    var id: UUID { originalID }
-
-    init(
-        originalID: UUID = UUID(),
-        text: String = "",
-        pageText: String = "",
-        note: String = "",
-        selectedBookID: UUID? = nil,
-        createdAt: Date = Date()
-    ) {
-        self.originalID = originalID
-        self.text = text
-        self.pageText = pageText
+    init(id: UUID = UUID(), amount: Double, category: AppCategory, note: String, date: Date = Date()) {
+        self.id = id
+        self.amount = amount
+        self.category = category
         self.note = note
-        self.selectedBookID = selectedBookID
-        self.createdAt = createdAt
+        self.date = date
     }
 }
 
-class AppStore: ObservableObject {
-    @Published var books: [AppBook]
-    @Published var excerpts: [AppExcerpt]
+struct AppExpenseStoreData: Codable {
+    var expenses: [AppExpense]
+    var monthlyBudget: Double
+}
 
-    init(books: [AppBook] = [], excerpts: [AppExcerpt] = []) {
-        self.books = books
-        self.excerpts = excerpts
+final class AppStore: ObservableObject {
+    @Published var expenses: [AppExpense] = []
+    @Published var monthlyBudget: Double = 3000
+
+    private let fileName = "expenses.json"
+    private var fileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
     }
 
-    func addBook(_ book: AppBook) {
-        books.append(book)
-    }
-
-    func updateBook(_ book: AppBook) {
-        if let index = books.firstIndex(where: { $0.id == book.id }) {
-            books[index] = book
+    init() {
+        load()
+        if ProcessInfo.processInfo.arguments.contains("-demoData") {
+            DemoSeed.apply(into: self)
         }
     }
 
-    func deleteBook(_ book: AppBook) {
-        books.removeAll { $0.id == book.id }
+    var todayExpenses: [AppExpense] {
+        expenses.filter { Calendar.current.isDateInToday($0.date) }
     }
 
-    func addExcerpt(_ excerpt: AppExcerpt) {
-        excerpts.append(excerpt)
+    var todayTotal: Double {
+        todayExpenses.reduce(0) { $0 + $1.amount }
     }
 
-    func updateExcerpt(_ excerpt: AppExcerpt) {
-        if let index = excerpts.firstIndex(where: { $0.id == excerpt.id }) {
-            excerpts[index] = excerpt
+    var isOverBudget: Bool {
+        todayTotal > monthlyBudget
+    }
+
+    var monthExpenses: [AppExpense] {
+        expenses.filter { Calendar.current.isDate($0.date, equalTo: Date(), toGranularity: .month) }
+    }
+
+    var monthTotal: Double {
+        monthExpenses.reduce(0) { $0 + $1.amount }
+    }
+
+    func total(for category: AppCategory, on date: Date = Date()) -> Double {
+        expenses.filter { $0.category == category && Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.amount }
+    }
+
+    func addExpense(_ expense: AppExpense) {
+        expenses.append(expense)
+        save()
+    }
+
+    func updateExpense(_ expense: AppExpense) {
+        if let index = expenses.firstIndex(where: { $0.id == expense.id }) {
+            expenses[index] = expense
+            save()
         }
     }
 
-    func deleteExcerpt(_ excerpt: AppExcerpt) {
-        excerpts.removeAll { $0.id == excerpt.id }
+    func deleteExpense(at offsets: IndexSet) {
+        expenses.remove(atOffsets: offsets)
+        save()
+    }
+
+    func deleteExpense(_ expense: AppExpense) {
+        expenses.removeAll { $0.id == expense.id }
+        save()
+    }
+
+    func load() {
+        guard let data = try? Data(contentsOf: fileURL) else { return }
+        if let decoded = try? JSONDecoder().decode(AppExpenseStoreData.self, from: data) {
+            expenses = decoded.expenses
+            monthlyBudget = decoded.monthlyBudget
+        }
+    }
+
+    func save() {
+        let storeData = AppExpenseStoreData(expenses: expenses, monthlyBudget: monthlyBudget)
+        if let data = try? JSONEncoder().encode(storeData) {
+            try? data.write(to: fileURL)
+        }
+    }
+}
+
+enum AppFormat {
+    static let zhDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+
+    static func date(_ date: Date) -> String {
+        zhDateFormatter.string(from: date)
+    }
+
+    static func currency(_ amount: Double) -> String {
+        String(format: "¥%.2f", amount)
+    }
+}
+
+enum DemoSeed {
+    static func apply(into store: AppStore) {
+        guard ProcessInfo.processInfo.arguments.contains("-demoData") else { return }
+        let calendar = Calendar.current
+        let now = Date()
+        let categories = AppCategory.allCases
+        let notes = ["早餐", "午餐", "咖啡", "地铁", "打车", "日用品", "超市", "外卖", "电影", "礼物", "充电", "晚餐"]
+        var seeded: [AppExpense] = []
+        for index in 0..<12 {
+            let category = categories[index % categories.count]
+            let amount = Double(15 + index * 8) + Double(index % 5) * 0.5
+            let date: Date
+            if index < 5 {
+                date = now
+            } else {
+                date = calendar.date(byAdding: .day, value: -(index - 2), to: now) ?? now
+            }
+            let note = notes[index % notes.count]
+            seeded.append(AppExpense(id: UUID(), amount: amount, category: category, note: note, date: date))
+        }
+        store.expenses = seeded
+        store.monthlyBudget = 3000
+        store.save()
     }
 }

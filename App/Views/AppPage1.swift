@@ -2,193 +2,220 @@ import SwiftUI
 import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject private var store: AppStore
-    @State private var searchText: String = ""
-    @State private var showingAddBook = false
-    @State private var showingAddExcerpt = false
-    @State private var showingBookDetail = false
-    @State private var selectedBook: AppBook?
-
-    private var filteredBooks: [AppBook] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return store.books }
-        return store.books.filter {
-            $0.title.localizedCaseInsensitiveContains(query) ||
-            $0.author.localizedCaseInsensitiveContains(query)
+    @EnvironmentObject var store: AppStore
+    @State private var searchText = ""
+    @State private var showingAddSheet = false
+    
+    private var filteredExpenses: [AppExpense] {
+        let all = store.todayExpenses
+        guard !searchText.isEmpty else { return all }
+        return all.filter { expense in
+            expense.note.localizedCaseInsensitiveContains(searchText) ||
+            expense.category.rawValue.localizedCaseInsensitiveContains(searchText)
         }
     }
-
+    
     var body: some View {
         NavigationStack {
-            Group {
-                if store.books.isEmpty {
-                    AppPage1EmptyBookState {
-                        showingAddBook = true
-                    }
-                } else if filteredBooks.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
+            List {
+                summarySection
+                if filteredExpenses.isEmpty {
+                    emptySection
                 } else {
-                    List {
-                        Section {
-                            HStack(spacing: 12) {
-                                AppPage1MetricCard(
-                                    title: "在读",
-                                    value: "\(filteredBooks.count)",
-                                    unit: "本"
-                                )
-                                AppPage1MetricCard(
-                                    title: "总页数",
-                                    value: "\(filteredBooks.reduce(0) { $0 + $1.pages })",
-                                    unit: "页"
-                                )
-                                AppPage1MetricCard(
-                                    title: "最近阅读",
-                                    value: AppPage1Format.shortDate(from: filteredBooks.compactMap(\.readDate).max()),
-                                    unit: ""
-                                )
-                            }
-                            .padding(.vertical, 4)
-                        }
-
-                        Section("书单") {
-                            ForEach(filteredBooks) { book in
-                                Button {
-                                    selectedBook = book
-                                    showingBookDetail = true
+                    ForEach(filteredExpenses) { expense in
+                        AppPage1Row(expense: expense)
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    store.expenses = store.expenses.filter { $0.id != expense.id }
                                 } label: {
-                                    AppPage1BookRow(book: book)
+                                    Label("删除", systemImage: "trash")
                                 }
-                                .buttonStyle(.plain)
                             }
-                            .onDelete(perform: deleteBooks)
-                        }
                     }
-                    .listStyle(.insetGrouped)
-                    .searchable(text: $searchText, prompt: "搜索书名或作者")
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .navigationTitle("正在读的书")
+            .listStyle(.insetGrouped)
+            .navigationTitle("今天")
+            .searchable(text: $searchText, prompt: "搜索备注或分类")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .bottomBar) {
                     Button {
-                        showingAddExcerpt = true
+                        showingAddSheet = true
                     } label: {
-                        Label("添加摘录", systemImage: "quote.bubble.plus")
-                    }
-                    .disabled(store.books.isEmpty)
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddBook = true
-                    } label: {
-                        Label("添加书", systemImage: "book.badge.plus")
+                        Label("记一笔", systemImage: "plus.circle.fill")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddBook) {
-                AppPage1AddBookView()
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
+            .sheet(isPresented: $showingAddSheet) {
+                AppPage1AddSheet()
+                    .environmentObject(store)
             }
-            .sheet(isPresented: $showingAddExcerpt) {
-                AppPage1AddExcerptView()
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
-            }
-            .sheet(isPresented: $showingBookDetail) {
-                if let book = selectedBook {
-                    AppPage1BookDetailView()
-                        .environment(\.locale, Locale(identifier: "zh_CN"))
-                }
-            }
-            .environment(\.locale, Locale(identifier: "zh_CN"))
+            .contentMargins(.bottom, 96, for: .scrollContent)
         }
     }
-
-    func deleteBooks(at offsets: IndexSet) {
-        let ids = offsets.map { filteredBooks[$0].id }
-        let closedSet = Set(ids)
-        store.books.removeAll { closedSet.contains($0.id) }
-        store.excerpts.removeAll { excerpt in
-            guard let selectedBookID = excerpt.selectedBookID else { return false }
-            return closedSet.contains(selectedBookID)
+    
+    var summarySection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("今日合计")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text(String(format: "¥%.2f", store.todayTotal))
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .foregroundColor(store.isOverBudget ? .red : .primary)
+                HStack {
+                    Text("共 \(store.todayExpenses.count) 笔")
+                    Spacer()
+                    if let last = store.todayExpenses.first {
+                        Text("最近: \(formatDate(last.date))")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                if store.isOverBudget {
+                    Label("已超过本月预算", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+            .padding(.vertical, 8)
         }
-        store.save()
+    }
+    
+    var emptySection: some View {
+        Section {
+            ContentUnavailableView {
+                Label("今天还没有支出", systemImage: "tray")
+            } description: {
+                Text("点击下方加号，记录今天的第一笔")
+            } actions: {
+                Button("添加第一条") {
+                    showingAddSheet = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: date)
     }
 }
 
-private struct AppPage1BookRow: View {
-    let book: AppBook
-
+struct AppPage1Row: View {
+    let expense: AppExpense
+    
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(book.title)
+            Image(systemName: iconName)
+                .font(.title2)
+                .foregroundColor(.accentColor)
+                .frame(width: 36, height: 36)
+                .background(.quaternary, in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(expense.note.isEmpty ? expense.category.rawValue : expense.note)
+                    .font(.body)
+                    .lineLimit(1)
+                Text(expense.category.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(String(format: "¥%.2f", expense.amount))
                     .font(.headline)
-                Text(book.author)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Text(book.category)
-                    Spacer()
-                    Text("\(book.pages) 页")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(formatTime(expense.date))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private var iconName: String {
+        switch expense.category {
+        case .dining: return "fork.knife"
+        case .transport: return "car.fill"
+        case .shopping: return "bag.fill"
+        case .other: return "ellipsis.circle.fill"
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+}
 
-                HStack {
-                    Text("评分 \(book.rating, specifier: "%.1f")")
-                    Spacer()
-                    if let readDate = book.readDate {
-                        Text(AppPage1Format.shortDate(from: readDate))
+struct AppPage1AddSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
+    
+    @State private var amountText = ""
+    @State private var category: AppCategory = .dining
+    @State private var note = ""
+    @State private var date = Date()
+    @State private var useNow = false
+    
+    private var isAmountValid: Bool {
+        guard let value = Double(amountText), value > 0 else { return false }
+        return true
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("金额") {
+                    TextField("0.00", text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                Section("分类") {
+                    Picker("分类", selection: $category) {
+                        ForEach(AppCategory.allCases, id: \.self) { cat in
+                            Text(cat.rawValue).tag(cat)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("备注") {
+                    TextField("备注（可选）", text: $note)
+                }
+                Section("时间") {
+                    Toggle("使用当前时间", isOn: $useNow)
+                    if !useNow {
+                        DatePicker("日期与时间", selection: $date)
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-private struct AppPage1MetricCard: View {
-    let title: String
-    let value: String
-    let unit: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.title2.bold())
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            .navigationTitle("记一笔")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        let amount = Double(amountText) ?? 0
+                        let expense = AppExpense(
+                            id: UUID(),
+                            amount: amount,
+                            category: category,
+                            note: note,
+                            date: useNow ? Date() : date
+                        )
+                        store.expenses = store.expenses + [expense]
+                        dismiss()
+                    }
+                    .disabled(!isAmountValid)
                 }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-private struct AppPage1EmptyBookState: View {
-    let onAdd: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("还没有在读的书", systemImage: "books.vertical")
-        } description: {
-            Text("添加一本正在读的书，记录进度和摘录。")
-        } actions: {
-            Button("添加第一本", action: onAdd)
-                .buttonStyle(.borderedProminent)
         }
     }
 }
