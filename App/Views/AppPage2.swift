@@ -7,7 +7,7 @@ struct AppPage2View: View {
     @State private var filter: AppPage2Filter = .all
 
     private var filteredGroups: [AppPage2Group] {
-        let mapped = store.historyGroups.map { AppPage2Group(date: Date(), records: "", id: Date(), totalAmount: 0) }
+        let mapped = store.historyGroups.map { AppPage2Group() }
         let sorted = mapped.sorted { $0.date > $1.date }
         switch filter {
         case .all:
