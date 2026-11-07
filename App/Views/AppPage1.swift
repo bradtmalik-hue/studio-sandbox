@@ -1,208 +1,471 @@
 import SwiftUI
 import Foundation
 
+private let AppPage1DateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "zh_CN")
+    formatter.dateFormat = "M月d日 HH:mm"
+    return formatter
+}()
+
+private func AppPage1AmountString(_ amount: Double, currencyCode: String) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .currency
+    formatter.currencyCode = currencyCode
+    formatter.locale = Locale(identifier: "zh_CN")
+    return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
+}
+
 struct AppPage1View: View {
     @EnvironmentObject private var store: AppStore
-    @State private var searchText: String = ""
-    @State private var showingAddBook = false
-    @State private var showingAddExcerpt = false
-    @State private var showingBookDetail = false
-    @State private var selectedBook: AppBook?
 
-    private var filteredBooks: [AppBook] {
+    @State private var title = ""
+    @State private var amountString = ""
+    @State private var paidBy = ""
+    @State private var participantCount = 2
+    @State private var payerIncluded = true
+    @State private var date = Date()
+    @State private var note = ""
+    @State private var searchText = ""
+    @State private var payerFilter = 0
+    @State private var didLoadDefaults = false
+    @State private var showSaveAlert = false
+
+    var amount: Double {
+        Double(amountString) ?? 0
+    }
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        amount > 0 &&
+        !paidBy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        participantCount > 0
+    }
+
+    private var filteredExpenses: [AppExpense] {
+        let sorted = store.expenses.sorted { $0.date > $1.date }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return store.books }
-        return store.books.filter {
-            $0.title.localizedCaseInsensitiveContains(query) ||
-            $0.author.localizedCaseInsensitiveContains(query)
+
+        return sorted.filter { expense in
+            if !query.isEmpty {
+                let matchesTitle = expense.title.localizedCaseInsensitiveContains(query)
+                let matchesPayer = expense.paidBy.localizedCaseInsensitiveContains(query)
+                if !matchesTitle && !matchesPayer {
+                    return false
+                }
+            }
+
+            switch payerFilter {
+            case 1:
+                return expense.paidBy == store.settings.defaultPayer
+            case 2:
+                return expense.paidBy != store.settings.defaultPayer
+            default:
+                return true
+            }
         }
     }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if store.books.isEmpty {
-                    AppPage1EmptyBookState {
-                        showingAddBook = true
+            List {
+                if searchText.isEmpty {
+                    Section {
+                        AppPage1SummaryCard(
+                            count: store.expenses.count,
+                            totalAmount: store.totalAmount,
+                            latestDate: store.latestExpenseDate,
+                            currencyCode: store.settings.currencyCode
+                        )
                     }
-                } else if filteredBooks.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
-                } else {
-                    List {
-                        Section {
-                            HStack(spacing: 12) {
-                                AppPage1MetricCard(
-                                    title: "在读",
-                                    value: "\(filteredBooks.count)",
-                                    unit: "本"
-                                )
-                                AppPage1MetricCard(
-                                    title: "总页数",
-                                    value: "\(filteredBooks.reduce(0) { $0 + $1.pages })",
-                                    unit: "页"
-                                )
-                                AppPage1MetricCard(
-                                    title: "最近阅读",
-                                    value: AppPage1Format.shortDate(from: filteredBooks.compactMap(\.readDate).max()),
-                                    unit: ""
-                                )
-                            }
-                            .padding(.vertical, 4)
-                        }
 
-                        Section("书单") {
-                            ForEach(filteredBooks) { book in
-                                Button {
-                                    selectedBook = book
-                                    showingBookDetail = true
-                                } label: {
-                                    AppPage1BookRow(book: book)
+                    Section("新建账单") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            TextField("聚会名称", text: $title)
+
+                            TextField("金额", text: $amountString)
+                                .keyboardType(.decimalPad)
+
+                            TextField("付款人", text: $paidBy)
+
+                            Stepper(value: $participantCount, in: 1...50) {
+                                HStack {
+                                    Text("参与人数")
+                                    Spacer()
+                                    Text("\(participantCount)")
                                 }
-                                .buttonStyle(.plain)
                             }
-                            .onDelete(perform: deleteBooks)
+
+                            Toggle("付款人也参与分摊", isOn: $payerIncluded)
+
+                            DatePicker(
+                                "日期",
+                                selection: $date,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+
+                            TextField("备注", text: $note)
+
+                            Button {
+                                saveExpense()
+                            } label: {
+                                Text("保存账单")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!canSave)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                Section {
+                    if filteredExpenses.isEmpty {
+                        if store.expenses.isEmpty {
+                            ContentUnavailableView {
+                                Label("暂无账单", systemImage: "tray")
+                            } description: {
+                                Text("录入第一笔聚会花费，开始分摊")
+                            } actions: {
+                                Button("去填写") {
+                                    searchText = ""
+                                }
+                            }
+                        } else {
+                            ContentUnavailableView.search(text: searchText)
+                        }
+                    } else {
+                        ForEach(filteredExpenses) { expense in
+                            NavigationLink(destination: AppPage1DetailView(expense: expense)) {
+                                AppPage1ExpenseRow(
+                                    expense: expense,
+                                    currencyCode: store.settings.currencyCode
+                                )
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    delete(expense)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                        }
+                        .onDelete(perform: deleteExpenses)
+                    }
+                } header: {
+                    HStack {
+                        Text("最近记录")
+                        Spacer()
+                        if !store.expenses.isEmpty {
+                            Picker("筛选", selection: $payerFilter) {
+                                Text("全部").tag(0)
+                                Text("我付").tag(1)
+                                Text("别人付").tag(2)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 180)
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .searchable(text: $searchText, prompt: "搜索书名或作者")
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .navigationTitle("正在读的书")
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "搜索账单或付款人"
+            )
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("记一笔")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddExcerpt = true
-                    } label: {
-                        Label("添加摘录", systemImage: "quote.bubble.plus")
-                    }
-                    .disabled(store.books.isEmpty)
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddBook = true
-                    } label: {
-                        Label("添加书", systemImage: "book.badge.plus")
+                    if !store.expenses.isEmpty {
+                        EditButton()
                     }
                 }
             }
-            .sheet(isPresented: $showingAddBook) {
-                AppPage1AddBookView()
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
-            }
-            .sheet(isPresented: $showingAddExcerpt) {
-                AppPage1AddExcerptView()
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
-            }
-            .sheet(isPresented: $showingBookDetail) {
-                if let book = selectedBook {
-                    AppPage1BookDetailView()
-                        .environment(\.locale, Locale(identifier: "zh_CN"))
+            .onAppear {
+                if !didLoadDefaults {
+                    paidBy = store.settings.defaultPayer
+                    participantCount = max(1, store.settings.defaultParticipantCount)
+                    didLoadDefaults = true
                 }
+            }
+            .alert("已保存", isPresented: $showSaveAlert) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("账单已加入列表")
             }
             .environment(\.locale, Locale(identifier: "zh_CN"))
         }
     }
 
-    func deleteBooks(at offsets: IndexSet) {
-        let ids = offsets.map { filteredBooks[$0].id }
-        let closedSet = Set(ids)
-        store.books.removeAll { closedSet.contains($0.id) }
-        store.excerpts.removeAll { excerpt in
-            guard let selectedBookID = excerpt.selectedBookID else { return false }
-            return closedSet.contains(selectedBookID)
+    private func saveExpense() {
+        let participants = buildParticipants()
+
+        let expense = AppExpense(id: UUID(), title: title.trimmingCharacters(in: .whitespacesAndNewlines), amount: amount, paidBy: paidBy.trimmingCharacters(in: .whitespacesAndNewlines), participants: participants, date: date, note: note.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        store.add(expense)
+        store.save()
+
+        title = ""
+        amountString = ""
+        note = ""
+        date = Date()
+        showSaveAlert = true
+    }
+
+    private func buildParticipants() -> [String] {
+        var people = (1...participantCount).map { "成员\($0)" }
+
+        if payerIncluded && !people.contains(paidBy) {
+            people.insert(paidBy, at: 0)
+        } else if !payerIncluded {
+            people.removeAll { $0 == paidBy }
         }
+
+        return people
+    }
+
+    private func delete(_ expense: AppExpense) {
+        store.expenses.removeAll { $0.id == expense.id }
+        store.save()
+    }
+
+    private func deleteExpenses(at offsets: IndexSet) {
+        let targets = offsets.map { filteredExpenses[$0] }
+        store.expenses.removeAll { expense in
+            targets.contains { $0.id == expense.id }
+        }
+        store.save()
     }
 }
 
-private struct AppPage1BookRow: View {
-    let book: AppBook
+struct AppPage1SummaryCard: View {
+    let count: Int
+    let totalAmount: Double
+    let latestDate: Date?
+    let currencyCode: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(book.title)
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("共 \(count) 笔")
                     .font(.headline)
-                Text(book.author)
+
+                if let latestDate {
+                    Text("最近 \(AppPage1DateFormatter.string(from: latestDate))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("还没有记录")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("合计")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                HStack {
-                    Text(book.category)
-                    Spacer()
-                    Text("\(book.pages) 页")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
-                HStack {
-                    Text("评分 \(book.rating, specifier: "%.1f")")
-                    Spacer()
-                    if let readDate = book.readDate {
-                        Text(AppPage1Format.shortDate(from: readDate))
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(AppPage1AmountString(totalAmount, currencyCode: currencyCode))
+                    .font(.title3.bold())
             }
+        }
+        .padding(4)
+    }
+}
+
+struct AppPage1ExpenseRow: View {
+    let expense: AppExpense
+    let currencyCode: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(expense.title)
+                    .font(.headline)
+
+                Text("\(expense.paidBy) · \(expense.participants.count)人")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text(AppPage1DateFormatter.string(from: expense.date))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+
+            Text(AppPage1AmountString(expense.amount, currencyCode: currencyCode))
+                .font(.headline)
+                .foregroundStyle(.primary)
         }
         .padding(.vertical, 2)
     }
 }
 
-private struct AppPage1MetricCard: View {
-    let title: String
-    let value: String
-    let unit: String
+struct AppPage1DetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppStore
+
+    let expense: AppExpense
+
+    @State private var title: String
+    @State private var amountString: String
+    @State private var paidBy: String
+    @State private var participantCount: Int
+    @State private var payerIncluded: Bool
+    @State private var date: Date
+    @State private var note: String
+    @State private var showDiscardAlert = false
+    @State private var showValidationAlert = false
+
+    init(expense: AppExpense) {
+        self.expense = expense
+        _title = State(initialValue: expense.title)
+        _amountString = State(initialValue: String(format: "%.2f", expense.amount))
+        _paidBy = State(initialValue: expense.paidBy)
+        _note = State(initialValue: expense.note)
+        _date = State(initialValue: expense.date)
+
+        let containsPayer = expense.participants.contains(expense.paidBy)
+        _payerIncluded = State(initialValue: containsPayer)
+        _participantCount = State(
+            initialValue: max(1, expense.participants.count - (containsPayer ? 1 : 0))
+        )
+    }
+
+    var amount: Double {
+        Double(amountString) ?? 0
+    }
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        amount > 0 &&
+        !paidBy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        participantCount > 0
+    }
+
+    private var originalParticipantCount: Int {
+        let containsPayer = expense.participants.contains(expense.paidBy)
+        return max(1, expense.participants.count - (containsPayer ? 1 : 0))
+    }
+
+    private var originalPayerIncluded: Bool {
+        expense.participants.contains(expense.paidBy)
+    }
+
+    private var isDirty: Bool {
+        title != expense.title ||
+        amountString != String(format: "%.2f", expense.amount) ||
+        paidBy != expense.paidBy ||
+        date != expense.date ||
+        note != expense.note ||
+        participantCount != originalParticipantCount ||
+        payerIncluded != originalPayerIncluded
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.title2.bold())
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Form {
+            Section("账单信息") {
+                TextField("聚会名称", text: $title)
+
+                TextField("金额", text: $amountString)
+                    .keyboardType(.decimalPad)
+
+                TextField("付款人", text: $paidBy)
+
+                Stepper(value: $participantCount, in: 1...50) {
+                    HStack {
+                        Text("参与人数")
+                        Spacer()
+                        Text("\(participantCount)")
+                    }
                 }
+
+                Toggle("付款人也参与分摊", isOn: $payerIncluded)
+
+                DatePicker(
+                    "日期",
+                    selection: $date,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+
+                TextField("备注", text: $note)
+            }
+
+            Section {
+                Button("保存修改") {
+                    saveChanges()
+                }
+                .disabled(!canSave)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
+        .navigationTitle("账单详情")
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("取消") {
+                    if isDirty {
+                        showDiscardAlert = true
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
 
-private struct AppPage1EmptyBookState: View {
-    let onAdd: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("还没有在读的书", systemImage: "books.vertical")
-        } description: {
-            Text("添加一本正在读的书，记录进度和摘录。")
-        } actions: {
-            Button("添加第一本", action: onAdd)
-                .buttonStyle(.borderedProminent)
+            ToolbarItem(placement: .confirmationAction) {
+                Button("保存") {
+                    saveChanges()
+                }
+                .disabled(!canSave)
+            }
         }
+        .alert("放弃修改？", isPresented: $showDiscardAlert) {
+            Button("继续编辑", role: .cancel) {}
+            Button("放弃", role: .destructive) {
+                dismiss()
+            }
+        } message: {
+            Text("未保存的修改会丢失")
+        }
+        .alert("金额无效", isPresented: $showValidationAlert) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text("金额必须大于 0")
+        }
+        .environment(\.locale, Locale(identifier: "zh_CN"))
     }
-}
 
-private enum AppPage1Format {
-    static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .none
-        formatter.locale = Locale(identifier: "zh_CN")
-        return formatter
-    }()
+    private func saveChanges() {
+        guard canSave else {
+            showValidationAlert = true
+            return
+        }
 
-    static func shortDate(from date: Date?) -> String {
-        guard let date else { return "暂无" }
-        return dateFormatter.string(from: date)
+        let participants = buildParticipants()
+
+        let updated = AppExpense(id: expense.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), amount: amount, paidBy: paidBy.trimmingCharacters(in: .whitespacesAndNewlines), participants: participants, date: date, note: note.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        if let index = store.expenses.firstIndex(where: { $0.id == expense.id }) {
+            store.expenses[index] = updated
+        }
+
+        store.save()
+        dismiss()
+    }
+
+    private func buildParticipants() -> [String] {
+        var people = (1...participantCount).map { "成员\($0)" }
+
+        if payerIncluded && !people.contains(paidBy) {
+            people.insert(paidBy, at: 0)
+        } else if !payerIncluded {
+            people.removeAll { $0 == paidBy }
+        }
+
+        return people
     }
 }

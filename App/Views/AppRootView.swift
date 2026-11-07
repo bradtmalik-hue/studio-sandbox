@@ -1,37 +1,38 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selectedTab: Int
-
-    init() {
-        _selectedTab = State(initialValue: Self.initialTab())
-    }
-
+    @State private var selectedTab: Int = AppRootView.initialTab()
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             AppPage1View()
                 .tabItem {
-                    Label("正在读", systemImage: "book.fill")
+                    Label("记一笔", systemImage: "plus.circle.fill")
                 }
                 .tag(0)
-
-            AppPage2View()
-                .tabItem {
-                    Label("摘录", systemImage: "quote.bubble")
-                }
-                .tag(1)
-
+            
+            AppPage2View(
+                balances: [],
+                dict: [:],
+                transfers: [],
+                creditors: [],
+                debtors: [],
+                result: [],
+                filtered: []
+            )
+            .tabItem {
+                Label("结果", systemImage: "person.2.wave.2.fill")
+            }
+            .tag(1)
+            
             AppPage3View()
                 .tabItem {
-                    Label("目标", systemImage: "target")
+                    Label("设置", systemImage: "gearshape.fill")
                 }
                 .tag(2)
         }
-        .environmentObject(store)
     }
-
+    
     private static func initialTab() -> Int {
         let arguments = ProcessInfo.processInfo.arguments
         if let index = arguments.firstIndex(of: "-startTab"),
