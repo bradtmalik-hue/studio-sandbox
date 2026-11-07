@@ -1,193 +1,176 @@
 import SwiftUI
+import Combine
 
 struct AppPage3View: View {
-    @EnvironmentObject private var store: AppStore
-
-    @State private var participantCount: Int = 2
-    @State private var defaultPayer: String = ""
-    @State private var currencyCode: String = "CNY"
-    @State private var showValidationAlert = false
-    @State private var showSavedAlert = false
+    @EnvironmentObject var store: AppStore
+    @State private var budgetText: String = ""
+    @State private var showingSavedAlert = false
+    @State private var showingResetAlert = false
 
     var body: some View {
         NavigationStack {
             List {
-                if store.expenses.isEmpty {
-                    Section {
-                        AppPage3EmptyStateCard()
-                    }
-                }
-
                 Section {
-                    AppPage3InfoCard(
-                        participantCount: participantCount,
-                        payer: defaultPayer.isEmpty ? "未设置" : defaultPayer,
-                        currency: currencyText
+                    AppPage3BudgetCard(
+                        monthlyBudget: store.monthlyBudget,
+                        todayTotal: store.todayTotal
                     )
-                }
-
-                Section("记账默认值") {
-                    AppPage3SettingRow(title: "参与人数", icon: "person.2.fill") {
-                        Stepper(value: $participantCount, in: 1...20) {
-                            Text("\(participantCount) 人")
-                        }
-                    }
-
-                    AppPage3SettingRow(title: "默认付款人", icon: "person.crop.circle") {
-                        TextField("例如：张三", text: $defaultPayer)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 180)
-                    }
-
-                    AppPage3SettingRow(title: "货币", icon: "yensign.circle") {
-                        Picker(selection: $currencyCode) {
-                            Text("人民币 ¥").tag("CNY")
-                            Text("美元 $").tag("USD")
-                        } label: {
-                            Text(currencyText)
-                        }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                    }
+                } header: {
+                    Text("当前预算")
                 }
 
                 Section {
-                    Button("恢复默认设置") {
-                        participantCount = 2
-                        defaultPayer = "我"
-                        currencyCode = "CNY"
+                    HStack {
+                        Text("每月预算")
+                        Spacer()
+                        TextField("3000", text: $budgetText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                        Text("元")
+                    }
+
+                    Stepper(
+                        value: Binding(
+                            get: { Double(budgetText) ?? 3000 },
+                            set: { budgetText = String(format: "%.0f", $0) }
+                        ),
+                        in: 100.0...100000.0,
+                        step: 100.0
+                    ) {
+                        Text("调整金额")
                     }
 
                     Button {
-                        saveSettings()
+                        saveBudget()
                     } label: {
-                        Text("保存设置")
+                        Text("保存预算")
                             .frame(maxWidth: .infinity)
-                            .fontWeight(.semibold)
                     }
-                    .disabled(defaultPayer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(parsedBudget == nil || (parsedBudget ?? 0) <= 0)
+                } header: {
+                    Text("修改预算")
+                } footer: {
+                    Text("默认预算是 3000 元。超过后首页合计会显示为红色。")
+                }
+
+                Section {
+                    AppPage3InfoRow(
+                        icon: "info.circle",
+                        text: "预算金额只影响首页合计的颜色提醒，不会阻止记录支出。"
+                    )
+                    AppPage3InfoRow(
+                        icon: "exclamationmark.triangle.fill",
+                        text: "当今日合计超过每月预算时，首页金额会变为红色。"
+                    )
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showingResetAlert = true
+                    } label: {
+                        Text("恢复默认预算")
+                    }
                 }
             }
-            .listStyle(.insetGrouped)
             .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
             .onAppear {
-                loadSettings()
+                if budgetText.isEmpty {
+                    budgetText = String(format: "%.0f", store.monthlyBudget)
+                }
             }
-            .alert("无法保存", isPresented: $showValidationAlert) {
+            .alert("预算已保存", isPresented: $showingSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("默认付款人不能为空")
+                Text("新的每月预算已生效。")
             }
-            .alert("已保存", isPresented: $showSavedAlert) {
-                Button("好", role: .cancel) {}
+            .alert("恢复默认预算？", isPresented: $showingResetAlert) {
+                Button("取消", role: .cancel) {}
+                Button("恢复", role: .destructive) {
+                    budgetText = "3000"
+                    saveBudget()
+                }
             } message: {
-                Text("新的记账默认值已生效")
+                Text("预算将恢复为 3000 元。")
             }
         }
     }
 
-    private var currencyText: String {
-        switch currencyCode {
-        case "USD":
-            return "美元 $"
-        case "CNY":
-            return "人民币 ¥"
-        default:
-            return currencyCode
-        }
+    private var parsedBudget: Double? {
+        Double(budgetText.replacingOccurrences(of: ",", with: ""))
     }
 
-    private func loadSettings() {
-        participantCount = max(1, min(20, store.settings.defaultParticipantCount))
-        defaultPayer = store.settings.defaultPayer
-        currencyCode = store.settings.currencyCode.isEmpty ? "CNY" : store.settings.currencyCode
-    }
-
-    private func saveSettings() {
-        let payer = defaultPayer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !payer.isEmpty else {
-            showValidationAlert = true
-            return
-        }
-
-        var updatedSettings = store.settings
-        updatedSettings.defaultParticipantCount = participantCount
-        updatedSettings.defaultPayer = payer
-        updatedSettings.currencyCode = currencyCode
-        store.settings = updatedSettings
+    private func saveBudget() {
+        guard let value = parsedBudget, value > 0 else { return }
+        store.monthlyBudget = value
         store.save()
-        showSavedAlert = true
+        showingSavedAlert = true
     }
 }
 
-private struct AppPage3InfoCard: View {
-    let participantCount: Int
-    let payer: String
-    let currency: String
+struct AppPage3BudgetCard: View {
+    let monthlyBudget: Double
+    let todayTotal: Double
+
+    private var overAmount: Double {
+        max(0, todayTotal - monthlyBudget)
+    }
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "gearshape.2.fill")
-                .font(.title2)
-                .foregroundStyle(.tint)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("当前默认")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text("\(participantCount) 人 · \(payer) · \(currency)")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("每月预算", systemImage: "creditcard")
+                Spacer()
+                Text(String(format: "¥%.2f", monthlyBudget))
+                    .font(.title2.bold())
             }
 
-            Spacer(minLength: 0)
+            HStack {
+                Label("今日已花", systemImage: "yensign.circle")
+                Spacer()
+                Text(String(format: "¥%.2f", todayTotal))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(todayTotal > monthlyBudget ? Color.red : Color.primary)
+            }
+
+            if todayTotal > monthlyBudget {
+                Label(
+                    String(format: "已超过预算 ¥%.2f", overAmount),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.red)
+            }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 }
 
-private struct AppPage3EmptyStateCard: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "tray")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("还没有支出记录")
-                    .font(.subheadline.weight(.medium))
-
-                Text("去「记一笔」添加第一笔聚会花费")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-private struct AppPage3SettingRow<Content: View>: View {
-    let title: String
+struct AppPage3InfoRow: View {
     let icon: String
-    let content: Content
-
-    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.icon = icon
-        self.content = content()
-    }
+    let text: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Label(title, systemImage: icon)
-                .foregroundStyle(.primary)
-
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             Spacer()
-
-            content
         }
+        .padding(.vertical, 4)
+    }
+}
+
+struct AppPage3EmptyState: View {
+    var body: some View {
+        ContentUnavailableView(
+            "还没有设置",
+            systemImage: "gearshape",
+            description: Text("每月预算会显示在这里。")
+        )
     }
 }
