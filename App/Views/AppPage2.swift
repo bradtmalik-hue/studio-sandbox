@@ -1,433 +1,347 @@
 import SwiftUI
-import Foundation
-
-private struct AppPage2Formatters {
-    static let date: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "zh_CN")
-        df.dateFormat = "M月d日"
-        return df
-    }()
-}
+import Combine
 
 struct AppPage2View: View {
-    @EnvironmentObject private var store: AppStore
+    @EnvironmentObject var store: AppStore
     @State private var searchText = ""
-    @State private var selectedPetFilter = "全部宠物"
-    @State private var sheetMode: AppPage2SheetMode? = nil
+    @State private var selectedBookTitle: String? = nil
+    @State private var showingAddSheet = false
 
-    private var allRecords: [AppVaccineRecord] {
-        store.vaccineRecords
+    private var sortedQuotes: [AppQuote] {
+        store.quotes.sorted { $0.createdAt > $1.createdAt }
     }
 
-    private var petNameMap: [UUID: String] {
-        Dictionary(uniqueKeysWithValues: store.pets.map { ($0.id, $0.name) })
-    }
-
-    private var filteredRecords: [AppVaccineRecord] {
-        var records = allRecords
-        if selectedPetFilter != "全部宠物" {
-            records = records.filter { petNameMap[$0.petID] == selectedPetFilter }
+    private var filteredQuotes: [AppQuote] {
+        var result = sortedQuotes
+        if let book = selectedBookTitle, !book.isEmpty {
+            result = result.filter { $0.bookTitle == book }
         }
         if !searchText.isEmpty {
-            records = records.filter {
-                $0.vaccineName.localizedCaseInsensitiveContains(searchText) ||
-                (petNameMap[$0.petID] ?? "").localizedCaseInsensitiveContains(searchText) ||
-                $0.manufacturer.localizedCaseInsensitiveContains(searchText) ||
-                $0.batchNumber.localizedCaseInsensitiveContains(searchText)
+            result = result.filter { quote in
+                quote.bookTitle.localizedCaseInsensitiveContains(searchText) ||
+                quote.author.localizedCaseInsensitiveContains(searchText) ||
+                quote.content.localizedCaseInsensitiveContains(searchText)
             }
         }
-        return records.sorted { $0.nextDueDate < $1.nextDueDate }
+        return result
     }
 
-    var upcomingCount: Int {
-        let now = Date()
-        let thirtyDaysLater = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
-        return allRecords.filter { $0.nextDueDate >= now && $0.nextDueDate < thirtyDaysLater }.count
+    private var uniqueBookTitles: [String] {
+        Array(Set(store.quotes.map { $0.bookTitle })).sorted()
     }
 
-    private var latestVaccination: AppVaccineRecord? {
-        allRecords.max(by: { $0.vaccinationDate < $1.vaccinationDate })
+    private var totalQuotes: Int {
+        store.quotes.count
+    }
+
+    private var uniqueBooksCount: Int {
+        uniqueBookTitles.count
+    }
+
+    private var latestDateText: String {
+        guard let latest = sortedQuotes.first?.createdAt else { return "暂无" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: latest)
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                AppPage2SummaryCard(
-                    total: allRecords.count,
-                    upcoming: upcomingCount,
-                    latestDate: latestVaccination?.vaccinationDate
-                )
-                .padding(.horizontal)
-                .padding(.top, 8)
+            List {
+                Section {
+                    AppPage2SummaryCard(
+                        totalQuotes: totalQuotes,
+                        uniqueBooks: uniqueBooksCount,
+                        latestDate: latestDateText
+                    )
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
-                HStack {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("搜索疫苗、宠物或批号", text: $searchText)
-                            .autocorrectionDisabled(true)
-                    }
-                    .padding(8)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(10)
-
-                    if !store.pets.isEmpty {
-                        Menu {
-                            Picker("选择宠物", selection: $selectedPetFilter) {
-                                Text("全部宠物").tag("全部宠物")
-                                ForEach(store.pets) { pet in
-                                    Text(pet.name).tag(pet.name)
+                Section {
+                    if filteredQuotes.isEmpty {
+                        AppPage2EmptyView(
+                            hasFilter: !searchText.isEmpty || selectedBookTitle != nil,
+                            onAdd: { showingAddSheet = true },
+                            onClearFilter: {
+                                searchText = ""
+                                selectedBookTitle = nil
+                            }
+                        )
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else {
+                        ForEach(filteredQuotes) { quote in
+                            NavigationLink(destination: AppPage2DetailView(quote: quote)) {
+                                AppPage2Row(quote: quote)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteQuote(quote)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
                                 }
                             }
-                        } label: {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .foregroundColor(.primary)
-                                .font(.title3)
                         }
                     }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-
-                if store.pets.isEmpty {
-                    ContentUnavailableView {
-                        Label("请先添加宠物", systemImage: "pawprint")
-                    } description: {
-                        Text("疫苗记录需要关联宠物档案")
-                    }
-                } else if filteredRecords.isEmpty {
-                    ContentUnavailableView {
-                        Label("暂无疫苗记录", systemImage: "syringe")
-                    } description: {
-                        Text("点击下方按钮添加第一条疫苗记录")
-                    } actions: {
-                        Button("添加记录") {
-                            sheetMode = .add
-                        }
-                    }
-                } else {
-                    List {
-                        ForEach(filteredRecords) { record in
-                            AppPage2Row(record: record, petName: petNameMap[record.petID] ?? "未知宠物")
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        deleteRecord(record)
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
-                                }
-                                .onTapGesture {
-                                    sheetMode = .edit(record)
-                                }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .navigationTitle("疫苗记录")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("摘录列表")
+            .searchable(text: $searchText, prompt: "搜索书名、作者或内容")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        sheetMode = .add
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button("全部") {
+                            selectedBookTitle = nil
+                        }
+                        ForEach(uniqueBookTitles, id: \.self) { title in
+                            Button(title) {
+                                selectedBookTitle = title
+                            }
+                        }
                     } label: {
-                        Label("添加", systemImage: "plus")
+                        Label("筛选", systemImage: "line.3.horizontal.decrease.circle")
                     }
-                    .disabled(store.pets.isEmpty)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
-            .sheet(item: $sheetMode) { mode in
-                AppPage2RecordEditorView(mode: mode)
+            .sheet(isPresented: $showingAddSheet) {
+                AppPage2AddSheet()
             }
         }
     }
 
-    private func deleteRecord(_ record: AppVaccineRecord) {
-        if let index = store.vaccineRecords.firstIndex(where: { $0.id == record.id }) {
-            store.vaccineRecords.remove(at: index)
-            store.reminders.removeAll { $0.petID == record.petID && $0.vaccineName == record.vaccineName }
-        }
+    func deleteQuote(_ quote: AppQuote) {
+        store.quotes.removeAll { $0.id == quote.id }
     }
 }
 
 struct AppPage2SummaryCard: View {
-    let total: Int
-    let upcoming: Int
-    let latestDate: Date?
+    let totalQuotes: Int
+    let uniqueBooks: Int
+    let latestDate: String
 
     var body: some View {
-        HStack(spacing: 16) {
-            AppPage2MetricView(number: total, unit: "总记录", icon: "list.bullet.clipboard")
-            Divider()
-            AppPage2MetricView(number: upcoming, unit: "30天内到期", icon: "calendar.badge.exclamationmark")
-            Divider()
-            VStack(spacing: 4) {
-                if let latest = latestDate {
-                    Text(AppPage2Formatters.date.string(from: latest))
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                } else {
-                    Text("—")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                }
-                Text("最近接种")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-    }
-}
-
-struct AppPage2MetricView: View {
-    let number: Int
-    let unit: String
-    let icon: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 2) {
-                Image(systemName: icon)
-                    .font(.caption)
-                Text("\(number)")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-            }
-            Text(unit)
-                .font(.caption)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("摘录概览")
+                .font(.headline)
                 .foregroundColor(.secondary)
+            HStack(spacing: 20) {
+                VStack(alignment: .leading) {
+                    Text("\(totalQuotes)")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                    Text("条摘录")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .leading) {
+                    Text("\(uniqueBooks)")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                    Text("本书")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .leading) {
+                    Text(latestDate)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Text("最近摘录")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
     }
 }
 
 struct AppPage2Row: View {
-    let record: AppVaccineRecord
-    let petName: String
+    let quote: AppQuote
 
-    var daysRemaining: Int {
-        let components = Calendar.current.dateComponents([.day], from: Date(), to: record.nextDueDate)
-        return components.day ?? 0
+    private var dateText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: quote.createdAt)
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(record.vaccineName)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(quote.bookTitle)
                     .font(.headline)
-                Text(petName)
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(dateText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            HStack(spacing: 8) {
+                Text(quote.author)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                if !record.batchNumber.isEmpty {
-                    Text("批号: \(record.batchNumber)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Text("接种: \(AppPage2Formatters.date.string(from: record.vaccinationDate))")
-                    .font(.caption)
+                Text("·")
+                    .foregroundColor(.secondary)
+                Text("第 \(quote.pageNumber) 页")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("下次: \(AppPage2Formatters.date.string(from: record.nextDueDate))")
-                    .font(.caption)
-                if daysRemaining >= 0 {
-                    Text("剩 \(daysRemaining) 天")
-                        .font(.caption2)
-                        .padding(4)
-                        .background(Color.green.opacity(0.2))
-                        .foregroundColor(.green)
-                        .cornerRadius(4)
-                } else {
-                    Text("过期 \(abs(daysRemaining)) 天")
-                        .font(.caption2)
-                        .padding(4)
-                        .background(Color.red.opacity(0.2))
-                        .foregroundColor(.red)
-                        .cornerRadius(4)
-                }
-            }
+            Text(quote.content)
+                .font(.body)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
         }
         .padding(.vertical, 4)
     }
 }
 
-enum AppPage2SheetMode: Identifiable {
-    case add
-    case edit(AppVaccineRecord)
+struct AppPage2EmptyView: View {
+    let hasFilter: Bool
+    let onAdd: () -> Void
+    let onClearFilter: () -> Void
 
-    var id: String {
-        switch self {
-        case .add:
-            return "add"
-        case .edit(let record):
-            return record.id.uuidString
+    var body: some View {
+        ContentUnavailableView {
+            Label(hasFilter ? "未找到匹配摘录" : "还没有摘录", systemImage: hasFilter ? "magnifyingglass" : "book.closed")
+        } description: {
+            Text(hasFilter ? "试试调整搜索或筛选条件" : "记录下每本书里打动你的那句话")
+        } actions: {
+            if hasFilter {
+                Button("清除筛选", action: onClearFilter)
+            } else {
+                Button("添加第一条", action: onAdd)
+            }
         }
     }
 }
 
-struct AppPage2RecordEditorView: View {
-    let mode: AppPage2SheetMode
-    @EnvironmentObject private var store: AppStore
+struct AppPage2DetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
+    let quote: AppQuote
 
-    @State private var vaccineName: String
-    @State private var selectedPetID: UUID?
-    @State private var vaccinationDate: Date
-    @State private var nextDueDate: Date
-    @State private var manufacturer: String
-    @State private var batchNumber: String
-    @State private var veterinarian: String
-    @State private var notes: String
-    @State private var addReminder: Bool
+    private var dateText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日 HH:mm"
+        return formatter.string(from: quote.createdAt)
+    }
 
-    init(mode: AppPage2SheetMode) {
-        self.mode = mode
-        switch mode {
-        case .add:
-            _vaccineName = State(initialValue: "")
-            _selectedPetID = State(initialValue: nil)
-            _vaccinationDate = State(initialValue: Date())
-            _nextDueDate = State(initialValue: Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date())
-            _manufacturer = State(initialValue: "")
-            _batchNumber = State(initialValue: "")
-            _veterinarian = State(initialValue: "")
-            _notes = State(initialValue: "")
-            _addReminder = State(initialValue: true)
-        case .edit(let record):
-            _vaccineName = State(initialValue: record.vaccineName)
-            _selectedPetID = State(initialValue: record.petID)
-            _vaccinationDate = State(initialValue: record.vaccinationDate)
-            _nextDueDate = State(initialValue: record.nextDueDate)
-            _manufacturer = State(initialValue: record.manufacturer)
-            _batchNumber = State(initialValue: record.batchNumber)
-            _veterinarian = State(initialValue: record.veterinarian)
-            _notes = State(initialValue: record.notes)
-            _addReminder = State(initialValue: false)
+    var body: some View {
+        Form {
+            Section("书名") {
+                Text(quote.bookTitle)
+            }
+            Section("作者") {
+                Text(quote.author)
+            }
+            Section("页码") {
+                Text("第 \(quote.pageNumber) 页")
+            }
+            Section("摘录内容") {
+                Text(quote.content)
+                    .lineLimit(nil)
+            }
+            Section("记录时间") {
+                Text(dateText)
+            }
+            Section {
+                Button(role: .destructive) {
+                    store.quotes.removeAll { $0.id == quote.id }
+                    dismiss()
+                } label: {
+                    Label("删除这条摘录", systemImage: "trash")
+                }
+            }
         }
+        .navigationTitle("摘录详情")
+        .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    private var isEditing: Bool {
-        if case .edit = mode { return true }
-        return false
-    }
+struct AppPage2AddSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: AppStore
 
-    private var selectedPetName: String {
-        if let id = selectedPetID, let pet = store.pets.first(where: { $0.id == id }) {
-            return pet.name
-        }
-        return ""
-    }
+    @State private var bookTitle = ""
+    @State private var author = ""
+    @State private var pageNumberText = ""
+    @State private var content = ""
+    @State private var createdAt = Date()
 
-    private var isSaveDisabled: Bool {
-        vaccineName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-        selectedPetID == nil ||
-        vaccinationDate > nextDueDate
+    private var isFormValid: Bool {
+        guard !bookTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard !author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard let page = Int(pageNumberText), page > 0 else { return false }
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return true
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("疫苗信息") {
-                    TextField("疫苗名称（必填）", text: $vaccineName)
-                    Picker("宠物", selection: $selectedPetID) {
-                        Text("请选择宠物").tag(UUID?.none)
-                        ForEach(store.pets) { pet in
-                            Text(pet.name).tag(pet.id as UUID?)
-                        }
-                    }
-                    if store.pets.isEmpty {
-                        Text("请先在宠物档案中添加宠物")
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                    TextField("生产厂家", text: $manufacturer)
-                    TextField("疫苗批号", text: $batchNumber)
-                    TextField("兽医", text: $veterinarian)
+                Section("必填信息") {
+                    TextField("书名", text: $bookTitle)
+                    TextField("作者", text: $author)
+                    TextField("页码", text: $pageNumberText)
+                        .keyboardType(.numberPad)
                 }
-                Section("接种日期") {
-                    DatePicker("接种日期", selection: $vaccinationDate, displayedComponents: .date)
-                    DatePicker("下次到期日", selection: $nextDueDate, displayedComponents: .date)
-                    if vaccinationDate > nextDueDate {
-                        Text("到期日不能早于接种日期")
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
+                Section("摘录内容") {
+                    TextEditor(text: $content)
+                        .frame(minHeight: 120)
                 }
-                Section("备注") {
-                    TextField("备注", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-                Section {
-                    Toggle(isOn: $addReminder) {
-                        Label("保存后加入提醒", systemImage: "bell.badge")
-                    }
-                    if isEditing {
-                        Text("编辑时默认不重复添加提醒，如需更新请手动开启")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                Section("记录时间") {
+                    DatePicker("时间", selection: $createdAt, displayedComponents: [.date, .hourAndMinute])
+                        .environment(\.locale, Locale(identifier: "zh_CN"))
                 }
             }
-            .navigationTitle(isEditing ? "编辑疫苗记录" : "添加疫苗记录")
+            .navigationTitle("新增摘录")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消") {
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        save()
+                        guard let page = Int(pageNumberText) else { return }
+                        let newQuote = AppQuote(
+                            id: UUID(),
+                            bookTitle: bookTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                            author: author.trimmingCharacters(in: .whitespacesAndNewlines),
+                            pageNumber: page,
+                            content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                            createdAt: createdAt
+                        )
+                        store.quotes.append(newQuote)
+                        dismiss()
                     }
-                    .disabled(isSaveDisabled)
+                    .disabled(!isFormValid)
                 }
             }
         }
-    }
-
-    func save() {
-        guard let petID = selectedPetID else { return }
-        let trimmedName = vaccineName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newRecord = AppVaccineRecord(
-            id: UUID(),
-            petID: petID,
-            vaccineName: trimmedName,
-            manufacturer: manufacturer,
-            batchNumber: batchNumber,
-            vaccinationDate: vaccinationDate,
-            nextDueDate: nextDueDate,
-            veterinarian: veterinarian,
-            notes: notes,
-            createdAt: Date()
-        )
-
-        switch mode {
-        case .add:
-            store.vaccineRecords.append(newRecord)
-        case .edit(let oldRecord):
-            if let index = store.vaccineRecords.firstIndex(where: { $0.id == oldRecord.id }) {
-                store.vaccineRecords[index] = newRecord
-            } else {
-                store.vaccineRecords.append(newRecord)
-            }
-        }
-
-        if addReminder {
-            let days = Calendar.current.dateComponents([.day], from: Date(), to: nextDueDate).day ?? 0
-            let reminder = AppReminder(
-                id: UUID(),
-                petID: petID,
-                petName: selectedPetName,
-                vaccineName: trimmedName,
-                dueDate: nextDueDate,
-                daysRemaining: days
-            )
-            if case .edit(let oldRecord) = mode {
-                store.reminders.removeAll { $0.petID == oldRecord.petID && $0.vaccineName == oldRecord.vaccineName }
-            }
-            store.reminders.append(reminder)
-        }
-
-        dismiss()
     }
 }

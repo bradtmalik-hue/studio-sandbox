@@ -1,45 +1,42 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
-    @EnvironmentObject private var store: AppStore
-    @State private var selection: Int = AppRootView.initialTab()
+    @StateObject private var store = AppStore()
+    @State private var selectedTab = Self.initialTab()
 
     var body: some View {
-        TabView(selection: $selection) {
-            NavigationStack {
-                AppPage1View()
-                    .navigationTitle("宠物档案")
-            }
-            .tabItem {
-                Label("宠物档案", systemImage: "pawprint.fill")
-            }
-            .tag(0)
+        TabView(selection: $selectedTab) {
+            AppPage1View()
+                .tabItem {
+                    Label("录摘录", systemImage: "square.and.pencil")
+                }
+                .tag(0)
 
-            NavigationStack {
-                AppPage2View()
-                    .navigationTitle("疫苗记录")
-            }
-            .tabItem {
-                Label("疫苗记录", systemImage: "syringe.fill")
-            }
-            .tag(1)
+            AppPage2View()
+                .tabItem {
+                    Label("摘录", systemImage: "books.vertical")
+                }
+                .tag(1)
 
-            NavigationStack {
-                AppPage3View()
-                    .navigationTitle("提醒")
-            }
-            .tabItem {
-                Label("提醒", systemImage: "bell.badge.fill")
-            }
-            .tag(2)
+            AppPage3View()
+                .tabItem {
+                    Label("设置", systemImage: "gearshape")
+                }
+                .tag(2)
         }
+        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let value = Int(args[index + 1]) {
-            return min(max(value, 0), 2)
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-startTab"), i + 1 < a.count, let v = Int(a[i + 1]) {
+            return v
         }
         return 0
     }
+}
+
+#Preview {
+    AppRootView()
 }
