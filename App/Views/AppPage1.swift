@@ -72,7 +72,7 @@ struct AppPage1View: View {
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
-                                    store.delete(entry)
+                                    store.entries.removeAll { $0.id == entry.id }
                                 } label: {
                                     Label("删除", systemImage: "trash")
                                 }
@@ -95,7 +95,7 @@ struct AppPage1View: View {
             }
             .safeAreaInset(edge: .bottom) {
                 AppPage1QuickAddBar(totalToday: store.totalToday, goalML: store.dailyGoalML, onAdd: {
-                    store.add(AppWaterEntry(id: UUID(), amountML: 250, date: Date(), note: ""))
+                    store.entries.append(AppWaterEntry(id: UUID(), amountML: 250, date: Date(), note: ""))
                 })
             }
             .sheet(item: $selectedEntry) { entry in
@@ -271,7 +271,7 @@ struct AppPage1DetailView: View {
                 }
                 Section {
                     Button(role: .destructive) {
-                        store.delete(entry)
+                        store.entries.removeAll { $0.id == entry.id }
                         dismiss()
                     } label: {
                         Label("删除记录", systemImage: "trash")
@@ -345,7 +345,7 @@ struct AppPage1CustomAddView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         let date = useCurrentTime ? Date() : customDate
-                        store.add(
+                        store.entries.append(
                             AppWaterEntry(
                                 id: UUID(),
                                 amountML: amountValue,
