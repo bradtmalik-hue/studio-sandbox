@@ -2,6 +2,29 @@ import SwiftUI
 import Combine
 import Foundation
 
+enum AppPage1Format {
+    private static let fullFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    private static let shortFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy/M/d"
+        return formatter
+    }()
+
+    static func expiryFull(_ date: Date) -> String {
+        fullFormatter.string(from: date)
+    }
+
+    static func expiryShort(_ date: Date) -> String {
+        shortFormatter.string(from: date)
+    }
+}
+
 struct AppPage1View: View {
     @EnvironmentObject var store: AppStore
     @State private var searchText = ""
