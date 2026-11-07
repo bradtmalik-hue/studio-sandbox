@@ -30,7 +30,7 @@ struct AppPage3View: View {
             let total = store.records
                 .filter { calendar.isDate($0.date, inSameDayAs: day) }
                 .reduce(0) { $0 + $1.amount }
-            return AppPage3DayStat(date: Date(), total: 0)
+            return AppPage3DayStat()
         }
     }
 
@@ -88,7 +88,7 @@ struct AppPage3View: View {
                         .padding(.horizontal)
 
                         if displayMode == .chart {
-                            AppPage3BarChart(dayStats: dayStats, goal: 2000, showGoalLine: showGoalLine, dateFormatter: Date(), maxH: 0, maxH: 0)
+                            AppPage3BarChart(dayStats: dayStats, goal: 2000, showGoalLine: showGoalLine, dateFormatter: Date(), dayStat: 0, dateFormatter: 0)
                                 .padding(.horizontal)
                         } else {
                             VStack(spacing: 8) {
