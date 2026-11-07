@@ -57,8 +57,8 @@ struct AppPage1View: View {
                     }
                 } else {
                     List {
-                        AppPage1SummaryCard(medicines: filteredMedicines)
-                        AppPage1FilterControls(categories: $selectedCategory, medicine: store.categories)
+                        AppPage1SummaryCard(medicines: filteredMedicines, totalQuantity: 0)
+                        AppPage1FilterControls(categories: $selectedCategory)
                         ForEach(filteredMedicines) { medicine in
                             Button {
                                 selectedMedicine = medicine
@@ -91,7 +91,7 @@ struct AppPage1View: View {
             }
             .searchable(text: $searchText, prompt: "搜索药名、位置或分类")
             .sheet(isPresented: $showingAddSheet) {
-                AppPage1AddSheet()
+                AppPage1AddSheet(availableCategories: "", canSave: false)
             }
             .sheet(item: $selectedMedicine) { medicine in
                 AppPage1DetailView(medicine: medicine)
@@ -437,7 +437,7 @@ struct AppPage1DetailView: View {
             Form {
                 Section("基本信息") {
                     TextField("药名", text: $name)
-                    TextField("规格，如 0.5g×20片", text: $specification)
+                    TextField("规格", text: $specification)
                     TextField("厂家", text: $manufacturer)
                 }
                 Section("分类与位置") {
@@ -446,7 +446,7 @@ struct AppPage1DetailView: View {
                             Text(category).tag(category)
                         }
                     }
-                    TextField("存放位置，如 客厅药箱第2层", text: $location)
+                    TextField("存放位置", text: $location)
                 }
                 Section("数量与效期") {
                     Stepper("数量：\(quantity) \(unit)", value: $quantity, in: 1...999)
@@ -465,38 +465,40 @@ struct AppPage1DetailView: View {
                     Button(role: .destructive) {
                         deleteMedicine()
                     } label: {
-                        Label("删除此药", systemImage: "trash")
+                        Label("删除这盒药", systemImage: "trash")
                     }
                 }
             }
-            .navigationTitle("编辑药品")
+            .navigationTitle("药品详情")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        if hasChanges {
-                            showDiscardAlert = true
-                        } else {
-                            dismiss()
-                        }
-                    }
+                    Button("取消") { cancelTapped() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { saveChanges() }
-                        .disabled(!canSave || !hasChanges)
+                        .disabled(!canSave)
                 }
             }
-            .alert("放弃修改？", isPresented: $showDiscardAlert) {
-                Button("继续编辑", role: .cancel) {}
+            .interactiveDismissDisabled(hasChanges)
+            .alert("放弃更改？", isPresented: $showDiscardAlert) {
+                Button("继续编辑", role: .cancel) { }
                 Button("放弃", role: .destructive) { dismiss() }
             } message: {
-                Text("更改尚未保存，确定要离开吗？")
+                Text("有未保存的修改。")
             }
         }
     }
 
+    private func cancelTapped() {
+        if hasChanges {
+            showDiscardAlert = true
+        } else {
+            dismiss()
+        }
+    }
+
     private func saveChanges() {
-        guard let index = store.medicines.firstIndex(where: { $0.id == medicine.id }) else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, quantity > 0 else { return }
         let updated = AppMedicine(
@@ -513,11 +515,10 @@ struct AppPage1DetailView: View {
             notes: notes,
             createdAt: medicine.createdAt
         )
-        store.medicines[index] = updated
-        if !store.categories.contains(category) {
-            store.categories.append(category)
+        if let index = store.medicines.firstIndex(where: { $0.id == medicine.id }) {
+            store.medicines[index] = updated
+            store.save()
         }
-        store.save()
         dismiss()
     }
 

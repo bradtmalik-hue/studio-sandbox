@@ -46,7 +46,9 @@ struct AppPage2View: View {
                     TextField("药名", text: $name)
                     TextField("规格", text: $specification)
                     TextField("生产厂家", text: $manufacturer)
-                    Picker("分类", selection: $category) {
+                    Picker(selection: $category, label: {
+                        Label("分类", systemImage: "tag")
+                    }) {
                         ForEach(availableCategories, id: \.self) { cat in
                             Text(cat).tag(cat)
                         }
@@ -81,7 +83,9 @@ struct AppPage2View: View {
                                 .monospacedDigit()
                         }
                     }
-                    Picker("单位", selection: $unit) {
+                    Picker(selection: $unit, label: {
+                        Label("单位", systemImage: "scalemass")
+                    }) {
                         ForEach(Self.units, id: \.self) { unit in
                             Text(unit).tag(unit)
                         }
