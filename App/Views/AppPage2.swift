@@ -1,320 +1,234 @@
 import SwiftUI
+import Combine
 
-private let excerptDateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "zh_CN")
-    formatter.dateFormat = "M月d日 HH:mm"
-    return formatter
-}()
+extension AppPayload: ObservableObject {}
 
 struct AppPage2View: View {
-    @EnvironmentObject var store: AppStore
-
+    @EnvironmentObject var store: AppPayload
     @State private var searchText = ""
-    @State private var selectedBookFilter = "全部"
-    @State private var showAddSheet = false
-    @State private var selectedExcerpt: AppExcerpt?
-
-    private var filteredExcerpts: [AppExcerpt] {
-        let sorted = store.excerpts.sorted { $0.createdAt > $1.createdAt }
-        return sorted.filter { excerpt in
-            let matchesSearch = searchText.isEmpty ||
-                excerpt.text.localizedCaseInsensitiveContains(searchText) ||
-                bookTitle(for: excerpt).localizedCaseInsensitiveContains(searchText)
-            let matchesBook = selectedBookFilter == "全部" || bookTitle(for: excerpt) == selectedBookFilter
-            return matchesSearch && matchesBook
-        }
-    }
-
-    private var totalCharacters: Int {
-        store.excerpts.reduce(0) { $0 + $1.text.count }
-    }
-
-    private var recentExcerptText: String {
-        guard let latest = store.excerpts.max(by: { $0.createdAt < $1.createdAt }) else { return "—" }
-        return excerptDateFormatter.string(from: latest.createdAt)
-    }
+    @State private var selectedType = "全部"
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    summaryCard
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+            VStack(spacing: 0) {
+                if store.meals.isEmpty {
+                    AppPage2EmptyView()
+                } else {
+                    AppPage2FilterBar(options: typeOptions, selectedType: $selectedType)
 
-                Section {
-                    TextField("搜索摘录内容或书名", text: $searchText)
-                        .textFieldStyle(.roundedBorder)
-                    Picker("筛选书籍", selection: $selectedBookFilter) {
-                        Text("全部").tag("全部")
-                        ForEach(store.books.map(\.title), id: \.self) { title in
-                            Text(title).tag(title)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
+                    if groupedByDay.isEmpty {
+                        AppPage2EmptyView()
+                    } else {
+                        List {
+                            Section {
+                                AppPage2SummaryCard(
+                                    totalCount: filteredMeals.count,
+                                    totalAmount: filteredMeals.reduce(0) { $0 + $1.amount },
+                                    totalCalories: filteredMeals.reduce(0) { $0 + $1.calories },
+                                    averageCalories: filteredMeals.isEmpty ? 0 : filteredMeals.reduce(0) { $0 + $1.calories } / Double(filteredMeals.count),
+                                    lastDate: filteredMeals.map(\.date).max()
+                                )
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
 
-                if !filteredExcerpts.isEmpty {
-                    Section {
-                        ForEach(filteredExcerpts, id: \.id) { excerpt in
-                            AppPage2Row(excerpt: excerpt)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selectedExcerpt = excerpt
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        store.excerpts.removeAll { $0.id == excerpt.id }
-                                        store.save()
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
+                            ForEach(groupedByDay, id: \.day) { group in
+                                Section {
+                                    ForEach(group.meals, id: \.id) { meal in
+                                        NavigationLink {
+                                            AppPage2MealDetailView()
+                                        } label: {
+                                            AppPage2MealRow(meal: meal)
+                                        }
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                delete(meal)
+                                            } label: {
+                                                Label("删除", systemImage: "trash")
+                                            }
+                                        }
+                                    }
+                                } header: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(dayString(group.day))
+                                            .font(.headline)
+                                        Text("\(group.meals.count) 次喂食 · \(group.meals.reduce(0) { $0 + $1.calories }, specifier: "%.0f") 千卡")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                 }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("摘录列表")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Label("添加", systemImage: "plus")
-                    }
-                }
-            }
-            .contentMargins(.bottom, 96, for: .scrollContent)
-            .overlay {
-                if filteredExcerpts.isEmpty {
-                    if store.excerpts.isEmpty {
-                        ContentUnavailableView {
-                            Label("暂无摘录", systemImage: "quote.bubble")
-                        } description: {
-                            Text("添加摘录后，这里会按时间倒序显示。")
-                        } actions: {
-                            Button("添加第一篇摘录") {
-                                showAddSheet = true
                             }
-                            .buttonStyle(.borderedProminent)
                         }
-                    } else {
-                        ContentUnavailableView {
-                            Label("没有匹配的摘录", systemImage: "magnifyingglass")
-                        } description: {
-                            Text("换个关键词或筛选条件试试。")
-                        }
+                        .listStyle(.insetGrouped)
+                        .contentMargins(.bottom, 96, for: .scrollContent)
                     }
                 }
             }
-            .sheet(isPresented: $showAddSheet) {
-                AppPage2AddSheet()
-                    .environmentObject(store)
-            }
-            .sheet(isPresented: Binding(
-                get: { selectedExcerpt != nil },
-                set: { if !$0 { selectedExcerpt = nil } }
-            )) {
-                if let selectedExcerpt = selectedExcerpt {
-                    AppPage2DetailSheet(excerpt: selectedExcerpt)
-                        .environmentObject(store)
-                }
-            }
+            .navigationTitle("历史")
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索食物名称")
         }
     }
 
-    private func bookTitle(for excerpt: AppExcerpt) -> String {
-        guard let bookID = excerpt.bookID,
-              let book = store.books.first(where: { $0.id == bookID }) else {
-            return "未分类"
+    var filteredMeals: [AppMeal] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return store.meals.filter { meal in
+            let matchesType = selectedType == "全部" || meal.mealType.rawValue == selectedType
+            let matchesSearch = query.isEmpty
+                || meal.foodName.localizedCaseInsensitiveContains(query)
+                || meal.note.localizedCaseInsensitiveContains(query)
+            return matchesType && matchesSearch
         }
-        return book.title
     }
 
-    private var summaryCard: some View {
-        HStack(alignment: .top, spacing: 16) {
-            metricBlock(value: "\(store.excerpts.count)", label: "条摘录")
-            Spacer()
-            metricBlock(value: "\(totalCharacters)", label: "累计字数")
-            Spacer()
-            VStack(alignment: .leading, spacing: 4) {
-                Text(recentExcerptText)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.primary)
-                Text("最近记录")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    private var groupedByDay: [(day: Date, meals: [AppMeal])] {
+        let dict = Dictionary(grouping: filteredMeals) { Calendar.current.startOfDay(for: $0.date) }
+        return dict.keys.sorted(by: >).map { day in
+            (day: day, meals: dict[day]!.sorted(by: { $0.date > $1.date }))
+        }
+    }
+
+    private var typeOptions: [String] {
+        var seen = Set<String>()
+        var options = ["全部"]
+        for meal in store.meals {
+            let raw = meal.mealType.rawValue
+            if seen.insert(raw).inserted {
+                options.append(raw)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        return options
     }
 
-    private func metricBlock(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(.primary)
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
+    func delete(_ meal: AppMeal) {
+        withAnimation {
+            store.meals.removeAll { $0.id == meal.id }
+            store.save()
         }
+    }
+
+    private func dayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 EEEE"
+        return formatter.string(from: date)
     }
 }
 
-struct AppPage2Row: View {
-    @EnvironmentObject var store: AppStore
-    let excerpt: AppExcerpt
-
-    private var bookTitle: String {
-        guard let bookID = excerpt.bookID,
-              let book = store.books.first(where: { $0.id == bookID }) else {
-            return "未分类"
-        }
-        return book.title
-    }
+private struct AppPage2FilterBar: View {
+    let options: [String]
+    @Binding var selectedType: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(bookTitle)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text("\(excerpt.characterCount) 字")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.secondary)
+        Picker("筛选类型", selection: $selectedType) {
+            ForEach(options, id: \.self) { option in
+                Text(option).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+}
+
+private struct AppPage2SummaryCard: View {
+    let totalCount: Int
+    let totalAmount: Double
+    let totalCalories: Double
+    let averageCalories: Double
+    let lastDate: Date?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("历史概览", systemImage: "calendar")
+                    .font(.headline)
+                Spacer()
+            }
+            HStack {
+                AppPage2SummaryMetric(title: "总次数", value: "\(totalCount)", unit: "次")
+                Spacer()
+                AppPage2SummaryMetric(title: "总份量", value: "\(totalAmount, specifier: "%.0f")", unit: "克")
+                Spacer()
+                AppPage2SummaryMetric(title: "总热量", value: "\(totalCalories, specifier: "%.0f")", unit: "千卡")
+            }
+            HStack {
+                AppPage2SummaryMetric(title: "平均每餐", value: "\(averageCalories, specifier: "%.0f")", unit: "千卡")
+                Spacer()
+                if let lastDate = lastDate {
+                    AppPage2SummaryMetric(title: "最近记录", value: shortTimeString(lastDate), unit: "")
                 }
-                Text(excerpt.text)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                HStack {
-                    Spacer()
-                    Text(excerptDateFormatter.string(from: excerpt.createdAt))
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func shortTimeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: date)
+    }
+}
+
+private struct AppPage2SummaryMetric: View {
+    let title: String
+    let value: String
+    let unit: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.title3.monospacedDigit())
+                if !unit.isEmpty {
+                    Text(unit)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            .padding(.vertical, 4)
         }
     }
 }
 
-struct AppPage2DetailSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: AppStore
-    let excerpt: AppExcerpt
-
-    private var bookTitle: String {
-        guard let bookID = excerpt.bookID,
-              let book = store.books.first(where: { $0.id == bookID }) else {
-            return "未分类"
-        }
-        return book.title
-    }
+private struct AppPage2MealRow: View {
+    let meal: AppMeal
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("摘录内容") {
-                    Text(excerpt.text)
-                        .padding(.vertical, 4)
-                }
-                Section("书籍信息") {
-                    LabeledContent("书名", value: bookTitle)
-                    LabeledContent("字数", value: "\(excerpt.characterCount) 字")
-                    LabeledContent("记录时间", value: excerptDateFormatter.string(from: excerpt.createdAt))
-                }
+        HStack(spacing: 12) {
+            Image(systemName: "fork.knife.circle.fill")
+                .font(.title2)
+                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meal.foodName)
+                    .font(.headline)
+                Text(meal.mealType.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(timeString(meal.date))
+                    .font(.caption2)
+                    .foregroundColor(.gray)
             }
-            .navigationTitle("摘录详情")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        dismiss()
-                    }
-                }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(meal.amount, specifier: "%.0f") 克")
+                Text("\(meal.calories, specifier: "%.0f") 千卡")
             }
+            .font(.subheadline)
+            .foregroundColor(.secondary)
         }
-    }
-}
-
-struct AppPage2AddSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: AppStore
-
-    @State private var selectedBookID: UUID?
-    @State private var content = ""
-
-    private var validationMessage: String? {
-        if selectedBookID == nil {
-            return "请选择一本书。"
-        }
-        if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "摘录内容不能为空。"
-        }
-        return nil
+        .padding(.vertical, 2)
     }
 
-    private var canSave: Bool {
-        validationMessage == nil
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("书籍") {
-                    Picker("书名", selection: $selectedBookID) {
-                        ForEach(store.books) { book in
-                            Text(book.title).tag(Optional(book.id))
-                        }
-                    }
-                    .onAppear {
-                        if selectedBookID == nil, let first = store.books.first?.id {
-                            selectedBookID = first
-                        }
-                    }
-                }
-                Section("摘录内容") {
-                    TextField("写下摘录…", text: $content, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-                if let validationMessage = validationMessage {
-                    Section {
-                        Text(validationMessage)
-                            .foregroundColor(.red)
-                    }
-                }
-            }
-            .navigationTitle("添加摘录")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        guard canSave else { return }
-                        let newExcerpt = AppExcerpt(
-                            id: UUID(),
-                            bookID: selectedBookID,
-                            text: content.trimmingCharacters(in: .whitespacesAndNewlines),
-                            createdAt: Date()
-                        )
-                        store.excerpts.append(newExcerpt)
-                        store.save()
-                        dismiss()
-                    }
-                    .disabled(!canSave)
-                }
-            }
-        }
+    private func timeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 }
