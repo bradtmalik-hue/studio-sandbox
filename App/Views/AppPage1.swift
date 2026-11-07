@@ -44,7 +44,7 @@ struct AppPage1View: View {
         NavigationStack {
             Group {
                 if store.medicines.isEmpty {
-                    AppPage1EmptyState(originalMedicine: $showingAddSheet)
+                    AppPage1EmptyState()
                 } else {
                     VStack(spacing: 0) {
                         AppPage1SummaryCard(text: summaryText)
@@ -68,7 +68,7 @@ struct AppPage1View: View {
                                     Button {
                                         selectedMedicine = medicine
                                     } label: {
-                                        AppPage1MedicineRow(medicine: medicine, expiryColor: "")
+                                        AppPage1MedicineRow(medicine: medicine)
                                     }
                                     .buttonStyle(.plain)
                                     .swipeActions {
@@ -106,7 +106,7 @@ struct AppPage1View: View {
                 set: { if !$0 { selectedMedicine = nil } }
             )) {
                 if let medicine = selectedMedicine {
-                    AppPage1DetailView(medicine: "")
+                    AppPage1DetailView()
                 }
             }
         }
@@ -235,221 +235,4 @@ struct AppPage1EmptyState: View {
     }
 }
 
-struct AppPage1DetailView: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-
-    let originalMedicine: AppMedicineBox
-    @State private var name: String
-    @State private var category: String
-    @State private var expiryDate: Date
-    @State private var storageLocation: String
-    @State private var quantity: Int
-    @State private var unit: String
-    @State private var reminderEnabled: Bool
-    @State private var notes: String
-
-    init(medicine: AppMedicineBox) {
-        self.originalMedicine = medicine
-        _name = State(initialValue: medicine.name)
-        _category = State(initialValue: medicine.category)
-        _expiryDate = State(initialValue: medicine.expiryDate)
-        _storageLocation = State(initialValue: medicine.storageLocation)
-        _quantity = State(initialValue: medicine.quantity)
-        _unit = State(initialValue: medicine.unit)
-        _reminderEnabled = State(initialValue: medicine.reminderEnabled)
-        _notes = State(initialValue: medicine.notes)
-    }
-
-    private var isFormValid: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !storageLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        quantity > 0
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("基本信息") {
-                    TextField("药名", text: $name)
-                    TextField("分类（如感冒药）", text: $category)
-                    DatePicker("有效期", selection: $expiryDate, displayedComponents: .date)
-                }
-
-                Section("存放与数量") {
-                    TextField("存放位置", text: $storageLocation)
-                    Stepper(value: $quantity, in: 1...999) {
-                        Label("数量：\(quantity)", systemImage: "number.circle")
-                    }
-                    Picker("单位", selection: $unit) {
-                        Text("盒").tag("盒")
-                        Text("瓶").tag("瓶")
-                        Text("袋").tag("袋")
-                        Text("支").tag("支")
-                        Text("片").tag("片")
-                    }
-                }
-
-                Section("提醒") {
-                    Toggle("到期前提醒", isOn: $reminderEnabled)
-                }
-
-                Section("备注") {
-                    TextField("备注（可选）", text: $notes, axis: .vertical)
-                        .lineLimit(3...5)
-                }
-
-                if !isFormValid {
-                    Section {
-                        Label("请填写药名和存放位置，数量需大于 0", systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("药品详情")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        save()
-                    }
-                    .disabled(!isFormValid)
-                }
-            }
-        }
-    }
-
-    func save() {
-        if let index = store.medicines.firstIndex(where: { $0.id == originalMedicine.id }) {
-            let updated = AppMedicineBox(
-                id: originalMedicine.id,
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                category: category.trimmingCharacters(in: .whitespacesAndNewlines),
-                expiryDate: expiryDate,
-                storageLocation: storageLocation.trimmingCharacters(in: .whitespacesAndNewlines),
-                quantity: quantity,
-                unit: unit,
-                reminderEnabled: reminderEnabled,
-                notes: notes,
-                createdAt: originalMedicine.createdAt
-            )
-            store.medicines[index] = updated
-            store.save()
-        }
-        dismiss()
-    }
-}
-
-struct AppPage1AddMedicineSheet: View {
-    @EnvironmentObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var category = ""
-    @State private var expiryDate = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date()
-    @State private var storageLocation = ""
-    @State private var quantity = 1
-    @State private var unit = "盒"
-    @State private var reminderEnabled = true
-    @State private var notes = ""
-
-    private var isFormValid: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !storageLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        quantity > 0
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("基本信息") {
-                    TextField("药名", text: $name)
-                    TextField("分类（如感冒药）", text: $category)
-                    DatePicker("有效期", selection: $expiryDate, displayedComponents: .date)
-                }
-
-                Section("存放与数量") {
-                    TextField("存放位置", text: $storageLocation)
-                    Stepper(value: $quantity, in: 1...999) {
-                        Label("数量：\(quantity)", systemImage: "number.circle")
-                    }
-                    Picker("单位", selection: $unit) {
-                        Text("盒").tag("盒")
-                        Text("瓶").tag("瓶")
-                        Text("袋").tag("袋")
-                        Text("支").tag("支")
-                        Text("片").tag("片")
-                    }
-                }
-
-                Section("提醒") {
-                    Toggle("到期前提醒", isOn: $reminderEnabled)
-                }
-
-                Section("备注") {
-                    TextField("备注（可选）", text: $notes, axis: .vertical)
-                        .lineLimit(3...5)
-                }
-
-                if !isFormValid {
-                    Section {
-                        Label("请填写药名和存放位置，数量需大于 0", systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("添加药品")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        save()
-                    }
-                    .disabled(!isFormValid)
-                }
-            }
-        }
-    }
-
-    func save() {
-        let newMedicine = AppMedicineBox(
-            id: UUID(),
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: category.trimmingCharacters(in: .whitespacesAndNewlines),
-            expiryDate: expiryDate,
-            storageLocation: storageLocation.trimmingCharacters(in: .whitespacesAndNewlines),
-            quantity: quantity,
-            unit: unit,
-            reminderEnabled: reminderEnabled,
-            notes: notes,
-            createdAt: Date()
-        )
-        store.medicines.append(newMedicine)
-        store.save()
-        dismiss()
-    }
-}
-
-enum AppPage1Format {
-    static func expiryFull(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter.string(from: date)
-    }
-
-    static func expiryShort(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "MM月dd日"
-        return formatter.string(from: date)
-    }
-}
+struct AppPage
