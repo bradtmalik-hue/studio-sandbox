@@ -222,7 +222,6 @@ struct AppPage1EditView: View {
 
         store.pets.removeAll { $0.id == pet.id }
         store.vaccineRecords.removeAll { $0.petID == pet.id }
-        store.reminders.removeAll { $0.petID == pet.id }
         store.save()
         dismiss()
     }
@@ -393,7 +392,6 @@ struct AppPage1View: View {
     func delete(_ pet: AppPet) {
         store.pets.removeAll { $0.id == pet.id }
         store.vaccineRecords.removeAll { $0.petID == pet.id }
-        store.reminders.removeAll { $0.petID == pet.id }
         store.save()
     }
 }
