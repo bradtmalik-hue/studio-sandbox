@@ -1,65 +1,104 @@
 import Foundation
-import SwiftUI
+import Combine
 
-struct AppFeedRecord: Identifiable, Codable, Hashable {
+struct AppBook: Identifiable, Codable {
     let id: UUID
-    var date: Date
-    var foodType: String
-    var amount: Double
-    var note: String
+    var title: String
+    var author: String
+    var category: String
+    var pages: Int
+    var rating: Double
+    var isRead: Bool
+    var isFinished: Bool
+    var readDate: Date?
+    var notes: String
 
-    init(id: UUID = UUID(), date: Date = Date(), foodType: String, amount: Double, note: String = "") {
+    init(
+        id: UUID = UUID(),
+        title: String = "",
+        author: String = "",
+        category: String = "",
+        pages: Int = 0,
+        rating: Double = 0,
+        isRead: Bool = false,
+        isFinished: Bool = false,
+        readDate: Date? = nil,
+        notes: String = ""
+    ) {
         self.id = id
-        self.date = date
-        self.foodType = foodType
-        self.amount = amount
+        self.title = title
+        self.author = author
+        self.category = category
+        self.pages = pages
+        self.rating = rating
+        self.isRead = isRead
+        self.isFinished = isFinished
+        self.readDate = readDate
+        self.notes = notes
+    }
+}
+
+struct AppExcerpt: Identifiable, Codable {
+    let originalID: UUID
+    var text: String
+    var pageText: String
+    var note: String
+    var selectedBookID: UUID?
+    var createdAt: Date
+
+    var id: UUID { originalID }
+
+    init(
+        originalID: UUID = UUID(),
+        text: String = "",
+        pageText: String = "",
+        note: String = "",
+        selectedBookID: UUID? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.originalID = originalID
+        self.text = text
+        self.pageText = pageText
         self.note = note
+        self.selectedBookID = selectedBookID
+        self.createdAt = createdAt
     }
 }
 
-struct AppSettings: Codable, Hashable {
-    var petName: String
-    var dailyTarget: Int
+class AppStore: ObservableObject {
+    @Published var books: [AppBook]
+    @Published var excerpts: [AppExcerpt]
 
-    init(petName: String = "", dailyTarget: Int = 300) {
-        self.petName = petName
-        self.dailyTarget = dailyTarget
+    init(books: [AppBook] = [], excerpts: [AppExcerpt] = []) {
+        self.books = books
+        self.excerpts = excerpts
     }
-}
 
-struct AppPersistedData: Codable {
-    var feedingRecords: [AppFeedRecord]
-    var settings: AppSettings
-
-    init(feedingRecords: [AppFeedRecord] = [], settings: AppSettings = AppSettings(petName: "", dailyTarget: 0)) {
-        self.feedingRecords = feedingRecords
-        self.settings = settings
+    func addBook(_ book: AppBook) {
+        books.append(book)
     }
-}
 
-final class AppStore: ObservableObject {
-    @Published var records: [AppFeedRecord] = []
-    @Published var settings: AppSettings = AppSettings(petName: "", dailyTarget: 0)
-}
+    func updateBook(_ book: AppBook) {
+        if let index = books.firstIndex(where: { $0.id == book.id }) {
+            books[index] = book
+        }
+    }
 
-struct AppPage2DayGroup: Identifiable {
-    let id: Date
-    var records: [AppFeedRecord] = []
-}
+    func deleteBook(_ book: AppBook) {
+        books.removeAll { $0.id == book.id }
+    }
 
-struct DemoSeed {
-    var store: AppStore
-    var now: Date
-    var calendar: Calendar
-    var base: [AppFeedRecord]
+    func addExcerpt(_ excerpt: AppExcerpt) {
+        excerpts.append(excerpt)
+    }
 
-    init(store: AppStore = AppStore(), now: Date = Date(), calendar: Calendar = .current) {
-        self.store = store
-        self.now = now
-        self.calendar = calendar
-        self.base = [
-            AppFeedRecord(id: UUID(), date: calendar.date(byAdding: .day, value: -1, to: now) ?? now, foodType: "干粮", amount: 30, note: "早餐"),
-            AppFeedRecord(id: UUID(), date: now, foodType: "罐头", amount: 50, note: "晚餐")
-        ]
+    func updateExcerpt(_ excerpt: AppExcerpt) {
+        if let index = excerpts.firstIndex(where: { $0.id == excerpt.id }) {
+            excerpts[index] = excerpt
+        }
+    }
+
+    func deleteExcerpt(_ excerpt: AppExcerpt) {
+        excerpts.removeAll { $0.id == excerpt.id }
     }
 }

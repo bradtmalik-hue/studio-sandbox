@@ -2,160 +2,202 @@ import SwiftUI
 
 struct AppPage3View: View {
     @EnvironmentObject private var store: AppStore
-    @State private var petNameText: String = ""
-    @State private var targetText: String = ""
+    @AppStorage("yearlyGoal") private var yearlyGoal: Int = 24
+    @State private var goalText: String = ""
+    @State private var isGoalFocused = false
     @State private var showSavedAlert = false
+    @State private var showResetConfirmation = false
 
-    private let minTarget = 1
-    private let maxTarget = 20
-
-    private var trimmedPetName: String {
-        petNameText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var parsedTarget: Int? {
-        Int(targetText.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-
-    private var isTargetValid: Bool {
-        guard let target = parsedTarget, target >= minTarget, target <= maxTarget else {
-            return false
-        }
+    private var isValidGoal: Bool {
+        guard let value = Int(goalText), value >= 0, value <= 999 else { return false }
         return true
     }
 
-    private var isFormValid: Bool {
-        !trimmedPetName.isEmpty && isTargetValid
+    private var activeBooksCount: Int {
+        store.books.filter { $0.isRead && !$0.isFinished }.count
+    }
+
+    private var finishedBooksCount: Int {
+        store.books.filter { $0.isFinished }.count
+    }
+
+    private var totalCurrentPages: Int {
+        store.books.filter { $0.isFinished }.reduce(0) { $0 + $1.pages }
+    }
+
+    var totalPages: Int {
+        store.books.reduce(0) { $0 + $1.pages }
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    AppPage3SummaryCard(
-                        petName: trimmedPetName.isEmpty ? "未填写" : trimmedPetName,
-                        dailyTarget: parsedTarget ?? 0
-                    )
-                }
+            List {
+                Section("目标") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("年度阅读目标", systemImage: "target")
+                            .font(.headline)
+                        Text("设定每年想读完的图书数量，首页将用这个目标来显示年度进度。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
 
-                Section {
-                    TextField("例如：旺财", text: $petNameText)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .submitLabel(.done)
-                } header: {
-                    Text("宠物信息")
-                } footer: {
-                    if trimmedPetName.isEmpty {
-                        Text("请填写宠物名字")
-                            .foregroundStyle(Color.red)
-                    } else {
-                        Text("这个名字会显示在记录里")
-                    }
-                }
-
-                Section {
-                    HStack {
-                        Text("每日目标")
-                        Spacer()
-                        TextField("1-20", text: $targetText)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 80)
-                        Text("次")
-                    }
-
-                    Stepper(
-                        value: Binding(
-                            get: { parsedTarget ?? store.dailyTarget },
-                            set: { newValue in
-                                let clamped = min(max(newValue, minTarget), maxTarget)
-                                targetText = String(clamped)
-                                store.dailyTarget = clamped
-                            }
-                        ),
-                        in: minTarget...maxTarget
-                    ) {
-                        Text("目标调整")
-                    }
-                } header: {
-                    Text("每天喂食次数目标")
-                } footer: {
-                    if !isTargetValid {
-                        Text("目标需在 \(minTarget)-\(maxTarget) 次之间")
-                            .foregroundStyle(Color.red)
-                    } else {
-                        Text("可选择或输入 \(minTarget)-\(maxTarget) 之间的数字")
-                    }
-                }
-
-                Section {
-                    Button {
-                        store.petName = trimmedPetName
-                        store.dailyTarget = parsedTarget ?? store.dailyTarget
-                        store.save()
-                        showSavedAlert = true
-                    } label: {
                         HStack {
-                            Spacer()
-                            Label("保存设置", systemImage: "checkmark.circle.fill")
-                            Spacer()
+                            TextField("例如 24", text: $goalText)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 120)
+                                .focused($isGoalFocused)
+                                .onChange(of: goalText) { _, newValue in
+                                    let filtered = newValue.filter { $0.isNumber }
+                                    if filtered != newValue {
+                                        goalText = String(filtered.prefix(3))
+                                    }
+                                    if let value = Int(filtered), value > 999 {
+                                        goalText = String(filtered.prefix(3))
+                                    }
+                                }
+
+                            Stepper("本", value: Binding(
+                                get: { Int(goalText) ?? 0 },
+                                set: { newValue in
+                                    let clamped = max(0, min(999, newValue))
+                                    goalText = String(clamped)
+                                }
+                            ), in: 0...999)
+                            .labelsHidden()
+                        }
+
+                        HStack {
+                            ForEach([12, 24, 36, 52], id: \.self) { value in
+                                Button("\(value)本") {
+                                    goalText = String(value)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+
+                        Text("当前目标：\(yearlyGoal) 本/年")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                Section("今年阅读概览") {
+                    if store.books.isEmpty {
+                        AppPage3EmptyReadingState()
+                    } else {
+                        AppPage3StatRow(
+                            title: "正在读",
+                            value: "\(activeBooksCount) 本",
+                            systemImage: "book.fill",
+                            color: .blue
+                        )
+                        AppPage3StatRow(
+                            title: "读完",
+                            value: "\(finishedBooksCount) 本",
+                            systemImage: "checkmark.circle.fill",
+                            color: .green
+                        )
+                        AppPage3StatRow(
+                            title: "总页数进度",
+                            value: "\(totalCurrentPages) / \(totalPages) 页",
+                            systemImage: "text.book.closed.fill",
+                            color: .orange
+                        )
+                        AppPage3StatRow(
+                            title: "摘录",
+                            value: "\(store.excerpts.count) 条",
+                            systemImage: "quote.bubble.fill",
+                            color: .purple
+                        )
+
+                        if totalPages > 0 {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ProgressView(value: Double(totalCurrentPages), total: Double(totalPages))
+                                Text("已读 \(totalCurrentPages) / \(totalPages) 页")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
                         }
                     }
-                    .disabled(!isFormValid)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.brown)
+                }
 
-                    Button("恢复默认") {
-                        petNameText = "我的宠物"
-                        targetText = "3"
+                Section("保存与重置") {
+                    Button {
+                        saveGoal()
+                    } label: {
+                        Label("保存目标", systemImage: "square.and.arrow.down.fill")
                     }
-                    .foregroundStyle(Color.secondary)
+                    .disabled(!isValidGoal)
+
+                    Button(role: .destructive) {
+                        showResetConfirmation = true
+                    } label: {
+                        Label("恢复默认目标", systemImage: "arrow.counterclockwise")
+                    }
                 }
             }
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
-            .onAppear {
-                if petNameText.isEmpty {
-                    petNameText = store.petName
-                    targetText = String(store.dailyTarget)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        isGoalFocused = false
+                    }
                 }
             }
-            .alert("设置已保存", isPresented: $showSavedAlert) {
+            .onAppear {
+                goalText = String(yearlyGoal)
+            }
+            .alert("已保存", isPresented: $showSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("宠物名字和每日目标已更新。")
+                Text("年度目标已更新为 \(yearlyGoal) 本。")
+            }
+            .confirmationDialog("恢复默认目标？", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+                Button("恢复为 24 本", role: .destructive) {
+                    goalText = "24"
+                    saveGoal()
+                }
+                Button("取消", role: .cancel) {}
             }
         }
     }
-}
 
-struct AppPage3SummaryCard: View {
-    let petName: String
-    let dailyTarget: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("当前设置", systemImage: "pawprint.fill")
-                .font(.subheadline)
-                .foregroundStyle(Color.secondary)
-
-            Text(petName)
-                .font(.title2.bold())
-
-            Text("每日目标：\(dailyTarget) 次")
-                .font(.subheadline)
-                .foregroundStyle(dailyTarget > 0 ? Color.primary : Color.secondary)
-        }
-        .padding(.vertical, 4)
+    private func saveGoal() {
+        guard let value = Int(goalText), value >= 0, value <= 999 else { return }
+        yearlyGoal = value
+        isGoalFocused = false
+        showSavedAlert = true
     }
 }
 
-struct AppPage3EmptyView: View {
+private struct AppPage3StatRow: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let color: Color
+
     var body: some View {
-        ContentUnavailableView(
-            "还没有宠物设置",
-            systemImage: "pawprint.circle",
-            description: Text("请先填写宠物名字和目标")
-        )
+        HStack {
+            Label(title, systemImage: systemImage)
+                .foregroundStyle(color)
+            Spacer()
+            Text(value)
+                .fontWeight(.medium)
+        }
+    }
+}
+
+private struct AppPage3EmptyReadingState: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("还没有在读的书", systemImage: "books.vertical")
+        } description: {
+            Text("先到「正在读」页添加一本书，这里会显示你的阅读概览。")
+        }
     }
 }
