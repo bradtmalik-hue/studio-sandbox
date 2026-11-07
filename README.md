@@ -1,7 +1,7 @@
 # App
 
-正在读、摘录、年度目标一页看完
+一笔记清，谁该给谁多少
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 正在读的书, 摘录列表, 设置
+Screens: 记一笔, 结果, 设置
