@@ -8,7 +8,7 @@ struct AppPage1View: View {
         NavigationStack {
             List {
                 Section {
-                    AppPage1SummaryCard()
+                    AppPage1SummaryCard(store: store)
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -70,7 +70,7 @@ struct AppPage1View: View {
 }
 
 struct AppPage1SummaryCard: View {
-    @EnvironmentObject var store: AppStore
+    @ObservedObject var store: AppStore
 
     var body: some View {
         VStack(spacing: 16) {
