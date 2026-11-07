@@ -99,7 +99,7 @@ struct AppPage1View: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AppPage1AddMedicineSheet()
+                AppPage2View()
             }
             .sheet(isPresented: Binding(
                 get: { selectedMedicine != nil },
@@ -235,4 +235,4 @@ struct AppPage1EmptyState: View {
     }
 }
 
-struct AppPage
+struct AppPage {}
