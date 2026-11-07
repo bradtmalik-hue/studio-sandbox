@@ -10,13 +10,13 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(store: store)
+            AppPage1View()
                 .tabItem {
                     Label("今天", systemImage: "figure.run.circle.fill")
                 }
                 .tag(0)
 
-            AppPage2View(totalMinutes: store)
+            AppPage2View()
                 .tabItem {
                     Label("历史", systemImage: "calendar.circle.fill")
                 }
