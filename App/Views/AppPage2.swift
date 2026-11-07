@@ -25,7 +25,7 @@ struct AppPage2View: View {
             summarySection
 
             if filteredRecords.isEmpty {
-                AppPage2EmptyView()
+                AppPage2HistoryEmptyView()
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
@@ -171,8 +171,12 @@ private struct AppPage2SummaryItem: View {
     }
 }
 
-private struct AppPage2EmptyView: View {
+private struct AppPage2HistoryEmptyView: View {
     let message: String
+
+    init(message: String = "记录喝水数据后，这里会显示历史列表") {
+        self.message = message
+    }
 
     var body: some View {
         ContentUnavailableView {
