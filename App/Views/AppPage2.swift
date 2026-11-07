@@ -56,16 +56,20 @@ struct AppPage2View: View {
     @State private var filter: AppPage2Filter = .all
 
     private var groups: [AppPage2DayGroup] {
-        let all = store.historyByDay
-            .map { group in
-                AppPage2DayGroup(
-                    id: group.date,
-                    date: group.date,
-                    total: group.records.reduce(0) { $0 + $1.amount },
-                    records: group.records
-                )
-            }
-            .sorted { $0.date > $1.date }
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: store.records) { record in
+            calendar.startOfDay(for: record.date)
+        }
+
+        let all = grouped.map { day, records in
+            AppPage2DayGroup(
+                id: day,
+                date: day,
+                total: records.reduce(0) { $0 + $1.amount },
+                records: records.sorted { $0.date > $1.date }
+            )
+        }
+        .sorted { $0.date > $1.date }
 
         switch filter {
         case .all:
@@ -245,15 +249,5 @@ private struct AppPage2Row: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
-    }
-}
-
-private struct AppPage2EmptyView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label("暂无历史记录", systemImage: "drop.circle")
-        } description: {
-            Text("在「今天」页添加第一笔饮水记录吧")
-        }
     }
 }

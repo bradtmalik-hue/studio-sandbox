@@ -2,9 +2,16 @@ import SwiftUI
 import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject var store: AppWaterStore
+    let store: AppWaterStore
+    let dailyGoal: Double
+
     @State private var showAddSheet = false
-    private let dailyGoal: Double = 2000
+
+    init(store: AppWaterStore, dailyGoal: Double) {
+        self.store = store
+        self.dailyGoal = dailyGoal
+        self._showAddSheet = State(initialValue: false)
+    }
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -74,6 +81,7 @@ struct AppPage1View: View {
             }
             .sheet(isPresented: $showAddSheet) {
                 AppPage1AddSheet()
+                    .environmentObject(store)
             }
         }
     }
@@ -86,7 +94,7 @@ struct AppPage1View: View {
     }
 
     private func addWater(_ amount: Double) {
-        let record = AppWaterRecord(id: UUID(), date: Date(), amount: amount)
+        let record = AppWaterRecord(id: UUID(), date: Date(), amount: amount, note: nil)
         store.records = store.records + [record]
         store.save()
     }
@@ -253,7 +261,7 @@ private struct AppPage1AddSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         guard let amount = amount, isAmountValid else { return }
-                        let record = AppWaterRecord(id: UUID(), date: Date(), amount: amount)
+                        let record = AppWaterRecord(id: UUID(), date: Date(), amount: amount, note: nil)
                         store.records = store.records + [record]
                         store.save()
                         dismiss()
