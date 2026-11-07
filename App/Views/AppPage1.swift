@@ -106,7 +106,7 @@ struct AppPage1View: View {
                 set: { if !$0 { selectedMedicine = nil } }
             )) {
                 if let medicine = selectedMedicine {
-                    AppPage1DetailView(medicine: "")
+                    AppPage1DetailView(originalMedicine: "")
                 }
             }
         }
