@@ -248,31 +248,6 @@ private struct AppPage2SectionHeader: View {
     }
 }
 
-private struct AppPage2EmptyStateView: View {
-    let add: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("还没有历史记录", systemImage: "drop.triangle")
-        } description: {
-            Text("去今天页面记录第一杯水，之后这里会按天整理")
-        } actions: {
-            Button("添加一条记录", action: add)
-                .buttonStyle(.borderedProminent)
-        }
-    }
-}
-
-private struct AppPage2NoResultsStateView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label("没有匹配结果", systemImage: "magnifyingglass")
-        } description: {
-            Text("换个关键词或筛选条件试试")
-        }
-    }
-}
-
 private struct AppPage2RecordEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: AppHydrationStore
