@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
     @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
@@ -23,14 +22,13 @@ struct AppRootView: View {
             .tag(1)
 
             NavigationStack {
-                AppPage3View(id: "", calendar: "", startOfToday: Date())
+                AppPage3View()
             }
             .tabItem {
                 Label("统计", systemImage: "chart.bar.fill")
             }
             .tag(2)
         }
-        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {

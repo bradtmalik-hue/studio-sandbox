@@ -7,7 +7,13 @@ struct AppPage2View: View {
     @State private var filter: AppPage2Filter = .all
 
     private var filteredGroups: [AppPage2Group] {
-        let mapped = store.historyGroups.map { AppPage2Group() }
+        let calendar = Calendar.current
+        let groups = Dictionary(grouping: store.records) { record -> Date in
+            calendar.startOfDay(for: record.date)
+        }
+        let mapped = groups.map { date, records -> AppPage2Group in
+            AppPage2Group(date: date, records: records.sorted { $0.date > $1.date })
+        }
         let sorted = mapped.sorted { $0.date > $1.date }
         switch filter {
         case .all:

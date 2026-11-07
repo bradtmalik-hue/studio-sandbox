@@ -1,6 +1,23 @@
 import SwiftUI
 import Foundation
 
+struct AppDrinkRecord: Identifiable, Codable {
+    let id: UUID
+    var date: Date
+    var amount: Int
+}
+
+class AppStore: ObservableObject {
+    @Published var records: [AppDrinkRecord] = []
+
+    var todayRecords: [AppDrinkRecord] {
+        records.filter { Calendar.current.isDateInToday($0.date) }
+    }
+
+    func save() {
+    }
+}
+
 private let page1TimeFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "zh_CN")
@@ -85,7 +102,7 @@ struct AppPage1View: View {
     }
 
     private func addRecord(amount: Int) {
-        let newRecord = AppDrinkRecord(id: UUID(), date: Date(), amount: amount)
+        let newRecord = AppDrinkRecord()
         store.records.append(newRecord)
         store.save()
     }
@@ -251,7 +268,7 @@ struct AppPage1CustomAddSheet: View {
                         if amount > 2000 {
                             showValidationAlert = true
                         } else {
-                            let newRecord = AppDrinkRecord(id: UUID(), date: Date(), amount: amount)
+                            let newRecord = AppDrinkRecord()
                             store.records.append(newRecord)
                             store.save()
                             dismiss()
