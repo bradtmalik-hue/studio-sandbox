@@ -1,414 +1,467 @@
 import SwiftUI
-import Foundation
-
-private let AppPage1DateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "zh_CN")
-    formatter.dateFormat = "M月d日 HH:mm"
-    return formatter
-}()
-
-private func AppPage1AmountString(_ amount: Double, currencyCode: String) -> String {
-    let formatter = NumberFormatter()
-    formatter.numberStyle = .currency
-    formatter.currencyCode = currencyCode
-    formatter.locale = Locale(identifier: "zh_CN")
-    return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
-}
+import Combine
 
 struct AppPage1View: View {
-    @EnvironmentObject private var store: AppStore
+    @EnvironmentObject var store: AppStore
+    @State private var searchText: String = ""
+    @State private var filter: AppPage1Filter = .all
+    @State private var editorMode: AppPage1EditorMode?
 
-    @State private var title = ""
-    @State private var amountString = ""
-    @State private var paidBy = ""
-    @State private var participantCount = 2
-    @State private var payerIncluded = true
-    @State private var date = Date()
-    @State private var note = ""
-    @State private var searchText = ""
-    @State private var payerFilter = 0
-    @State private var didLoadDefaults = false
-    @State private var showSaveAlert = false
+    private static let rowTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
 
-    var amount: Double {
-        Double(amountString) ?? 0
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private var todayRecords: [AppFeedRecord] {
+        store.feedingRecords
+            .filter { Calendar.current.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
     }
 
-    private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        amount > 0 &&
-        !paidBy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        participantCount > 0
-    }
+    var filteredRecords: [AppFeedRecord] {
+        todayRecords.filter { record in
+            let matchesSearch = searchText.isEmpty
+                || record.foodType.localizedCaseInsensitiveContains(searchText)
+                || record.note.localizedCaseInsensitiveContains(searchText)
 
-    private var filteredExpenses: [AppExpense] {
-        let sorted = store.expenses.sorted { $0.date > $1.date }
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard matchesSearch else { return false }
 
-        return sorted.filter { expense in
-            if !query.isEmpty {
-                let matchesTitle = expense.title.localizedCaseInsensitiveContains(query)
-                let matchesPayer = expense.paidBy.localizedCaseInsensitiveContains(query)
-                if !matchesTitle && !matchesPayer {
-                    return false
-                }
-            }
-
-            switch payerFilter {
-            case 1:
-                return expense.paidBy == store.settings.defaultPayer
-            case 2:
-                return expense.paidBy != store.settings.defaultPayer
-            default:
+            switch filter {
+            case .all:
                 return true
+            case .staple:
+                return record.foodType.contains("主食")
+                    || record.foodType.contains("干粮")
+                    || record.foodType.contains("粮")
+            case .snack:
+                return record.foodType.contains("零食")
+                    || record.foodType.contains("猫条")
+                    || record.foodType.contains("罐")
+                    || record.foodType.contains("湿粮")
+            case .other:
+                return !(record.foodType.contains("主食")
+                    || record.foodType.contains("干粮")
+                    || record.foodType.contains("粮")
+                    || record.foodType.contains("零食")
+                    || record.foodType.contains("猫条")
+                    || record.foodType.contains("罐")
+                    || record.foodType.contains("湿粮"))
             }
         }
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack {
             List {
-                if searchText.isEmpty {
-                    Section {
-                        AppPage1SummaryCard(
-                            count: store.expenses.count,
-                            totalAmount: store.totalAmount,
-                            latestDate: store.latestExpenseDate,
-                            currencyCode: store.settings.currencyCode
-                        )
-                    }
-
-                    Section("新建账单") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            TextField("聚会名称", text: $title)
-
-                            TextField("金额", text: $amountString)
-                                .keyboardType(.decimalPad)
-
-                            TextField("付款人", text: $paidBy)
-
-                            Stepper(value: $participantCount, in: 1...50) {
-                                HStack {
-                                    Text("参与人数")
-                                    Spacer()
-                                    Text("\(participantCount)")
-                                }
-                            }
-
-                            Toggle("付款人也参与分摊", isOn: $payerIncluded)
-
-                            DatePicker(
-                                "日期",
-                                selection: $date,
-                                displayedComponents: [.date, .hourAndMinute]
-                            )
-
-                            TextField("备注", text: $note)
-
-                            Button {
-                                saveExpense()
-                            } label: {
-                                Text("保存账单")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(!canSave)
-                        }
-                        .padding(.vertical, 4)
-                    }
+                if !todayRecords.isEmpty {
+                    AppPage1SummaryCard(
+                        count: todayRecords.count,
+                        totalAmount: todayRecords.reduce(0) { $0 + $1.amount },
+                        recentDate: todayRecords.first?.date,
+                        target: store.dailyTarget
+                    )
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    .listRowSeparator(.hidden)
                 }
 
                 Section {
-                    if filteredExpenses.isEmpty {
-                        if store.expenses.isEmpty {
-                            ContentUnavailableView {
-                                Label("暂无账单", systemImage: "tray")
-                            } description: {
-                                Text("录入第一笔聚会花费，开始分摊")
-                            } actions: {
-                                Button("去填写") {
-                                    searchText = ""
-                                }
-                            }
-                        } else {
-                            ContentUnavailableView.search(text: searchText)
+                    ForEach(filteredRecords) { record in
+                        Button {
+                            editorMode = .edit(record)
+                        } label: {
+                            AppPage1Row(
+                                record: record,
+                                timeText: Self.rowTimeFormatter.string(from: record.date)
+                            )
                         }
-                    } else {
-                        ForEach(filteredExpenses) { expense in
-                            NavigationLink(destination: AppPage1DetailView(expense: expense)) {
-                                AppPage1ExpenseRow(
-                                    expense: expense,
-                                    currencyCode: store.settings.currencyCode
-                                )
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    delete(expense)
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                delete(record)
+                            } label: {
+                                Label("删除", systemImage: "trash")
                             }
                         }
-                        .onDelete(perform: deleteExpenses)
                     }
                 } header: {
-                    HStack {
-                        Text("最近记录")
-                        Spacer()
-                        if !store.expenses.isEmpty {
-                            Picker("筛选", selection: $payerFilter) {
-                                Text("全部").tag(0)
-                                Text("我付").tag(1)
-                                Text("别人付").tag(2)
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 180)
+                    if !filteredRecords.isEmpty {
+                        Text("今日记录")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索食物或备注")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("筛选", selection: $filter) {
+                        ForEach(AppPage1Filter.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 280)
+                }
+            }
+
+            if filteredRecords.isEmpty {
+                ContentUnavailableView {
+                    Label(
+                        todayRecords.isEmpty ? "今天还没有喂食记录" : "没有匹配的记录",
+                        systemImage: todayRecords.isEmpty ? "pawprint.fill" : "magnifyingglass"
+                    )
+                } description: {
+                    Text(todayRecords.isEmpty ? "点下面“记一笔”，给毛孩子记下第一顿" : "换个关键词或筛选条件试试")
+                } actions: {
+                    if todayRecords.isEmpty {
+                        Button("添加第一条") {
+                            editorMode = .new
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
             }
-            .searchable(
-                text: $searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "搜索账单或付款人"
-            )
-            .contentMargins(.bottom, 96, for: .scrollContent)
-            .navigationTitle("记一笔")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    if !store.expenses.isEmpty {
-                        EditButton()
-                    }
-                }
+        }
+        .navigationTitle("今天")
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                editorMode = .new
+            } label: {
+                Label("记一笔", systemImage: "plus")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
             }
-            .onAppear {
-                if !didLoadDefaults {
-                    paidBy = store.settings.defaultPayer
-                    participantCount = max(1, store.settings.defaultParticipantCount)
-                    didLoadDefaults = true
-                }
+            .buttonStyle(.borderedProminent)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+            .background(.ultraThinMaterial)
+        }
+        .sheet(item: $editorMode) { mode in
+            NavigationStack {
+                AppPage1EditorView(mode: mode)
+                    .environmentObject(store)
             }
-            .alert("已保存", isPresented: $showSaveAlert) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("账单已加入列表")
-            }
-            .environment(\.locale, Locale(identifier: "zh_CN"))
         }
     }
 
-    private func saveExpense() {
-        let participants = buildParticipants()
-
-        let expense = AppExpense(id: UUID(), title: title.trimmingCharacters(in: .whitespacesAndNewlines), amount: amount, paidBy: paidBy.trimmingCharacters(in: .whitespacesAndNewlines), participants: participants, date: date, note: note.trimmingCharacters(in: .whitespacesAndNewlines))
-
-        store.add(expense)
-        store.save()
-
-        title = ""
-        amountString = ""
-        note = ""
-        date = Date()
-        showSaveAlert = true
-    }
-
-    private func buildParticipants() -> [String] {
-        var people = (1...participantCount).map { "成员\($0)" }
-
-        if payerIncluded && !people.contains(paidBy) {
-            people.insert(paidBy, at: 0)
-        } else if !payerIncluded {
-            people.removeAll { $0 == paidBy }
+    func delete(_ record: AppFeedRecord) {
+        withAnimation {
+            store.feedingRecords.removeAll { $0.id == record.id }
+            store.save()
         }
-
-        return people
     }
+}
 
-    private func delete(_ expense: AppExpense) {
-        store.expenses.removeAll { $0.id == expense.id }
-        store.save()
-    }
+enum AppPage1Filter: String, CaseIterable, Identifiable {
+    case all = "全部"
+    case staple = "主食"
+    case snack = "零食"
+    case other = "其他"
 
-    private func deleteExpenses(at offsets: IndexSet) {
-        let targets = offsets.map { filteredExpenses[$0] }
-        store.expenses.removeAll { expense in
-            targets.contains { $0.id == expense.id }
+    var id: String { rawValue }
+}
+
+enum AppPage1EditorMode: Identifiable {
+    case new
+    case edit(AppFeedRecord)
+
+    var id: UUID {
+        switch self {
+        case .new:
+            return UUID()
+        case .edit(let record):
+            return record.id
         }
-        store.save()
     }
 }
 
 struct AppPage1SummaryCard: View {
     let count: Int
     let totalAmount: Double
-    let latestDate: Date?
-    let currencyCode: String
+    let recentDate: Date?
+    let target: Int
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("共 \(count) 笔")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("今日喂食")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("\(count) 次")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
 
-                if let latestDate {
-                    Text("最近 \(AppPage1DateFormatter.string(from: latestDate))")
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("目标")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("还没有记录")
+                        .foregroundColor(.secondary)
+                    Text("\(target) 次")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+            }
+
+            Divider()
+
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("合计")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(totalAmount, specifier: "%.1f") 克")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("最近一次")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if let recentDate = recentDate {
+                        Text(Self.timeFormatter.string(from: recentDate))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.primary)
+                    } else {
+                        Text("—")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "fork.knife")
+                    .font(.title)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(.separator), lineWidth: 1)
+        )
+    }
+}
+
+struct AppPage1Row: View {
+    let record: AppFeedRecord
+    let timeText: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 46, height: 46)
+
+                Image(systemName: symbolName(for: record.foodType))
+                    .font(.title3)
+                    .foregroundColor(.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(record.foodType.isEmpty ? "未命名食物" : record.foodType)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                HStack(spacing: 8) {
+                    Text("\(record.amount, specifier: "%.1f") 克")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(.secondary)
+
+                    Text("·")
+                        .foregroundColor(.secondary)
+
+                    Text(timeText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+                if !record.note.isEmpty {
+                    Text(record.note)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("合计")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text(AppPage1AmountString(totalAmount, currencyCode: currencyCode))
-                    .font(.title3.bold())
-            }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
         }
-        .padding(4)
+        .padding(.vertical, 4)
+    }
+
+    private func symbolName(for foodType: String) -> String {
+        if foodType.contains("主食") || foodType.contains("干粮") || foodType.contains("粮") {
+            return "circle.hexagongrid.fill"
+        } else if foodType.contains("零食") || foodType.contains("猫条") || foodType.contains("罐") || foodType.contains("湿粮") {
+            return "heart.fill"
+        } else {
+            return "pawprint.fill"
+        }
     }
 }
 
-struct AppPage1ExpenseRow: View {
-    let expense: AppExpense
-    let currencyCode: String
-
-    var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(expense.title)
-                    .font(.headline)
-
-                Text("\(expense.paidBy) · \(expense.participants.count)人")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text(AppPage1DateFormatter.string(from: expense.date))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer()
-
-            Text(AppPage1AmountString(expense.amount, currencyCode: currencyCode))
-                .font(.headline)
-                .foregroundStyle(.primary)
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-struct AppPage1DetailView: View {
+struct AppPage1EditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: AppStore
+    @EnvironmentObject var store: AppStore
 
-    let expense: AppExpense
+    let mode: AppPage1EditorMode
 
-    @State private var title: String
-    @State private var amountString: String
-    @State private var paidBy: String
-    @State private var participantCount: Int
-    @State private var payerIncluded: Bool
-    @State private var date: Date
+    @State private var foodType: String
+    @State private var amountText: String
     @State private var note: String
-    @State private var showDiscardAlert = false
-    @State private var showValidationAlert = false
+    @State private var date: Date
+    @State private var confirmed: Bool = false
+    @State private var showDiscardAlert: Bool = false
+    @State private var amountMessage: String?
 
-    init(expense: AppExpense) {
-        self.expense = expense
-        _title = State(initialValue: expense.title)
-        _amountString = State(initialValue: String(format: "%.2f", expense.amount))
-        _paidBy = State(initialValue: expense.paidBy)
-        _note = State(initialValue: expense.note)
-        _date = State(initialValue: expense.date)
-
-        let containsPayer = expense.participants.contains(expense.paidBy)
-        _payerIncluded = State(initialValue: containsPayer)
-        _participantCount = State(
-            initialValue: max(1, expense.participants.count - (containsPayer ? 1 : 0))
-        )
+    private var originalRecord: AppFeedRecord? {
+        if case .edit(let record) = mode {
+            return record
+        }
+        return nil
     }
 
-    var amount: Double {
-        Double(amountString) ?? 0
+    init(mode: AppPage1EditorMode) {
+        self.mode = mode
+        switch mode {
+        case .new:
+            _foodType = State(initialValue: "")
+            _amountText = State(initialValue: "")
+            _note = State(initialValue: "")
+            _date = State(initialValue: Date())
+        case .edit(let record):
+            _foodType = State(initialValue: record.foodType)
+            _amountText = State(initialValue: String(format: "%.1f", record.amount))
+            _note = State(initialValue: record.note)
+            _date = State(initialValue: record.date)
+        }
     }
 
-    private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        amount > 0 &&
-        !paidBy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        participantCount > 0
+    private var trimmedFoodType: String {
+        foodType.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var originalParticipantCount: Int {
-        let containsPayer = expense.participants.contains(expense.paidBy)
-        return max(1, expense.participants.count - (containsPayer ? 1 : 0))
+    private var parsedAmount: Double? {
+        Double(amountText.replacingOccurrences(of: ",", with: "."))
     }
 
-    private var originalPayerIncluded: Bool {
-        expense.participants.contains(expense.paidBy)
+    private var isValid: Bool {
+        guard !trimmedFoodType.isEmpty else { return false }
+        guard let amount = parsedAmount, amount > 0 else { return false }
+        return confirmed && amountMessage == nil
     }
 
-    private var isDirty: Bool {
-        title != expense.title ||
-        amountString != String(format: "%.2f", expense.amount) ||
-        paidBy != expense.paidBy ||
-        date != expense.date ||
-        note != expense.note ||
-        participantCount != originalParticipantCount ||
-        payerIncluded != originalPayerIncluded
+    private var hasUnsavedChanges: Bool {
+        let base = originalRecord
+        let currentAmount = parsedAmount ?? 0
+        let originalAmount = base?.amount ?? 0
+
+        return trimmedFoodType != (base?.foodType ?? "")
+            || currentAmount != originalAmount
+            || note != (base?.note ?? "")
+            || !Calendar.current.isDate(date, inSameDayAs: base?.date ?? Date())
+            || (base == nil && (!trimmedFoodType.isEmpty || !amountText.isEmpty || !note.isEmpty))
     }
 
     var body: some View {
         Form {
-            Section("账单信息") {
-                TextField("聚会名称", text: $title)
-
-                TextField("金额", text: $amountString)
-                    .keyboardType(.decimalPad)
-
-                TextField("付款人", text: $paidBy)
-
-                Stepper(value: $participantCount, in: 1...50) {
-                    HStack {
-                        Text("参与人数")
-                        Spacer()
-                        Text("\(participantCount)")
-                    }
-                }
-
-                Toggle("付款人也参与分摊", isOn: $payerIncluded)
-
-                DatePicker(
-                    "日期",
-                    selection: $date,
-                    displayedComponents: [.date, .hourAndMinute]
-                )
-
-                TextField("备注", text: $note)
+            Section {
+                TextField("食物名称，例如：渴望鸡猫粮", text: $foodType)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+            } header: {
+                Text("基础信息")
+            } footer: {
+                Text("请填写主食、零食或罐头等具体名称。")
             }
 
             Section {
-                Button("保存修改") {
-                    saveChanges()
+                TextField("重量（克）", text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .onChange(of: amountText) { newValue in
+                        guard !newValue.isEmpty else {
+                            amountMessage = nil
+                            return
+                        }
+                        if let value = Double(newValue.replacingOccurrences(of: ",", with: ".")), value > 0 {
+                            amountMessage = nil
+                        } else {
+                            amountMessage = "请输入大于 0 的数值。"
+                        }
+                    }
+
+                if let message = amountMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
-                .disabled(!canSave)
+
+                DatePicker("喂食时间", selection: $date)
+            } header: {
+                Text("喂食信息")
+            }
+
+            Section {
+                TextField("备注，例如：胃口不错、剩了一点", text: $note, axis: .vertical)
+                    .lineLimit(2...4)
+            } header: {
+                Text("备注")
+            }
+
+            Section {
+                Toggle("我确认这份记录无误", isOn: $confirmed)
+            }
+
+            if isValid {
+                Section {
+                    Label("保存后会立即更新今天列表", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
         }
-        .navigationTitle("账单详情")
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle(originalRecord == nil ? "新增加喂食记录" : "编辑喂食记录")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
-                    if isDirty {
+                    if hasUnsavedChanges {
                         showDiscardAlert = true
                     } else {
                         dismiss()
@@ -418,54 +471,42 @@ struct AppPage1DetailView: View {
 
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    saveChanges()
+                    save()
                 }
-                .disabled(!canSave)
+                .disabled(!isValid)
+                .fontWeight(.semibold)
             }
         }
-        .alert("放弃修改？", isPresented: $showDiscardAlert) {
-            Button("继续编辑", role: .cancel) {}
-            Button("放弃", role: .destructive) {
+        .interactiveDismissDisabled(hasUnsavedChanges)
+        .confirmationDialog("要放弃未保存的修改吗？", isPresented: $showDiscardAlert, titleVisibility: .visible) {
+            Button("放弃修改", role: .destructive) {
                 dismiss()
             }
+            Button("继续编辑", role: .cancel) {}
         } message: {
-            Text("未保存的修改会丢失")
+            Text("已填写的内容不会保存。")
         }
-        .alert("金额无效", isPresented: $showValidationAlert) {
-            Button("好", role: .cancel) {}
-        } message: {
-            Text("金额必须大于 0")
-        }
-        .environment(\.locale, Locale(identifier: "zh_CN"))
     }
 
-    private func saveChanges() {
-        guard canSave else {
-            showValidationAlert = true
-            return
-        }
+    func save() {
+        guard let amount = parsedAmount, amount > 0, !trimmedFoodType.isEmpty else { return }
 
-        let participants = buildParticipants()
+        let record = AppFeedRecord(
+            id: originalRecord?.id ?? UUID(),
+            date: date,
+            foodType: trimmedFoodType,
+            amount: amount,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
 
-        let updated = AppExpense(id: expense.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), amount: amount, paidBy: paidBy.trimmingCharacters(in: .whitespacesAndNewlines), participants: participants, date: date, note: note.trimmingCharacters(in: .whitespacesAndNewlines))
-
-        if let index = store.expenses.firstIndex(where: { $0.id == expense.id }) {
-            store.expenses[index] = updated
+        if let originalRecord = originalRecord,
+           let index = store.feedingRecords.firstIndex(where: { $0.id == originalRecord.id }) {
+            store.feedingRecords[index] = record
+        } else {
+            store.feedingRecords.append(record)
         }
 
         store.save()
         dismiss()
-    }
-
-    private func buildParticipants() -> [String] {
-        var people = (1...participantCount).map { "成员\($0)" }
-
-        if payerIncluded && !people.contains(paidBy) {
-            people.insert(paidBy, at: 0)
-        } else if !payerIncluded {
-            people.removeAll { $0 == paidBy }
-        }
-
-        return people
     }
 }

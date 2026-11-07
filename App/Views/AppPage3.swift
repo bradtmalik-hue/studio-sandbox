@@ -2,192 +2,160 @@ import SwiftUI
 
 struct AppPage3View: View {
     @EnvironmentObject private var store: AppStore
-
-    @State private var participantCount: Int = 2
-    @State private var defaultPayer: String = ""
-    @State private var currencyCode: String = "CNY"
-    @State private var showValidationAlert = false
+    @State private var petNameText: String = ""
+    @State private var targetText: String = ""
     @State private var showSavedAlert = false
+
+    private let minTarget = 1
+    private let maxTarget = 20
+
+    private var trimmedPetName: String {
+        petNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var parsedTarget: Int? {
+        Int(targetText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private var isTargetValid: Bool {
+        guard let target = parsedTarget, target >= minTarget, target <= maxTarget else {
+            return false
+        }
+        return true
+    }
+
+    private var isFormValid: Bool {
+        !trimmedPetName.isEmpty && isTargetValid
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                if store.expenses.isEmpty {
-                    Section {
-                        AppPage3EmptyView()
-                    }
-                }
-
+            Form {
                 Section {
-                    AppPage3InfoCard(
-                        participantCount: participantCount,
-                        payer: defaultPayer.isEmpty ? "未设置" : defaultPayer,
-                        currency: currencyText
+                    AppPage3SummaryCard(
+                        petName: trimmedPetName.isEmpty ? "未填写" : trimmedPetName,
+                        dailyTarget: parsedTarget ?? 0
                     )
                 }
 
-                Section("记账默认值") {
-                    AppPage3SettingRow(title: "参与人数", icon: "person.2.fill") {
-                        Stepper(value: $participantCount, in: 1...20) {
-                            Text("\(participantCount) 人")
-                        }
-                    }
-
-                    AppPage3SettingRow(title: "默认付款人", icon: "person.crop.circle") {
-                        TextField("例如：张三", text: $defaultPayer)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 180)
-                    }
-
-                    AppPage3SettingRow(title: "货币", icon: "yensign.circle") {
-                        Picker(selection: $currencyCode) {
-                            Text("人民币 ¥").tag("CNY")
-                            Text("美元 $").tag("USD")
-                        } label: {
-                            Text(currencyText)
-                        }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
+                Section {
+                    TextField("例如：旺财", text: $petNameText)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .submitLabel(.done)
+                } header: {
+                    Text("宠物信息")
+                } footer: {
+                    if trimmedPetName.isEmpty {
+                        Text("请填写宠物名字")
+                            .foregroundStyle(Color.red)
+                    } else {
+                        Text("这个名字会显示在记录里")
                     }
                 }
 
                 Section {
-                    Button("恢复默认设置") {
-                        participantCount = 2
-                        defaultPayer = "我"
-                        currencyCode = "CNY"
+                    HStack {
+                        Text("每日目标")
+                        Spacer()
+                        TextField("1-20", text: $targetText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                        Text("次")
                     }
 
-                    Button {
-                        saveSettings()
-                    } label: {
-                        Text("保存设置")
-                            .frame(maxWidth: .infinity)
-                            .fontWeight(.semibold)
+                    Stepper(
+                        value: Binding(
+                            get: { parsedTarget ?? store.dailyTarget },
+                            set: { newValue in
+                                let clamped = min(max(newValue, minTarget), maxTarget)
+                                targetText = String(clamped)
+                                store.dailyTarget = clamped
+                            }
+                        ),
+                        in: minTarget...maxTarget
+                    ) {
+                        Text("目标调整")
                     }
-                    .disabled(defaultPayer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } header: {
+                    Text("每天喂食次数目标")
+                } footer: {
+                    if !isTargetValid {
+                        Text("目标需在 \(minTarget)-\(maxTarget) 次之间")
+                            .foregroundStyle(Color.red)
+                    } else {
+                        Text("可选择或输入 \(minTarget)-\(maxTarget) 之间的数字")
+                    }
+                }
+
+                Section {
+                    Button {
+                        store.petName = trimmedPetName
+                        store.dailyTarget = parsedTarget ?? store.dailyTarget
+                        store.save()
+                        showSavedAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Label("保存设置", systemImage: "checkmark.circle.fill")
+                            Spacer()
+                        }
+                    }
+                    .disabled(!isFormValid)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.brown)
+
+                    Button("恢复默认") {
+                        petNameText = "我的宠物"
+                        targetText = "3"
+                    }
+                    .foregroundStyle(Color.secondary)
                 }
             }
-            .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
             .onAppear {
-                loadSettings()
+                if petNameText.isEmpty {
+                    petNameText = store.petName
+                    targetText = String(store.dailyTarget)
+                }
             }
-            .alert("无法保存", isPresented: $showValidationAlert) {
+            .alert("设置已保存", isPresented: $showSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("默认付款人不能为空")
-            }
-            .alert("已保存", isPresented: $showSavedAlert) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("新的记账默认值已生效")
+                Text("宠物名字和每日目标已更新。")
             }
         }
-    }
-
-    private var currencyText: String {
-        switch currencyCode {
-        case "USD":
-            return "美元 $"
-        case "CNY":
-            return "人民币 ¥"
-        default:
-            return currencyCode
-        }
-    }
-
-    private func loadSettings() {
-        participantCount = max(1, min(20, store.settings.defaultParticipantCount))
-        defaultPayer = store.settings.defaultPayer
-        currencyCode = store.settings.currencyCode.isEmpty ? "CNY" : store.settings.currencyCode
-    }
-
-    private func saveSettings() {
-        let payer = defaultPayer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !payer.isEmpty else {
-            showValidationAlert = true
-            return
-        }
-
-        var updatedSettings = store.settings
-        updatedSettings.defaultParticipantCount = participantCount
-        updatedSettings.defaultPayer = payer
-        updatedSettings.currencyCode = currencyCode
-        store.settings = updatedSettings
-        store.save()
-        showSavedAlert = true
     }
 }
 
-private struct AppPage3InfoCard: View {
-    let participantCount: Int
-    let payer: String
-    let currency: String
+struct AppPage3SummaryCard: View {
+    let petName: String
+    let dailyTarget: Int
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "gearshape.2.fill")
-                .font(.title2)
-                .foregroundStyle(.tint)
+        VStack(alignment: .leading, spacing: 8) {
+            Label("当前设置", systemImage: "pawprint.fill")
+                .font(.subheadline)
+                .foregroundStyle(Color.secondary)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("当前默认")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            Text(petName)
+                .font(.title2.bold())
 
-                Text("\(participantCount) 人 · \(payer) · \(currency)")
-                    .font(.headline)
-            }
-
-            Spacer(minLength: 0)
+            Text("每日目标：\(dailyTarget) 次")
+                .font(.subheadline)
+                .foregroundStyle(dailyTarget > 0 ? Color.primary : Color.secondary)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 }
 
-private struct AppPage3EmptyView: View {
+struct AppPage3EmptyView: View {
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "tray")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("还没有支出记录")
-                    .font(.subheadline.weight(.medium))
-
-                Text("去「记一笔」添加第一笔聚会花费")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-private struct AppPage3SettingRow<Content: View>: View {
-    let title: String
-    let icon: String
-    let content: Content
-
-    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.icon = icon
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Label(title, systemImage: icon)
-                .foregroundStyle(.primary)
-
-            Spacer()
-
-            content
-        }
+        ContentUnavailableView(
+            "还没有宠物设置",
+            systemImage: "pawprint.circle",
+            description: Text("请先填写宠物名字和目标")
+        )
     }
 }

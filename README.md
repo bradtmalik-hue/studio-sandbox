@@ -1,7 +1,7 @@
 # App
 
-一笔记清，谁该给谁多少
+每顿都记下来，宠物吃得好不好一眼看清
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.dassospizzirri-hash.app`
 
-Screens: 记一笔, 结果, 设置
+Screens: 今天, 历史, 设置
