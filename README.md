@@ -1,7 +1,7 @@
 # App
 
-一针不落，到期先知道
+管好每天那几件事
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.dassospizzirri-hash.app`
 
-Screens: 宠物档案, 疫苗记录, 提醒
+Screens: 今天, 已完成, 设置
