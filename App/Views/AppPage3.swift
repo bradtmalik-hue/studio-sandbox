@@ -19,7 +19,7 @@ struct AppPage3View: View {
             let total = store.records
                 .filter { calendar.isDate($0.date, inSameDayAs: day) }
                 .reduce(0) { $0 + $1.amountMl }
-            return AppPage3DailyStat(id: Date(), date: Date(), total: 0)
+            return AppPage3DailyStat()
         }
     }
 
@@ -73,7 +73,7 @@ struct AppPage3View: View {
                             Toggle("显示目标线", isOn: $showTargetLine)
                             Toggle("显示数值", isOn: $showValueLabels)
 
-                            AppPage3BarChart(dailyTotals: sortedDailyTotals, goal: store.dailyGoalMl, showTargetLine: showTargetLine, showValueLabels: showValueLabels, maxHeight: 0)
+                            AppPage3BarChart(dailyTotals: sortedDailyTotals, goal: store.dailyGoalMl, showTargetLine: showTargetLine, showValueLabels: showValueLabels)
                             .padding(.top, 4)
                         }
                     }
