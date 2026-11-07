@@ -1,38 +1,39 @@
 import SwiftUI
+import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
+    @StateObject private var store = AppHydrationStore()
     @State private var selectedTab = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View()
+            AppTodayView()
                 .tabItem {
                     Label("今天", systemImage: "drop.fill")
                 }
                 .tag(0)
 
-            AppPage2View()
+            AppHistoryView()
                 .tabItem {
                     Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
 
-            AppPage3View(recordCount: 0)
+            AppStatsView()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
+                    Label("统计", systemImage: "chart.bar.fill")
                 }
                 .tag(2)
         }
         .environmentObject(store)
-        .tint(.primary)
+        .tint(.teal)
     }
 
     private static func initialTab() -> Int {
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-startTab"),
-           index + 1 < args.count,
-           let value = Int(args[index + 1]) {
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-startTab"),
+           index + 1 < arguments.count,
+           let value = Int(arguments[index + 1]) {
             return min(max(value, 0), 2)
         }
         return 0
