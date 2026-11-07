@@ -1,7 +1,7 @@
 # App
 
-每天三秒，记清今天花了多少
+正在读、摘录、年度目标一页看完
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 分类, 设置
+Screens: 正在读的书, 摘录列表, 设置
