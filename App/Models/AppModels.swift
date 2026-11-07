@@ -1,154 +1,119 @@
-import Foundation
 import SwiftUI
 import Combine
 
-struct AppWaterRecord: Identifiable, Codable, Hashable {
+struct AppDrinkRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date
-    var amount: Double
-    var container: String
-    var note: String
-
-    init(id: UUID = UUID(), date: Date, amount: Double, container: String, note: String) {
-        self.id = id
-        self.date = date
-        self.amount = amount
-        self.container = container
-        self.note = note
-    }
+    var amount: Int
 }
 
-final class AppHydrationStore: ObservableObject {
-    @Published var records: [AppWaterRecord] = []
-    static let dailyGoal: Double = 2000
-
+class AppStore: ObservableObject {
+    @Published var records: [AppDrinkRecord] = []
     private let fileURL: URL
 
     init() {
-        fileURL = Self.defaultFileURL()
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        fileURL = docs.appendingPathComponent("drinkRecords.json")
         load()
         if CommandLine.arguments.contains("-demoData") {
-            DemoSeed.apply()
+            DemoSeed.apply(into: self)
         }
     }
 
-    private static func defaultFileURL() -> URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return docs.appendingPathComponent("hydration_records.json")
-    }
-
-    func addRecord(amount: Double, container: String, note: String, date: Date = Date()) {
-        let record = AppWaterRecord(id: UUID(), date: date, amount: amount, container: container, note: note)
-        records.append(record)
-        records.sort { $0.date > $1.date }
-        save()
-    }
-
-    func deleteRecord(_ record: AppWaterRecord) {
-        records.removeAll { $0.id == record.id }
-        save()
-    }
-
-    var todayRecords: [AppWaterRecord] {
-        let calendar = Calendar.current
-        return records.filter { calendar.isDateInToday($0.date) }
-            .sorted { $0.date > $1.date }
-    }
-
-    var todayTotal: Double {
-        todayRecords.reduce(0) { $0 + $1.amount }
-    }
-
-    var remainingToday: Double {
-        max(0, Self.dailyGoal - todayTotal)
-    }
-
-    var dailyAverageLast7Days: Double {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
-        let last7Records = records.filter { $0.date >= startOf7DaysAgo && $0.date < Date() }
-        let days = Set(last7Records.map { calendar.startOfDay(for: $0.date) }).count
-        guard days > 0 else { return 0 }
-        return last7Records.reduce(0) { $0 + $1.amount } / Double(days)
-    }
-
-    var reachDaysLast7Days: Int {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
-        var count = 0
-        for dayOffset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: startOfToday) else { continue }
-            let dayRecords = records.filter { calendar.isDate($0.date, inSameDayAs: day) }
-            let total = dayRecords.reduce(0) { $0 + $1.amount }
-            if total >= Self.dailyGoal {
-                count += 1
-            }
+    func load() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            records = try JSONDecoder().decode([AppDrinkRecord].self, from: data)
+        } catch {
+            records = []
         }
-        return count
     }
 
     func save() {
         do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(records)
+            let data = try JSONEncoder().encode(records)
             try data.write(to: fileURL)
         } catch {
         }
     }
 
-    private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        do {
-            let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            records = try decoder.decode([AppWaterRecord].self, from: data)
-            records.sort { $0.date > $1.date }
-        } catch {
-            records = []
+    func add(amount: Int, date: Date = Date()) {
+        let record = AppDrinkRecord(id: UUID(), date: date, amount: amount)
+        records.append(record)
+        save()
+    }
+
+    func delete(_ record: AppDrinkRecord) {
+        records.removeAll { $0.id == record.id }
+        save()
+    }
+
+    func delete(at offsets: IndexSet) {
+        records.remove(atOffsets: offsets)
+        save()
+    }
+
+    var todayRecords: [AppDrinkRecord] {
+        let calendar = Calendar.current
+        return records.filter { calendar.isDateInToday($0.date) }
+            .sorted { $0.date < $1.date }
+    }
+
+    var historyGroups: [(date: Date, records: [AppDrinkRecord])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.date) }
+        return grouped.keys.sorted(by: >).map { date in
+            (date: date, records: grouped[date]!.sorted { $0.date < $1.date })
         }
+    }
+
+    var last7DaysRecords: [AppDrinkRecord] {
+        let calendar = Calendar.current
+        let startDate = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        return records.filter { $0.date >= startDate }
+    }
+
+    var averageLast7Days: Double {
+        let total = last7DaysRecords.reduce(0) { $0 + $1.amount }
+        return last7DaysRecords.isEmpty ? 0 : Double(total) / 7.0
+    }
+
+    var daysReachedGoalLast7Days: Int {
+        let calendar = Calendar.current
+        let startDate = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        let grouped = Dictionary(grouping: last7DaysRecords) { calendar.startOfDay(for: $0.date) }
+        return grouped.filter { dayRecords in
+            let total = dayRecords.value.reduce(0) { $0 + $1.amount }
+            return total >= 2000
+        }.count
     }
 }
 
 enum DemoSeed {
-    static let seedFlagID = UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!
-
-    static func apply() {
-        guard CommandLine.arguments.contains("-demoData") else { return }
-        let store = AppHydrationStore()
-        DemoSeed.apply()
-    }
-
-    static func apply(into store: AppHydrationStore) {
-        guard CommandLine.arguments.contains("-demoData") else { return }
-        if store.records.contains(where: { $0.id == seedFlagID }) { return }
-
+    static func apply(into store: AppStore) {
         let calendar = Calendar.current
-        func makeDate(_ dayOffset: Int, _ hour: Int, _ minute: Int) -> Date {
-            let base = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) ?? Date()
-            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
+        let startOfToday = calendar.startOfDay(for: Date())
+        func date(daysAgo: Int, hour: Int, minute: Int) -> Date {
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: startOfToday)!
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
         }
 
-        let seeds: [AppWaterRecord] = [
-            AppWaterRecord(id: seedFlagID, date: makeDate(0, 8, 5), amount: 250, container: "玻璃杯", note: "起床后一杯温水"),
-            AppWaterRecord(id: UUID(), date: makeDate(0, 9, 30), amount: 300, container: "马克杯", note: "早餐"),
-            AppWaterRecord(id: UUID(), date: makeDate(0, 11, 15), amount: 200, container: "保温杯", note: "办公室"),
-            AppWaterRecord(id: UUID(), date: makeDate(0, 14, 0), amount: 350, container: "运动水壶", note: "午后补水"),
-            AppWaterRecord(id: UUID(), date: makeDate(0, 16, 45), amount: 250, container: "玻璃杯", note: "下午茶"),
-            AppWaterRecord(id: UUID(), date: makeDate(0, 19, 20), amount: 400, container: "运动水壶", note: "健身"),
-            AppWaterRecord(id: UUID(), date: makeDate(1, 8, 10), amount: 300, container: "玻璃杯", note: "起床后"),
-            AppWaterRecord(id: UUID(), date: makeDate(1, 12, 30), amount: 250, container: "马克杯", note: "午饭"),
-            AppWaterRecord(id: UUID(), date: makeDate(1, 17, 0), amount: 300, container: "保温杯", note: "下班前"),
-            AppWaterRecord(id: UUID(), date: makeDate(2, 10, 20), amount: 200, container: "玻璃杯", note: "上午"),
-            AppWaterRecord(id: UUID(), date: makeDate(3, 15, 40), amount: 250, container: "马克杯", note: "下午")
+        let samples: [AppDrinkRecord] = [
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 0, hour: 9, minute: 30), amount: 250),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 0, hour: 12, minute: 15), amount: 500),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 1, hour: 8, minute: 0), amount: 250),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 1, hour: 12, minute: 30), amount: 500),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 1, hour: 18, minute: 0), amount: 300),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 2, hour: 7, minute: 30), amount: 300),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 2, hour: 10, minute: 0), amount: 200),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 2, hour: 14, minute: 0), amount: 400),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 2, hour: 20, minute: 0), amount: 500),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 3, hour: 8, minute: 0), amount: 250),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 3, hour: 13, minute: 0), amount: 250),
+            AppDrinkRecord(id: UUID(), date: date(daysAgo: 3, hour: 19, minute: 0), amount: 250),
         ]
-
-        store.records.removeAll()
-        store.records.append(contentsOf: seeds)
-        store.records.sort { $0.date > $1.date }
+        store.records = samples
         store.save()
     }
 }

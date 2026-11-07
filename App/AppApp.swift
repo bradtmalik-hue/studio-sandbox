@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct AppApp: App {
-    @StateObject private var _env: AppHydrationStore = AppHydrationStore()
+    @StateObject private var _env: AppStore = AppStore()
 
     var body: some Scene {
         WindowGroup {

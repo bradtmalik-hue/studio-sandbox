@@ -1,6 +1,6 @@
 # App
 
-每天 2000ml，一眼看到还差多少
+每天 2000 毫升，圆环进度一眼看清
 
 Bundle ID: `com.bradtmalik-hue.app`
 
