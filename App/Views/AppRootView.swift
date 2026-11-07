@@ -2,7 +2,6 @@ import SwiftUI
 import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppDataStore()
     @State private var selection: Int = AppRootView.initialTab()
 
     var body: some View {
@@ -12,7 +11,7 @@ struct AppRootView: View {
                     Label("今天", systemImage: "drop.fill")
                 }
                 .tag(0)
-            AppPage2View()
+            AppPage2()
                 .tabItem {
                     Label("历史", systemImage: "calendar")
                 }
@@ -23,7 +22,6 @@ struct AppRootView: View {
                 }
                 .tag(2)
         }
-        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
