@@ -68,7 +68,7 @@ struct AppPage1View: View {
                                     Button {
                                         selectedMedicine = medicine
                                     } label: {
-                                        AppPage1MedicineRow(medicine: medicine, expiryColor: "")
+                                        AppPage1MedicineRow(medicine: medicine)
                                     }
                                     .buttonStyle(.plain)
                                     .swipeActions {
@@ -106,7 +106,7 @@ struct AppPage1View: View {
                 set: { if !$0 { selectedMedicine = nil } }
             )) {
                 if let medicine = selectedMedicine {
-                    AppPage1DetailView(originalMedicine: "")
+                    AppPage1DetailView(originalMedicine: medicine)
                 }
             }
         }
@@ -435,21 +435,5 @@ struct AppPage1AddMedicineSheet: View {
         store.medicines.append(newMedicine)
         store.save()
         dismiss()
-    }
-}
-
-enum AppPage1Format {
-    static func expiryFull(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter.string(from: date)
-    }
-
-    static func expiryShort(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "MM月dd日"
-        return formatter.string(from: date)
     }
 }
