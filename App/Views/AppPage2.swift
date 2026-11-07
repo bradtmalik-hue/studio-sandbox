@@ -46,9 +46,9 @@ struct AppPage2View: View {
         NavigationStack {
             Group {
                 if store.records.isEmpty {
-                    AppPage2EmptyView(add: { addingRecord = true })
+                    AppPage2EmptyStateView(add: { addingRecord = true })
                 } else if filteredRecords.isEmpty {
-                    AppPage2NoResultsView()
+                    AppPage2NoResultsStateView()
                 } else {
                     List {
                         AppPage2SummaryCard(records: filteredRecords)
@@ -248,7 +248,7 @@ private struct AppPage2SectionHeader: View {
     }
 }
 
-private struct AppPage2EmptyView: View {
+private struct AppPage2EmptyStateView: View {
     let add: () -> Void
 
     var body: some View {
@@ -263,7 +263,7 @@ private struct AppPage2EmptyView: View {
     }
 }
 
-private struct AppPage2NoResultsView: View {
+private struct AppPage2NoResultsStateView: View {
     var body: some View {
         ContentUnavailableView {
             Label("没有匹配结果", systemImage: "magnifyingglass")
