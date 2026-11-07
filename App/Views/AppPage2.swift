@@ -1,330 +1,222 @@
-import Foundation
 import SwiftUI
+import Foundation
+
+private let AppPage2Categories = ["感冒用药", "退烧止痛", "肠胃用药", "外用药品", "慢性病用药", "维生素", "其他"]
+private let AppPage2Units = ["盒", "瓶", "袋", "片", "支"]
 
 struct AppPage2View: View {
-    @EnvironmentObject private var store: AppMedicineStore
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
 
-    @State private var name = ""
-    @State private var specification = ""
-    @State private var manufacturer = ""
-    @State private var category = "未分类"
-    @State private var location = ""
-    @State private var quantity = 1
-    @State private var unit = "盒"
-    @State private var expiryDate = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date()
-    @State private var isOpened = false
-    @State private var notes = ""
-    @State private var showingSavedAlert = false
+    @State private var name: String = ""
+    @State private var category: String = "感冒用药"
+    @State private var expiryDate: Date = Calendar.current.date(byAdding: .day, value: 365, to: Date()) ?? Date()
+    @State private var storageLocation: String = ""
+    @State private var quantity: Int = 1
+    @State private var unit: String = "盒"
+    @State private var reminderEnabled: Bool = true
+    @State private var notes: String = ""
+    @State private var errorMessage: String = ""
+    @State private var showDiscardAlert: Bool = false
 
-    private static let commonLocations = ["客厅药箱", "卧室床头柜", "厨房抽屉", "冰箱冷藏"]
-    private static let units = ["盒", "瓶", "袋", "支", "板"]
+    private let defaultExpiryDate: Date = Calendar.current.date(byAdding: .day, value: 365, to: Date()) ?? Date()
 
-    var availableCategories: [String] {
-        var cats = store.categories
-        if !cats.contains("未分类") {
-            cats.append("未分类")
-        }
-        return cats
+    private var isDirty: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !storageLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !notes.isEmpty ||
+        quantity != 1 ||
+        reminderEnabled != true ||
+        category != AppPage2Categories[0] ||
+        expiryDate != defaultExpiryDate
     }
 
-    var trimmedName: String {
+    private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var trimmedLocation: String {
-        location.trimmingCharacters(in: .whitespacesAndNewlines)
+        storageLocation.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    var canSave: Bool {
-        !trimmedName.isEmpty && !trimmedLocation.isEmpty
+    private var canSave: Bool {
+        !trimmedName.isEmpty && !trimmedLocation.isEmpty && expiryDate > Date()
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    TextField("药名", text: $name)
-                    TextField("规格", text: $specification)
-                    TextField("生产厂家", text: $manufacturer)
-                    Picker(selection: $category) {
-                        ForEach(availableCategories, id: \.self) { cat in
-                            Text(cat).tag(cat)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    AppPage2SectionCard(title: "药品信息", icon: "pills.fill") {
+                        AppPage2FieldRow(label: "药名", icon: "textformat") {
+                            TextField("例如：布洛芬缓释胶囊", text: $name)
+                                .multilineTextAlignment(.trailing)
                         }
-                    } label: {
-                        Label("分类", systemImage: "tag")
-                    }
-                } header: {
-                    Text("基本信息")
-                } footer: {
-                    Text("药名为必填项。")
-                }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        TextField("例如：客厅药箱第一层", text: $location)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(Self.commonLocations, id: \.self) { loc in
-                                    AppPage2LocationChip(
-                                        title: loc,
-                                        isSelected: location == loc,
-                                        action: { location = loc }
-                                    )
-                                }
+                        AppPage2FieldRow(label: "分类", icon: "tag") {
+                            Picker("分类", selection: $category) {
+                                ForEach(AppPage2Categories, id: \.self) { Text($0) }
                             }
-                            .padding(.vertical, 4)
+                            .pickerStyle(.menu)
+                            .labelsHidden()
                         }
                     }
-                    Stepper(value: $quantity, in: 1...999) {
-                        HStack {
-                            Text("数量")
-                            Spacer()
-                            Text("\(quantity) \(unit)")
-                                .monospacedDigit()
+
+                    AppPage2SectionCard(title: "有效期与数量", icon: "calendar.badge.clock") {
+                        DatePicker("有效期至", selection: $expiryDate, displayedComponents: .date)
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                        AppPage2FieldRow(label: "数量", icon: "number") {
+                            Stepper("\(quantity) \(unit)", value: $quantity, in: 1...999)
+                                .fixedSize()
+                        }
+                        AppPage2FieldRow(label: "单位", icon: "shippingbox") {
+                            Picker("单位", selection: $unit) {
+                                ForEach(AppPage2Units, id: \.self) { Text($0) }
+                            }
+                            .pickerStyle(.menu)
+                            .labelsHidden()
                         }
                     }
-                    Picker(selection: $unit) {
-                        ForEach(Self.units, id: \.self) { unit in
-                            Text(unit).tag(unit)
+
+                    AppPage2SectionCard(title: "存放位置与提醒", icon: "location.fill") {
+                        AppPage2FieldRow(label: "存放位置", icon: "cabinet.fill") {
+                            TextField("例如：客厅药箱第二层", text: $storageLocation)
+                                .multilineTextAlignment(.trailing)
                         }
-                    } label: {
-                        Label("单位", systemImage: "scalemass")
-                    }
-                } header: {
-                    Text("存放与数量")
-                } footer: {
-                    Text("存放位置为必填项。")
-                }
-
-                Section {
-                    DatePicker(
-                        selection: $expiryDate,
-                        displayedComponents: .date
-                    ) {
-                        Label("有效期至", systemImage: "calendar")
-                    }
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
-
-                    Toggle(isOn: $isOpened) {
-                        Label("已开封", systemImage: "checkmark.circle")
-                    }
-                } header: {
-                    Text("有效期与状态")
-                }
-
-                Section {
-                    ZStack(alignment: .topLeading) {
-                        if notes.isEmpty {
-                            Text("用法、注意事项等")
-                                .foregroundStyle(.tertiary)
-                                .padding(.top, 8)
-                                .padding(.leading, 4)
+                        Toggle(isOn: $reminderEnabled) {
+                            Label("到期前提醒", systemImage: "bell.badge.fill")
                         }
-                        TextEditor(text: $notes)
-                            .frame(minHeight: 80)
                     }
-                } header: {
-                    Text("备注")
-                }
 
-                Section {
-                    if canSave {
-                        AppPage2SummaryCard(
-                            name: trimmedName,
-                            specification: specification.trimmingCharacters(in: .whitespacesAndNewlines),
-                            manufacturer: manufacturer.trimmingCharacters(in: .whitespacesAndNewlines),
-                            category: category,
-                            location: trimmedLocation,
-                            quantity: quantity,
-                            unit: unit,
-                            expiryDate: expiryDate,
-                            isOpened: isOpened,
-                            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
-                        )
-                    } else {
-                        AppPage2EmptyStateCard()
+                    AppPage2SectionCard(title: "备注", icon: "note.text") {
+                        TextField("可选，例如：饭后服用", text: $notes, axis: .vertical)
+                            .lineLimit(3...6)
                     }
-                } header: {
-                    Text("预览")
-                }
 
-                Section {
-                    Button(action: { saveMedicine() }) {
-                        Label("存入药箱", systemImage: "tray.and.arrow.down.fill")
-                            .frame(maxWidth: .infinity)
+                    if !errorMessage.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.red)
+                            Text(errorMessage)
+                                .font(.callout)
+                                .foregroundColor(.red)
+                        }
+                        .padding(.horizontal, 4)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(!canSave)
-
-                    Button(role: .destructive, action: { clearForm() }) {
-                        Label("清空表单", systemImage: "arrow.counterclockwise")
-                    }
-                } footer: {
-                    Text("添加后可在药品列表和临期提醒中查看。")
                 }
+                .padding()
             }
-            .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 96, for: .scrollContent)
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("添加一盒药")
-            .alert("已添加", isPresented: $showingSavedAlert) {
-                Button("继续", role: .cancel) { }
-            } message: {
-                Text("这盒药已经放进药箱。")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        if isDirty {
+                            showDiscardAlert = true
+                        } else {
+                            dismiss()
+                        }
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        save()
+                    }
+                    .disabled(!canSave)
+                }
             }
+            .alert("放弃更改？", isPresented: $showDiscardAlert) {
+                Button("继续编辑", role: .cancel) { }
+                Button("放弃更改", role: .destructive) {
+                    dismiss()
+                }
+            } message: {
+                Text("你有未保存的修改，确定要离开吗？")
+            }
+            .interactiveDismissDisabled(isDirty)
         }
     }
 
-    private func saveMedicine() {
-        let newMedicine = AppMedicine(
+    func save() {
+        guard !trimmedName.isEmpty else {
+            errorMessage = "请填写药名"
+            return
+        }
+        guard !trimmedLocation.isEmpty else {
+            errorMessage = "请填写存放位置"
+            return
+        }
+        guard expiryDate > Date() else {
+            errorMessage = "有效期必须晚于今天"
+            return
+        }
+
+        let newMedicine = AppMedicineBox(
             id: UUID(),
             name: trimmedName,
-            specification: specification.trimmingCharacters(in: .whitespacesAndNewlines),
-            manufacturer: manufacturer.trimmingCharacters(in: .whitespacesAndNewlines),
             category: category,
-            location: trimmedLocation,
+            expiryDate: expiryDate,
+            storageLocation: trimmedLocation,
             quantity: quantity,
             unit: unit,
-            expiryDate: expiryDate,
-            isOpened: isOpened,
+            reminderEnabled: reminderEnabled,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
             createdAt: Date()
         )
-        store.medicines.append(newMedicine)
-        store.save()
-        clearForm()
-        showingSavedAlert = true
-    }
-
-    private func clearForm() {
-        name = ""
-        specification = ""
-        manufacturer = ""
-        location = ""
-        quantity = 1
-        unit = "盒"
-        expiryDate = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date()
-        isOpened = false
-        notes = ""
-        category = "未分类"
+        store.add(newMedicine)
+        dismiss()
     }
 }
 
-private struct AppPage2LocationChip: View {
+private struct AppPage2SectionCard<Content: View>: View {
     let title: String
-    let isSelected: Bool
-    let action: () -> Void
+    let icon: String
+    @ViewBuilder let content: Content
 
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    isSelected ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.10)
-                )
-                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
+    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.content = content()
     }
-}
-
-private struct AppPage2EmptyStateCard: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "pills")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("还没有预览")
-                    .font(.subheadline.weight(.semibold))
-                Text("填写药名和存放位置后，这里会显示这盒药的信息。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding()
-        .background(Color.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct AppPage2SummaryCard: View {
-    let name: String
-    let specification: String
-    let manufacturer: String
-    let category: String
-    let location: String
-    let quantity: Int
-    let unit: String
-    let expiryDate: Date
-    let isOpened: Bool
-    let notes: String
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年M月d日"
-        return formatter
-    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(.headline)
-                    Text(category)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text("\(quantity) \(unit)")
-                    .font(.title3.monospacedDigit())
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(.accentColor)
+                Text(title)
+                    .font(.headline)
             }
-
-            if !specification.isEmpty || !manufacturer.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !specification.isEmpty {
-                        Text("规格：\(specification)")
-                    }
-                    if !manufacturer.isEmpty {
-                        Text("厂家：\(manufacturer)")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-
-            Divider()
-
-            Label(location, systemImage: "location")
-                .font(.subheadline)
-
-            Label(Self.dateFormatter.string(from: expiryDate), systemImage: "calendar")
-                .font(.subheadline)
-
-            HStack {
-                if isOpened {
-                    Label("已开封", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.orange)
-                } else {
-                    Label("未开封", systemImage: "shippingbox")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .font(.caption)
-
-            if !notes.isEmpty {
-                Text(notes)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            content
         }
-        .padding()
-        .background(Color.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct AppPage2FieldRow<Content: View>: View {
+    let label: String
+    let icon: String
+    @ViewBuilder let content: Content
+
+    init(label: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.icon = icon
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.accentColor)
+                .frame(width: 24)
+            Text(label)
+                .foregroundColor(.secondary)
+            Spacer(minLength: 8)
+            content
+        }
+        .padding(.vertical, 4)
     }
 }

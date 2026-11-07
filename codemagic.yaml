@@ -104,6 +104,13 @@ workflows:
               echo "tab $T CRASHED"
             fi
 
+            # 崩了就再拉一次，把 App 自己的报错输出抓下来（这是定位崩溃的唯一线索）
+            if [ -f "shots/crash_$N.txt" ]; then
+              timeout 12 xcrun simctl launch --console "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" > "shots/console_$N.txt" 2>&1 || true
+              echo "--- console_$N ---"
+              tail -30 "shots/console_$N.txt" || true
+            fi
+
             # 再切一次前后台，很多崩溃只在恢复时出现
             xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/dev/null 2>&1 || true
             sleep 3
@@ -133,4 +140,5 @@ workflows:
     artifacts:
       - shots/*.png
       - shots/crash_*.txt
+      - shots/console_*.txt
       - shots/crashlogs/*.ips
