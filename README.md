@@ -1,7 +1,7 @@
 # App
 
-一次 250 毫升，喝够今天的量
+一天喝了多少，一眼看清
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 历史, 当天明细, 设置
+Screens: 今天, 历史, 设置

@@ -1,210 +1,199 @@
 import SwiftUI
+import Foundation
 
 struct AppPage3View: View {
     @EnvironmentObject var store: AppStore
-    var date: Date = Date()
-
-    var dayRecords: [AppWaterRecord] {
-        store.records
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-            .sorted { $0.date > $1.date }
-    }
-
-    var totalML: Int {
-        dayRecords.reduce(0) { $0 + $1.amountML }
-    }
-
-    var goal: Int {
-        max(store.dailyGoalML, 1)
-    }
-
-    var progress: Double {
-        min(Double(totalML) / Double(goal), 1.0)
-    }
-
-    private var shareText: String {
-        let formatter = Self.detailDateFormatter
-        let lines = dayRecords.map {
-            "\(formatter.string(from: $0.date)) \($0.amountML)毫升 \($0.note)"
-        }
-        return "\(Self.summaryDateFormatter.string(from: date)) 喝水明细\n" + lines.joined(separator: "\n")
-    }
+    @State private var goalText: String = ""
+    @State private var showClearConfirm: Bool = false
+    @State private var showSavedToast: Bool = false
 
     var body: some View {
-        Group {
-            if dayRecords.isEmpty {
-                AppPage3Empty(date: date)
-            } else {
-                List {
-                    AppPage3SummaryCard(
-                        date: date,
-                        totalML: totalML,
-                        count: dayRecords.count,
-                        goal: store.dailyGoalML
-                    )
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
+        NavigationStack {
+            Form {
+                Section {
+                    AppPage3GoalCard(onSave: "") {
+                        saveGoal()
+                    }
+                } header: {
+                    Text("每日目标")
+                } footer: {
+                    if !isGoalValid {
+                        Text("目标需在 500–5000 毫升之间")
+                            .foregroundStyle(.red)
+                    } else {
+                        Text("每天喝够水，身体更轻松")
+                    }
+                }
 
-                    ForEach(dayRecords) { record in
-                        AppPage3Row(record: record)
-                            .swipeActions {
-                                Button(role: .destructive) {
-                                    store.delete(record)
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
-                            }
-                    }
+                Section {
+                    AppPage3InfoCard(store: store)
+                } header: {
+                    Text("数据概览")
                 }
-                .listStyle(.insetGrouped)
-                .contentMargins(.bottom, 96, for: .scrollContent)
+
+                Section {
+                    Button(role: .destructive) {
+                        showClearConfirm = true
+                    } label: {
+                        Label("清空所有记录", systemImage: "trash")
+                    }
+                    .disabled(store.records.isEmpty)
+                } header: {
+                    Text("数据管理")
+                } footer: {
+                    Text("清空后所有饮水记录将被删除，无法恢复。")
+                }
             }
-        }
-        .navigationTitle("当天明细")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if !dayRecords.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: shareText) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("设置")
+            .onAppear {
+                goalText = "\(store.dailyGoal)"
+            }
+            .alert("确认清空", isPresented: $showClearConfirm) {
+                Button("取消", role: .cancel) { }
+                Button("清空", role: .destructive) {
+                    clearAll()
                 }
+            } message: {
+                Text("将删除所有饮水记录，且无法恢复。")
+            }
+            .alert("已保存", isPresented: $showSavedToast) {
+                Button("好", role: .cancel) { }
+            } message: {
+                Text("每日目标已更新")
             }
         }
     }
 
-    private static let detailDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 HH:mm"
-        return formatter
-    }()
+    private var isGoalValid: Bool {
+        guard let value = Int(goalText), (500...5000).contains(value) else {
+            return false
+        }
+        return true
+    }
 
-    private static let summaryDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 EEEE"
-        return formatter
-    }()
+    private func saveGoal() {
+        guard let newGoal = Int(goalText), (500...5000).contains(newGoal) else {
+            return
+        }
+        store.dailyGoal = newGoal
+        store.save()
+        showSavedToast = true
+    }
+
+    func clearAll() {
+        store.records.removeAll()
+        store.save()
+    }
 }
 
-private struct AppPage3SummaryCard: View {
-    let date: Date
-    let totalML: Int
-    let count: Int
-    let goal: Int
+struct AppPage3GoalCard: View {
+    @Binding var goalText: String
+    let onSave: () -> Void
+
+    @State private var draftValue: Double = 2000
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Self.dateFormatter.string(from: date))
-                        .font(.headline)
-                    Text("\(count) 条记录")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text("每天目标")
+                    .font(.body)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("总量")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(totalML) 毫升")
-                        .font(.title2.bold())
+                TextField("2000", text: $goalText)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 96)
+                Text("毫升")
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(value: $draftValue, in: 500...5000, step: 50) {
+                Text("目标")
+            } onEditingChanged: { editing in
+                if !editing {
+                    goalText = "\(Int(draftValue))"
                 }
             }
 
-            ProgressView(value: Double(totalML), total: Double(max(goal, 1)))
-                .tint(Color.blue)
-
             HStack {
-                Text("目标 \(goal) 毫升")
+                Text("范围 500–5000 毫升")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(totalML >= goal ? "已达标" : "还差 \(goal - totalML) 毫升")
-                    .font(.caption)
-                    .foregroundStyle(totalML >= goal ? Color.green : Color.secondary)
+                Button("保存") {
+                    onSave()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid)
+            }
+        }
+        .padding(.vertical, 4)
+        .onAppear {
+            if let value = Double(goalText) {
+                draftValue = min(max(value, 500), 5000)
+            }
+        }
+        .onChange(of: goalText) { _, newValue in
+            if let value = Double(newValue) {
+                draftValue = min(max(value, 500), 5000)
+            }
+        }
+    }
+
+    private var isValid: Bool {
+        guard let value = Int(goalText), (500...5000).contains(value) else {
+            return false
+        }
+        return true
+    }
+}
+
+struct AppPage3InfoCard: View {
+    @ObservedObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("今日饮水", systemImage: "drop.fill")
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("\(todayTotal) 毫升")
+                    .font(.title3.bold())
+            }
+
+            HStack {
+                Label("今日记录", systemImage: "list.bullet")
+                Spacer()
+                Text("\(todayCount) 条")
+            }
+
+            HStack {
+                Label("总记录", systemImage: "archivebox")
+                Spacer()
+                Text("\(store.records.count) 条")
+            }
+
+            HStack {
+                Label("每日目标", systemImage: "target")
+                Spacer()
+                Text("\(store.dailyGoal) 毫升")
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 EEEE"
-        return formatter
-    }()
-}
-
-private struct AppPage3Row: View {
-    let record: AppWaterRecord
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: "drop.fill")
-                .foregroundStyle(Color.blue)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(Self.timeFormatter.string(from: record.date))
-                    .font(.headline)
-                if !record.note.isEmpty {
-                    Text(record.note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            Spacer()
-            Text("\(record.amountML) 毫升")
-                .font(.subheadline.weight(.semibold))
-                .monospacedDigit()
-        }
-        .padding(.vertical, 4)
+    var todayRecords: [AppDrinkRecord] {
+        store.records.filter { Calendar.current.isDateInToday($0.date) }
     }
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}
-
-private struct AppPage3Empty: View {
-    @EnvironmentObject var store: AppStore
-    let date: Date
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("这一天还没有记录", systemImage: "drop")
-        } description: {
-            Text("去今天页添加第一条喝水记录，或点击下方按钮手动补充 250 毫升。")
-        } actions: {
-            Button("添加 250 毫升") {
-                let record = AppWaterRecord(
-                    id: UUID(),
-                    date: date,
-                    amountML: 250,
-                    note: "手动添加"
-                )
-                store.add(record)
-            }
-            .buttonStyle(.borderedProminent)
-
-            Button("返回") {
-                dismissal()
-            }
-        }
+    var todayTotal: Int {
+        todayRecords.reduce(0) { $0 + $1.amount }
     }
 
-    @Environment(\.dismiss) private var dismiss
-
-    private func dismissal() {
-        dismiss()
+    private var todayCount: Int {
+        todayRecords.count
     }
 }

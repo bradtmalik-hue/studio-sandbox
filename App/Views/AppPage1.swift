@@ -1,250 +1,280 @@
 import SwiftUI
+import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showingCustomAdd = false
+    @EnvironmentObject private var store: AppStore
+    @State private var showingAddSheet = false
+
+    var todayRecords: [AppDrinkRecord] {
+        store.records
+            .filter { Calendar.current.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var todayTotal: Int {
+        todayRecords.reduce(0) { $0 + $1.amount }
+    }
+
+    private var progress: Double {
+        let goal = max(store.dailyGoal, 1)
+        return min(max(Double(todayTotal) / Double(goal), 0), 1)
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    AppPage1SummaryCard(store: store)
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+            Group {
+                if todayRecords.isEmpty {
+                    AppPage1Empty {
+                        showingAddSheet = true
+                    }
+                } else {
+                    List {
+                        Section {
+                            AppPage1SummaryCard(
+                                todayTotal: todayTotal,
+                                goal: store.dailyGoal,
+                                progress: progress
+                            ) {
+                                addQuickRecord()
+                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                        }
 
-                Section {
-                    if store.todayRecords.isEmpty {
-                        AppPage1EmptyView(onAdd: { addRecord() })
-                    } else {
-                        ForEach(store.todayRecords) { record in
-                            AppPage1Row(record: record)
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        delete(record)
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
+                        Section {
+                            ForEach(todayRecords) { record in
+                                AppPage1Row(record: record)
+                                    .swipeActions {
+                                        Button(role: .destructive) {
+                                            delete(record)
+                                        } label: {
+                                            Label("删除", systemImage: "trash")
+                                        }
                                     }
-                                }
+                            }
+                        } header: {
+                            Text("今日记录")
                         }
                     }
-                } header: {
-                    HStack {
-                        Text("今日记录")
-                        Spacer()
-                        if !store.todayRecords.isEmpty {
-                            Text("共 \(store.todayRecords.count) 条")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    .listStyle(.insetGrouped)
+                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("今天")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingCustomAdd = true
+                        showingAddSheet = true
                     } label: {
-                        Label("自定义", systemImage: "plus.circle")
+                        Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingCustomAdd) {
+            .sheet(isPresented: $showingAddSheet) {
                 AppPage1AddSheet()
             }
         }
     }
 
-    func addRecord(amountML: Int = 250, note: String = "") {
-        store.records.append(AppWaterRecord(id: UUID(), date: Date(), amountML: amountML, note: note))
+    private func addQuickRecord() {
+        let record = AppDrinkRecord(id: UUID(), amount: 250, date: Date())
+        store.records.append(record)
         store.save()
     }
 
-    func delete(_ record: AppWaterRecord) {
-        store.records.removeAll { $0.id == record.id }
-        store.save()
-    }
-}
-
-struct AppPage1SummaryCard: View {
-    @ObservedObject var store: AppStore
-
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("今日已喝")
-                        .font(.headline)
-                    Text("\(store.todayTotal) 毫升")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                }
-                Spacer()
-                AppPage1CircularProgress(progress: Double(store.todayTotal) / Double(max(store.dailyGoalML, 1)))
-            }
-
-            ProgressView(value: Double(store.todayTotal), total: Double(max(store.dailyGoalML, 1)))
-                .tint(.blue)
-
-            HStack {
-                Label("目标 \(store.dailyGoalML) 毫升", systemImage: "target")
-                Spacer()
-                if let latest = store.latestRecordDate {
-                    Label(latestTimeText(latest), systemImage: "clock")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            Button {
-                addRecord()
-            } label: {
-                Label("喝一杯 250 毫升", systemImage: "drop.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+    func delete(_ record: AppDrinkRecord) {
+        withAnimation {
+            store.records.removeAll { $0.id == record.id }
+            store.save()
         }
-        .padding()
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    func addRecord() {
-        store.records.append(AppWaterRecord(id: UUID(), date: Date(), amountML: 250, note: ""))
-        store.save()
-    }
-
-    private func latestTimeText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
     }
 }
 
-struct AppPage1CircularProgress: View {
-    let progress: Double
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color(uiColor: .systemGray5), lineWidth: 8)
-            Circle()
-                .trim(from: 0, to: min(progress, 1.0))
-                .stroke(Color.blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text("\(Int(progress * 100))%")
-                .font(.caption)
-                .bold()
-                .foregroundStyle(.primary)
-        }
-        .frame(width: 56, height: 56)
-    }
-}
-
-struct AppPage1Row: View {
-    let record: AppWaterRecord
-
-    private let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
+private struct AppPage1Row: View {
+    let record: AppDrinkRecord
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "drop.fill")
-                .foregroundStyle(.blue)
-                .frame(width: 32, height: 32)
-                .background(Color.blue.opacity(0.12))
-                .clipShape(Circle())
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 34, height: 34)
+                .background(Color.accentColor.opacity(0.12), in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(record.amountML) 毫升")
+                Text("\(record.amount) 毫升")
                     .font(.headline)
-                if !record.note.isEmpty {
-                    Text(record.note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(AppPage1Format.timeString(for: record.date))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Text(timeFormatter.string(from: record.date))
-                .font(.subheadline)
+            Text("一杯")
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
     }
 }
 
-struct AppPage1EmptyView: View {
+private struct AppPage1Empty: View {
     let onAdd: () -> Void
 
     var body: some View {
         ContentUnavailableView {
-            Label("今天还没有记录", systemImage: "drop")
+            Label("今天还没喝水", systemImage: "drop")
         } description: {
-            Text("点击下方按钮喝一杯 250 毫升")
+            Text("点右上角或下方按钮，开始记录第一杯水")
         } actions: {
-            Button("喝一杯 250 毫升", action: onAdd)
-                .buttonStyle(.borderedProminent)
+            Button("添加记录") {
+                onAdd()
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 }
 
-struct AppPage1AddSheet: View {
-    @ObservedObject var store: AppStore
-    @Environment(\.dismiss) private var dismiss
+private struct AppPage1SummaryCard: View {
+    let todayTotal: Int
+    let goal: Int
+    let progress: Double
+    let onAdd: () -> Void
 
-    @State private var amountText = "250"
-    @State private var note = ""
-    @State private var showValidation = false
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack(spacing: 18) {
+                ZStack {
+                    AppPage1ProgressRing(progress: progress)
+                        .frame(width: 120, height: 120)
+
+                    VStack(spacing: 0) {
+                        Text("\(todayTotal)")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                        Text("毫升")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("今日目标")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("\(goal) 毫升")
+                        .font(.title3.bold())
+
+                    if todayTotal >= goal {
+                        Text("已达标")
+                            .font(.caption)
+                            .foregroundStyle(Color.green)
+                    } else {
+                        Text("还差 \(goal - todayTotal) 毫升")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button(action: onAdd) {
+                Label("快速加 250 毫升", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct AppPage1ProgressRing: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.gray.opacity(0.15), lineWidth: 14)
+
+            Circle()
+                .trim(from: 0, to: max(0, min(progress, 1)))
+                .stroke(
+                    Color.accentColor,
+                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut, value: progress)
+        }
+    }
+}
+
+private struct AppPage1AddSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppStore
+    @State private var amount: Int = 250
+
+    private var isAmountValid: Bool {
+        amount > 0 && amount <= 5000
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("毫升") {
-                    TextField("毫升", text: $amountText)
-                        .keyboardType(.numberPad)
-                }
-                Section("备注") {
-                    TextField("可选", text: $note)
-                }
-                if showValidation {
-                    Section {
-                        Text("请输入 1 到 5000 之间的毫升数")
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                Section {
+                    Stepper(value: $amount, in: 50...5000, step: 50) {
+                        HStack {
+                            Text("喝水量")
+                            Spacer()
+                            Text("\(amount) 毫升")
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                } header: {
+                    Text("记录一杯水")
+                } footer: {
+                    Text("也可以直接点主页的快速按钮加 250 毫升。")
                 }
             }
             .navigationTitle("添加记录")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") {
                         dismiss()
                     }
                 }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        guard let amount = Int(amountText), amount > 0, amount <= 5000 else {
-                            showValidation = true
-                            return
-                        }
-                        store.records.append(AppWaterRecord(id: UUID(), date: Date(), amountML: amount, note: note))
-                        store.save()
-                        dismiss()
+                        save()
                     }
-                    .disabled(Int(amountText) == nil || (Int(amountText) ?? 0) <= 0)
+                    .disabled(!isAmountValid)
                 }
             }
         }
+    }
+
+    func save() {
+        guard isAmountValid else { return }
+
+        let record = AppDrinkRecord(id: UUID(), amount: amount, date: Date())
+        store.records.append(record)
+        store.save()
+        dismiss()
+    }
+}
+
+private enum AppPage1Format {
+    static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+
+    static func timeString(for date: Date) -> String {
+        timeFormatter.string(from: date)
     }
 }

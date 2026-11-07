@@ -89,7 +89,7 @@ workflows:
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
           N=1
-          for T in 0 1 2 3; do
+          for T in 0 1 2; do
             xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
             xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/tmp/launch_$T.txt 2>&1 || true
             # 等久一点：刚启动那几秒系统会弹通知/键盘提示，会盖住标题栏

@@ -1,184 +1,297 @@
 import SwiftUI
-import Foundation
 
-private enum AppPage2FilterRange: String, CaseIterable, Identifiable {
+fileprivate let AppPage2DayFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "zh_CN")
+    formatter.dateFormat = "M月d日 EEEE"
+    return formatter
+}()
+
+fileprivate let AppPage2TimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "zh_CN")
+    formatter.dateFormat = "HH:mm"
+    return formatter
+}()
+
+fileprivate let AppPage2MonthDayFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "zh_CN")
+    formatter.dateFormat = "M月d日"
+    return formatter
+}()
+
+enum AppPage2Filter: String, CaseIterable, Identifiable {
     case all = "全部"
     case last7 = "近7天"
     case last30 = "近30天"
-
     var id: String { rawValue }
-}
-
-struct AppPage2DayGroup: Identifiable {
-    let id: Date
-    let date: Date
-    let totalML: Int
-    let records: [AppWaterRecord]
-}
-
-private enum AppPage2Formatters {
-    static let day: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter
-    }()
-
-    static let time: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-
-    static func dayText(_ date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "今天" }
-        if calendar.isDateInYesterday(date) { return "昨天" }
-        return day.string(from: date)
-    }
 }
 
 struct AppPage2View: View {
     @EnvironmentObject var store: AppStore
-    @State private var filterRange: AppPage2FilterRange = .all
-
-    private var dayGroups: [AppPage2DayGroup] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: store.records) { record in
-            calendar.startOfDay(for: record.date)
-        }
-        return grouped.map { date, records in
-            AppPage2DayGroup(
-                id: date,
-                date: date,
-                totalML: records.reduce(0) { $0 + $1.amountML },
-                records: records.sorted { $0.date > $1.date }
-            )
-        }
-        .sorted { $0.date > $1.date }
-    }
-
-    private var filterStartDate: Date {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        switch filterRange {
+    @State private var filter: AppPage2Filter = .all
+    
+    private var filteredGroups: [AppDayGroup] {
+        let groups = store.dayGroups
+        switch filter {
         case .all:
-            return .distantPast
+            return groups
         case .last7:
-            return calendar.date(byAdding: .day, value: -6, to: startOfToday) ?? startOfToday
+            let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+            return groups.filter { $0.date >= cutoff }
         case .last30:
-            return calendar.date(byAdding: .day, value: -29, to: startOfToday) ?? startOfToday
+            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
+            return groups.filter { $0.date >= cutoff }
         }
     }
-
-    private var filteredDayGroups: [AppPage2DayGroup] {
-        let start = filterStartDate
-        return dayGroups.filter { $0.date >= start }
-    }
-
+    
     var body: some View {
         NavigationStack {
-            Group {
-                if store.records.isEmpty {
-                    ContentUnavailableView(
-                        "还没有喝水记录",
-                        systemImage: "drop",
-                        description: Text("去「今天」添加第一条记录")
-                    )
-                } else if filteredDayGroups.isEmpty {
-                    ContentUnavailableView(
-                        "该时间段没有记录",
-                        systemImage: "calendar.badge.exclamationmark",
-                        description: Text("试试切换筛选范围")
-                    )
+            List {
+                Section {
+                    Picker("筛选", selection: $filter) {
+                        ForEach(AppPage2Filter.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                
+                Section {
+                    AppPage2SummaryCard(groups: filteredGroups)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                
+                if filteredGroups.isEmpty {
+                    Section {
+                        AppPage2EmptyView()
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
                 } else {
-                    List {
-                        Section {
-                            AppPage2SummaryView()
-                        }
-                        Section {
-                            Picker("筛选范围", selection: $filterRange) {
-                                ForEach(AppPage2FilterRange.allCases) { range in
-                                    Text(range.rawValue).tag(range)
-                                }
+                    Section {
+                        ForEach(filteredGroups) { group in
+                            NavigationLink {
+                                AppPage2DayDetailView(dayID: group.id)
+                            } label: {
+                                AppPage2DayRow(group: group)
                             }
-                            .pickerStyle(.segmented)
-                        }
-                        Section("历史记录") {
-                            ForEach(filteredDayGroups) { group in
-                                NavigationLink {
-                                    AppPage2DayDetailView()
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    deleteDay(group)
                                 } label: {
-                                    AppPage2HistoryRow(day: group, dailyGoalML: store.dailyGoalML)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
-                                        let calendar = Calendar.current
-                                        store.records.removeAll {
-                                            calendar.isDate($0.date, inSameDayAs: group.date)
-                                        }
-                                        store.save()
-                                    } label: {
-                                        Label("删除当天", systemImage: "trash")
-                                    }
+                                    Label("删除", systemImage: "trash")
                                 }
                             }
                         }
                     }
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("历史")
         }
     }
+    
+    private func deleteDay(_ group: AppDayGroup) {
+        store.records.removeAll { record in
+            Calendar.current.isDate(record.date, inSameDayAs: group.date)
+        }
+        store.save()
+    }
 }
 
-private struct AppPage2SummaryItem: View {
-    let title: String
-    let value: String
-    let unit: String
-
+struct AppPage2SummaryCard: View {
+    let groups: [AppDayGroup]
+    
+    private var totalAmount: Int {
+        groups.reduce(0) { $0 + $1.total }
+    }
+    
+    private var averageAmount: Int {
+        groups.isEmpty ? 0 : totalAmount / groups.count
+    }
+    
     var body: some View {
-        VStack(spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Color.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.title2.bold())
-                Text(unit)
-                    .font(.caption2)
-                    .foregroundStyle(Color.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("历史概览")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 0) {
+                summaryItem(value: "\(groups.count)", label: "活跃天数")
+                Divider()
+                summaryItem(value: "\(totalAmount)", label: "累计毫升")
+                Divider()
+                summaryItem(value: "\(averageAmount)", label: "日均毫升")
             }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.secondarySystemBackground)))
+    }
+    
+    private func summaryItem(value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
 }
 
-private struct AppPage2HistoryRow: View {
-    let day: AppPage2DayGroup
-    let dailyGoalML: Int
-
+struct AppPage2DayRow: View {
+    let group: AppDayGroup
+    
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppPage2Formatters.dayText(day.date))
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(AppPage2DayFormatter.string(from: group.date))
                     .font(.headline)
-                Text("\(day.records.count) 条记录")
+                Text("\(group.records.count) 条记录")
                     .font(.caption)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(day.totalML) 毫升")
-                    .font(.title3.bold())
-                if dailyGoalML > 0 {
-                    Text("\(Int(Double(day.totalML) / Double(dailyGoalML) * 100))% 目标")
-                        .font(.caption2)
-                        .foregroundStyle(day.totalML >= dailyGoalML ? Color.green : Color.secondary)
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("\(group.total) 毫升")
+                    .font(.headline)
+                ProgressView(value: Double(min(group.total, 2000)), total: 2000)
+                    .frame(width: 100)
+                    .tint(.cyan)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct AppPage2EmptyView: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("暂无历史记录", systemImage: "drop")
+        } description: {
+            Text("开始记录饮水后，这里会按天显示")
+        } actions: {
+            Button("去记录") {
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.vertical, 32)
+    }
+}
+
+struct AppPage2DayDetailView: View {
+    let dayID: Date
+    @EnvironmentObject var store: AppStore
+    
+    private var currentGroup: AppDayGroup? {
+        store.dayGroups.first { $0.id == dayID }
+    }
+    
+    var body: some View {
+        List {
+            if let group = currentGroup {
+                Section {
+                    AppPage2DetailHeader(group: group)
+                }
+                Section {
+                    ForEach(group.records.sorted(by: { $0.date > $1.date })) { record in
+                        AppPage2RecordRow(record: record)
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    delete(record)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                    }
+                }
+            } else {
+                Section {
+                    ContentUnavailableView("这一天没有记录", systemImage: "drop")
                 }
             }
+        }
+        .listStyle(.insetGrouped)
+        .contentMargins(.bottom, 96, for: .scrollContent)
+        .navigationTitle(AppPage2MonthDayFormatter.string(from: dayID))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("清空当天") {
+                    deleteAllInDay()
+                }
+                .disabled(currentGroup == nil)
+            }
+        }
+    }
+    
+    func delete(_ record: AppDrinkRecord) {
+        store.records.removeAll { $0.id == record.id }
+        store.save()
+    }
+    
+    private func deleteAllInDay() {
+        store.records.removeAll { record in
+            Calendar.current.isDate(record.date, inSameDayAs: dayID)
+        }
+        store.save()
+    }
+}
+
+struct AppPage2DetailHeader: View {
+    let group: AppDayGroup
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppPage2DayFormatter.string(from: group.date))
+                        .font(.headline)
+                    Text("\(group.records.count) 条记录")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(group.total) 毫升")
+                    .font(.title2.bold())
+            }
+            ProgressView(value: Double(min(group.total, 2000)), total: 2000)
+                .tint(.cyan)
+            HStack {
+                Label("目标 2000 毫升", systemImage: "target")
+                Spacer()
+                Label("达成 \(Int(Double(group.total) / 2000.0 * 100))%", systemImage: "percent")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct AppPage2RecordRow: View {
+    let record: AppDrinkRecord
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "drop.fill")
+                .foregroundStyle(.cyan)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(record.amount) 毫升")
+                    .font(.headline)
+                Text(AppPage2TimeFormatter.string(from: record.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("\(record.amount / 250) 杯")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
     }

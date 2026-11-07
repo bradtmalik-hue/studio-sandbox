@@ -1,161 +1,149 @@
 import Foundation
-import Combine
+import SwiftUI
 
-struct AppWaterRecord: Identifiable, Codable, Hashable {
+struct AppDrinkRecord: Identifiable, Codable, Hashable {
     let id: UUID
+    var amount: Int
     var date: Date
-    var amountML: Int
-    var note: String
 
-    init(id: UUID = UUID(), date: Date = Date(), amountML: Int, note: String = "") {
+    init(id: UUID = UUID(), amount: Int, date: Date) {
         self.id = id
+        self.amount = amount
         self.date = date
-        self.amountML = amountML
-        self.note = note
     }
 }
 
-struct AppDaySummary: Identifiable {
-    var id: Date { date }
-    let date: Date
-    let totalML: Int
-    let records: [AppWaterRecord]
+struct AppDataFile: Codable {
+    var records: [AppDrinkRecord]
+    var dailyGoal: Int
 }
 
-private struct AppPersistedData: Codable {
-    var records: [AppWaterRecord]
-    var dailyGoalML: Int
+struct AppDayGroup: Identifiable {
+    let id: Date
+    let date: Date
+    let records: [AppDrinkRecord]
+
+    var total: Int {
+        records.reduce(0) { $0 + $1.amount }
+    }
 }
 
 final class AppStore: ObservableObject {
-    @Published var records: [AppWaterRecord] = []
-    @Published var dailyGoalML: Int = 2000
-
-    private let fileURL: URL
+    @Published var records: [AppDrinkRecord]
+    @Published var dailyGoal: Int
 
     init() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileURL = documents.appendingPathComponent("water_records.json")
+        self.records = []
+        self.dailyGoal = 2000
         load()
         if CommandLine.arguments.contains("-demoData") {
-            DemoSeed.apply()
+            DemoSeed.apply(into: self)
         }
     }
 
-    var todayRecords: [AppWaterRecord] {
-        records
-            .filter { Calendar.current.isDateInToday($0.date) }
-            .sorted { $0.date > $1.date }
+    private var dataFileURL: URL {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documents.appendingPathComponent("hydrationData.json")
     }
 
     var todayTotal: Int {
-        todayRecords.reduce(0) { $0 + $1.amountML }
+        let calendar = Calendar.current
+        return records.filter { calendar.isDateInToday($0.date) }.reduce(0) { $0 + $1.amount }
     }
 
-    var latestRecordDate: Date? {
-        records.map(\.date).max()
+    var sortedRecords: [AppDrinkRecord] {
+        records.sorted { $0.date > $1.date }
     }
 
-    func daySummaries() -> [AppDaySummary] {
+    var dayGroups: [AppDayGroup] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.date) }
-        return grouped
-            .map { date, dayRecords in
-                AppDaySummary(
-                    date: date,
-                    totalML: dayRecords.reduce(0) { $0 + $1.amountML },
-                    records: dayRecords.sorted { $0.date > $1.date }
-                )
-            }
-            .sorted { $0.date > $1.date }
+        return grouped.map { date, records in
+            AppDayGroup(id: date, date: date, records: records.sorted { $0.date > $1.date })
+        }
+        .sorted { $0.date > $1.date }
     }
 
-    func addRecord(amountML: Int, date: Date = Date(), note: String = "") {
-        let record = AppWaterRecord(id: UUID(), date: date, amountML: amountML, note: note)
+    func add(amount: Int, date: Date = Date()) {
+        let record = AppDrinkRecord(id: UUID(), amount: amount, date: date)
         records.append(record)
-        records.sort { $0.date > $1.date }
         save()
     }
 
-    func deleteRecord(id: UUID) {
-        records.removeAll { $0.id == id }
+    func delete(_ record: AppDrinkRecord) {
+        records.removeAll { $0.id == record.id }
         save()
     }
 
-    func updateGoal(_ goal: Int) {
-        dailyGoalML = max(1, goal)
+    func delete(at offsets: IndexSet) {
+        records.remove(atOffsets: offsets)
         save()
     }
 
-    func clearAllRecords() {
+    func clearAll() {
         records.removeAll()
         save()
     }
 
-    private func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return
-        }
+    func save() {
+        let data = AppDataFile(records: records, dailyGoal: dailyGoal)
         do {
-            let data = try Data(contentsOf: fileURL)
-            let decoded = try JSONDecoder().decode(AppPersistedData.self, from: data)
-            records = decoded.records
-            dailyGoalML = decoded.dailyGoalML
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let jsonData = try encoder.encode(data)
+            try jsonData.write(to: dataFileURL)
         } catch {
-            records = []
-            dailyGoalML = 2000
+            _ = error
         }
     }
 
-    func save() {
-        let persisted = AppPersistedData(records: records, dailyGoalML: dailyGoalML)
+    func load() {
+        let url = dataFileURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
         do {
-            let data = try JSONEncoder().encode(persisted)
-            try data.write(to: fileURL)
+            let jsonData = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let data = try decoder.decode(AppDataFile.self, from: jsonData)
+            records = data.records
+            dailyGoal = data.dailyGoal
         } catch {
+            _ = error
         }
     }
 }
 
 enum DemoSeed {
-    static func apply() {
-        guard CommandLine.arguments.contains("-demoData") else { return }
-    }
-
     static func apply(into store: AppStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
 
+        store.records.removeAll()
+
         let calendar = Calendar.current
         let now = Date()
-        var demoRecords: [AppWaterRecord] = []
+        let todayStart = calendar.startOfDay(for: now)
 
-        func make(dayOffset: Int, hour: Int, minute: Int, amountML: Int, note: String) -> AppWaterRecord {
-            let dayStart = calendar.startOfDay(for: now)
-            let dayDate = calendar.date(byAdding: .day, value: -dayOffset, to: dayStart) ?? dayStart
-            let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayDate) ?? dayDate
-            return AppWaterRecord(id: UUID(), date: date, amountML: amountML, note: note)
+        let demoData: [(daysAgo: Int, hour: Int, minute: Int, amount: Int)] = [
+            (0, 9, 15, 250),
+            (0, 11, 0, 250),
+            (0, 13, 45, 350),
+            (0, 16, 20, 250),
+            (1, 9, 30, 300),
+            (1, 12, 10, 250),
+            (1, 15, 50, 300),
+            (2, 10, 0, 250),
+            (2, 14, 30, 400),
+            (3, 8, 45, 300),
+            (3, 18, 20, 250),
+            (4, 11, 15, 350)
+        ]
+
+        for item in demoData {
+            let baseDate = calendar.date(byAdding: .day, value: -item.daysAgo, to: todayStart)!
+            let date = calendar.date(bySettingHour: item.hour, minute: item.minute, second: 0, of: baseDate)!
+            store.add(amount: item.amount, date: date)
         }
 
-        demoRecords.append(make(dayOffset: 0, hour: 7, minute: 30, amountML: 250, note: "晨起一杯"))
-        demoRecords.append(make(dayOffset: 0, hour: 9, minute: 40, amountML: 250, note: "早餐后"))
-        demoRecords.append(make(dayOffset: 0, hour: 12, minute: 10, amountML: 250, note: "午餐后"))
-        demoRecords.append(make(dayOffset: 0, hour: 15, minute: 0, amountML: 250, note: "午后补水"))
-        demoRecords.append(make(dayOffset: 0, hour: 18, minute: 20, amountML: 250, note: "晚饭前"))
-        demoRecords.append(make(dayOffset: 0, hour: 21, minute: 30, amountML: 250, note: "睡前一杯"))
-
-        demoRecords.append(make(dayOffset: 1, hour: 8, minute: 10, amountML: 250, note: "晨起一杯"))
-        demoRecords.append(make(dayOffset: 1, hour: 11, minute: 20, amountML: 250, note: "工作间隙"))
-        demoRecords.append(make(dayOffset: 1, hour: 14, minute: 30, amountML: 250, note: "午后补水"))
-        demoRecords.append(make(dayOffset: 1, hour: 20, minute: 10, amountML: 250, note: "散步后"))
-
-        demoRecords.append(make(dayOffset: 2, hour: 9, minute: 5, amountML: 250, note: "运动后"))
-        demoRecords.append(make(dayOffset: 2, hour: 16, minute: 45, amountML: 250, note: "下午茶"))
-
-        demoRecords.append(make(dayOffset: 3, hour: 7, minute: 55, amountML: 250, note: "晨起一杯"))
-        demoRecords.append(make(dayOffset: 3, hour: 19, minute: 20, amountML: 250, note: "晚饭后"))
-
-        store.records = demoRecords.sorted { $0.date > $1.date }
-        store.dailyGoalML = 2000
         store.save()
     }
 }
