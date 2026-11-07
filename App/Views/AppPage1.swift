@@ -2,7 +2,7 @@ import SwiftUI
 import Foundation
 
 struct AppPage1View: View {
-    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var store: AppModel
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()

@@ -30,7 +30,7 @@ struct AppPage2View: View {
             Calendar.current.startOfDay(for: $0.date)
         }
         return grouped.map {
-            AppPage2DayGroup(id: Date(), records: "")
+            AppPage2DayGroup()
         }
         .sorted { $0.id > $1.id }
     }

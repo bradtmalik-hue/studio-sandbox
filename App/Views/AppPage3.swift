@@ -1,4 +1,26 @@
 import SwiftUI
+import Combine
+
+class AppStore: ObservableObject {
+    @Published var dailyGoal: Double
+    @Published var records: [AppWaterRecord]
+
+    init(dailyGoal: Double = 2000, records: [AppWaterRecord] = []) {
+        self.dailyGoal = dailyGoal
+        self.records = records
+    }
+
+    var totalToday: Double {
+        let calendar = Calendar.current
+        return records
+            .filter { calendar.isDateInToday($0.date) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    func save() {
+        // 实际项目中可在此持久化
+    }
+}
 
 struct AppPage3View: View {
     @EnvironmentObject var store: AppStore
@@ -8,7 +30,7 @@ struct AppPage3View: View {
         NavigationStack {
             Form {
                 Section {
-                    AppPage3GoalEditor(dailyGoal: $store.dailyGoal)
+                    AppPage3GoalEditor()
                     Stepper("调整目标", value: $store.dailyGoal, in: 500...5000, step: 50)
                     Text("建议每日饮水 1500–2500 毫升")
                         .font(.footnote)
