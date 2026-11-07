@@ -47,14 +47,14 @@ struct AppPage3View: View {
                 Section {
                     if filteredMedicines.isEmpty {
                         AppPage3EmptyState(hasIgnored: !ignoredIDs.isEmpty, showAddAlert: $showAddAlert, resetAction: resetFilters)
-                        .frame(maxWidth: .infinity, minHeight: 260)
+                            .frame(maxWidth: .infinity, minHeight: 260)
                     } else {
                         ForEach(filteredMedicines) { medicine in
                             AppPage3Row(medicine: medicine)
                                 .swipeActions(edge: .trailing) {
                                     Button {
                                         withAnimation {
-                                            ignoredIDs.insert(medicine.id)
+                                            _ = ignoredIDs.insert(medicine.id)
                                         }
                                     } label: {
                                         Label("忽略", systemImage: "bell.slash")
