@@ -1,5 +1,26 @@
 import SwiftUI
 import Foundation
+import Combine
+
+class AppWaterStore: ObservableObject {
+    @Published var records: [AppWaterRecord] = [] {
+        didSet {
+            save()
+        }
+    }
+
+    var todayRecords: [AppWaterRecord] {
+        records.filter { Calendar.current.isDateInToday($0.date) }
+    }
+
+    var todayTotal: Double {
+        todayRecords.reduce(0) { $0 + $1.amount }
+    }
+
+    func save() {
+        // 可在此实现持久化存储
+    }
+}
 
 struct AppPage1View: View {
     let store: AppWaterStore

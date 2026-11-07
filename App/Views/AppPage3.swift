@@ -1,5 +1,19 @@
 import SwiftUI
 
+struct AppWaterStore {
+    var records: [AppWaterRecord]
+
+    var todayRecords: [AppWaterRecord] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return records.filter { calendar.isDate($0.date, inSameDayAs: today) }
+    }
+
+    var todayTotal: Double {
+        todayRecords.reduce(0.0) { $0 + $1.amount }
+    }
+}
+
 struct AppPage3View: View {
     let store: AppWaterStore
     @State private var selectedRange = 7
