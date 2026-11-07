@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppPage3View: View {
-    @EnvironmentObject private var store: AppWaterStore
+    let store: AppWaterStore
     @State private var selectedRange = 7
     @State private var showAverageLine = true
     @State private var showGoalLine = true
@@ -19,11 +19,11 @@ struct AppPage3View: View {
         }
         let recent = store.records.filter { $0.date >= start && $0.date < end }
         let grouped = Dictionary(grouping: recent) { calendar.startOfDay(for: $0.date) }
-        return (0..<selectedRange).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
+        return (0..<selectedRange).map { offset in
+            let date = calendar.date(byAdding: .day, value: offset, to: start) ?? start
             let records = grouped[date] ?? []
             let total = records.reduce(0.0) { $0 + $1.amount }
-            return AppPage3DayStat(id: Date(), date: Date(), total: 0, count: 0)
+            return AppPage3DayStat()
         }
     }
 
@@ -139,6 +139,7 @@ struct AppPage3BarChart: View {
     let showGoal: Bool
     let average: Double
     let goal: Double
+    let minHeight: CGFloat
 
     private var maxTotal: Double {
         max(goal, dayStats.map(\.total).max() ?? 0)
@@ -181,7 +182,6 @@ struct AppPage3BarChart: View {
 
     private func barHeight(for total: Double) -> CGFloat {
         let ratio = CGFloat(total / maxTotal)
-        let minHeight: CGFloat = 2
         return max(minHeight, ratio * 120)
     }
 
