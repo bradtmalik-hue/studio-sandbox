@@ -14,7 +14,8 @@
 		AA0000000000000000000005 /* AppPage1.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppPage1.swift */; };
 		AA0000000000000000000006 /* AppPage2.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppPage2.swift */; };
 		AA0000000000000000000007 /* AppPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppPage3.swift */; };
-		AA0000000000000000000008 /* AppPage1DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppPage1DetailView.swift */; };
+		AA0000000000000000000008 /* AppPage2EmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppPage2EmptyView.swift */; };
+		AA0000000000000000000009 /* AppPage2NoResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppPage2NoResultsView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -27,7 +28,8 @@
 		BB0000000000000000000005 /* AppPage1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage1.swift; sourceTree = "<group>"; };
 		BB0000000000000000000006 /* AppPage2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2.swift; sourceTree = "<group>"; };
 		BB0000000000000000000007 /* AppPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppPage1DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage1DetailView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* AppPage2EmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2EmptyView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000009 /* AppPage2NoResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2NoResultsView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -87,7 +89,8 @@
 				BB0000000000000000000005 /* AppPage1.swift */,
 				BB0000000000000000000006 /* AppPage2.swift */,
 				BB0000000000000000000007 /* AppPage3.swift */,
-				BB0000000000000000000008 /* AppPage1DetailView.swift */,
+				BB0000000000000000000008 /* AppPage2EmptyView.swift */,
+				BB0000000000000000000009 /* AppPage2NoResultsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -186,7 +189,8 @@
 				AA0000000000000000000005 /* AppPage1.swift in Sources */,
 				AA0000000000000000000006 /* AppPage2.swift in Sources */,
 				AA0000000000000000000007 /* AppPage3.swift in Sources */,
-				AA0000000000000000000008 /* AppPage1DetailView.swift in Sources */,
+				AA0000000000000000000008 /* AppPage2EmptyView.swift in Sources */,
+				AA0000000000000000000009 /* AppPage2NoResultsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
