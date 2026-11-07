@@ -1,242 +1,148 @@
 import Foundation
+import SwiftUI
 import Combine
 
-struct AppMedicineBox: Identifiable, Codable, Hashable {
-    var id: UUID
-    var name: String
-    var category: String
-    var expiryDate: Date
-    var storageLocation: String
-    var quantity: Int
-    var unit: String
-    var reminderEnabled: Bool
-    var notes: String
-    var createdAt: Date
+struct AppWaterRecord: Identifiable, Codable, Hashable {
+    let id: UUID
+    var date: Date
+    var amount: Double
+    var container: String
+    var note: String
+
+    init(id: UUID = UUID(), date: Date, amount: Double, container: String, note: String) {
+        self.id = id
+        self.date = date
+        self.amount = amount
+        self.container = container
+        self.note = note
+    }
 }
 
-final class AppStore: ObservableObject {
-    @Published var medicines: [AppMedicineBox] = []
+final class AppHydrationStore: ObservableObject {
+    @Published var records: [AppWaterRecord] = []
+    static let dailyGoal: Double = 2000
 
-    private let fileName = "AppMedicineBoxes.json"
-    private let fileManager = FileManager.default
-
-    var fileURL: URL {
-        fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(fileName)
-    }
+    private let fileURL: URL
 
     init() {
+        fileURL = Self.defaultFileURL()
         load()
         if CommandLine.arguments.contains("-demoData") {
             DemoSeed.apply(into: self)
         }
     }
 
-    func load() {
-        let url = fileURL
-        guard fileManager.fileExists(atPath: url.path) else {
-            medicines = []
-            return
+    private static func defaultFileURL() -> URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return docs.appendingPathComponent("hydration_records.json")
+    }
+
+    func addRecord(amount: Double, container: String, note: String, date: Date = Date()) {
+        let record = AppWaterRecord(date: date, amount: amount, container: container, note: note)
+        records.append(record)
+        records.sort { $0.date > $1.date }
+        save()
+    }
+
+    func deleteRecord(_ record: AppWaterRecord) {
+        records.removeAll { $0.id == record.id }
+        save()
+    }
+
+    var todayRecords: [AppWaterRecord] {
+        let calendar = Calendar.current
+        return records.filter { calendar.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var todayTotal: Double {
+        todayRecords.reduce(0) { $0 + $1.amount }
+    }
+
+    var remainingToday: Double {
+        max(0, Self.dailyGoal - todayTotal)
+    }
+
+    var dailyAverageLast7Days: Double {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
+        let last7Records = records.filter { $0.date >= startOf7DaysAgo && $0.date < Date() }
+        let days = Set(last7Records.map { calendar.startOfDay(for: $0.date) }).count
+        guard days > 0 else { return 0 }
+        return last7Records.reduce(0) { $0 + $1.amount } / Double(days)
+    }
+
+    var reachDaysLast7Days: Int {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let startOf7DaysAgo = calendar.date(byAdding: .day, value: -6, to: startOfToday) else { return 0 }
+        var count = 0
+        for dayOffset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: startOfToday) else { continue }
+            let dayRecords = records.filter { calendar.isDate($0.date, inSameDayAs: day) }
+            let total = dayRecords.reduce(0) { $0 + $1.amount }
+            if total >= Self.dailyGoal {
+                count += 1
+            }
         }
-        do {
-            let data = try Data(contentsOf: url)
-            let decoded = try JSONDecoder().decode([AppMedicineBox].self, from: data)
-            medicines = decoded
-        } catch {
-            medicines = []
-        }
+        return count
     }
 
     func save() {
         do {
-            let data = try JSONEncoder().encode(medicines)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(records)
             try data.write(to: fileURL)
         } catch {
-            print("Save failed: \(error.localizedDescription)")
         }
     }
 
-    func add(_ medicine: AppMedicineBox) {
-        medicines.append(medicine)
-        save()
-    }
-
-    func update(_ medicine: AppMedicineBox) {
-        guard let index = medicines.firstIndex(where: { $0.id == medicine.id }) else { return }
-        medicines[index] = medicine
-        save()
-    }
-
-    func delete(_ medicine: AppMedicineBox) {
-        medicines.removeAll { $0.id == medicine.id }
-        save()
-    }
-
-    func delete(at offsets: IndexSet) {
-        medicines.remove(atOffsets: offsets)
-        save()
+    private func load() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            records = try decoder.decode([AppWaterRecord].self, from: data)
+            records.sort { $0.date > $1.date }
+        } catch {
+            records = []
+        }
     }
 }
 
 enum DemoSeed {
-    static func apply(into store: AppStore) {
+    static let seedFlagID = UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!
+
+    static func apply(into store: AppHydrationStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
+        if store.records.contains(where: { $0.id == seedFlagID }) { return }
 
-        let now = Date()
         let calendar = Calendar.current
-
-        func days(_ value: Int) -> Date {
-            calendar.date(byAdding: .day, value: value, to: now) ?? now
+        func makeDate(_ dayOffset: Int, _ hour: Int, _ minute: Int) -> Date {
+            let base = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) ?? Date()
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
         }
 
-        let samples: [AppMedicineBox] = [
-            AppMedicineBox(
-                id: UUID(),
-                name: "布洛芬缓释胶囊",
-                category: "解热镇痛",
-                expiryDate: days(18),
-                storageLocation: "客厅药箱上层",
-                quantity: 2,
-                unit: "盒",
-                reminderEnabled: true,
-                notes: "牙痛或发热时用，饭后服用",
-                createdAt: days(-120)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "阿莫西林胶囊",
-                category: "抗生素",
-                expiryDate: days(9),
-                storageLocation: "卧室床头柜",
-                quantity: 1,
-                unit: "盒",
-                reminderEnabled: true,
-                notes: "对青霉素过敏者禁用",
-                createdAt: days(-80)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "氯雷他定片",
-                category: "抗过敏",
-                expiryDate: days(37),
-                storageLocation: "药箱第二层",
-                quantity: 1,
-                unit: "盒",
-                reminderEnabled: false,
-                notes: "季节性鼻炎备用",
-                createdAt: days(-60)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "蒙脱石散",
-                category: "止泻",
-                expiryDate: days(26),
-                storageLocation: "厨房吊柜",
-                quantity: 3,
-                unit: "袋",
-                reminderEnabled: true,
-                notes: "腹泻时空腹服用",
-                createdAt: days(-45)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "维生素D滴剂",
-                category: "营养补充",
-                expiryDate: days(180),
-                storageLocation: "冰箱冷藏格",
-                quantity: 1,
-                unit: "瓶",
-                reminderEnabled: false,
-                notes: "每日一次，每次两滴",
-                createdAt: days(-30)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "创可贴",
-                category: "外用",
-                expiryDate: days(365),
-                storageLocation: "玄关抽屉",
-                quantity: 20,
-                unit: "片",
-                reminderEnabled: false,
-                notes: "小伤口备用",
-                createdAt: days(-200)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "云南白药气雾剂",
-                category: "跌打损伤",
-                expiryDate: days(45),
-                storageLocation: "运动包侧袋",
-                quantity: 1,
-                unit: "瓶",
-                reminderEnabled: true,
-                notes: "扭伤后使用",
-                createdAt: days(-15)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "左氧氟沙星滴眼液",
-                category: "眼科用药",
-                expiryDate: days(12),
-                storageLocation: "药箱第一层",
-                quantity: 1,
-                unit: "支",
-                reminderEnabled: true,
-                notes: "开封后一个月内用完",
-                createdAt: days(-10)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "感冒灵颗粒",
-                category: "感冒",
-                expiryDate: days(23),
-                storageLocation: "客厅电视柜",
-                quantity: 2,
-                unit: "盒",
-                reminderEnabled: false,
-                notes: "早晚各一袋",
-                createdAt: days(-50)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "开塞露",
-                category: "通便",
-                expiryDate: days(150),
-                storageLocation: "卫生间镜柜",
-                quantity: 5,
-                unit: "支",
-                reminderEnabled: false,
-                notes: "便秘备用",
-                createdAt: days(-90)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "碘伏棉签",
-                category: "外用消毒",
-                expiryDate: days(30),
-                storageLocation: "药箱第三层",
-                quantity: 1,
-                unit: "盒",
-                reminderEnabled: true,
-                notes: "伤口消毒用",
-                createdAt: days(-5)
-            ),
-            AppMedicineBox(
-                id: UUID(),
-                name: "电子体温计",
-                category: "器械",
-                expiryDate: days(720),
-                storageLocation: "床头柜第二层",
-                quantity: 1,
-                unit: "支",
-                reminderEnabled: false,
-                notes: "定期更换电池",
-                createdAt: days(-300)
-            )
+        let seeds: [AppWaterRecord] = [
+            AppWaterRecord(id: seedFlagID, date: makeDate(0, 8, 30), amount: 250, container: "玻璃杯", note: "晨起第一杯"),
+            AppWaterRecord(date: makeDate(0, 10, 0), amount: 350, container: "随行杯", note: "工作间隙"),
+            AppWaterRecord(date: makeDate(0, 12, 30), amount: 300, container: "水壶", note: "午餐后"),
+            AppWaterRecord(date: makeDate(0, 15, 0), amount: 300, container: "玻璃杯", note: "下午补水"),
+            AppWaterRecord(date: makeDate(0, 18, 0), amount: 400, container: "水壶", note: "运动后"),
+            AppWaterRecord(date: makeDate(1, 9, 0), amount: 300, container: "玻璃杯", note: "周一早晨"),
+            AppWaterRecord(date: makeDate(1, 13, 0), amount: 350, container: "随行杯", note: "午餐"),
+            AppWaterRecord(date: makeDate(2, 8, 45), amount: 250, container: "玻璃杯", note: "起床"),
+            AppWaterRecord(date: makeDate(2, 20, 0), amount: 300, container: "水壶", note: "晚间"),
+            AppWaterRecord(date: makeDate(3, 11, 0), amount: 500, container: "水壶", note: "户外"),
+            AppWaterRecord(date: makeDate(4, 16, 0), amount: 200, container: "玻璃杯", note: "下午")
         ]
 
-        store.medicines = samples
+        store.records.removeAll()
+        store.records.append(contentsOf: seeds)
+        store.records.sort { $0.date > $1.date }
         store.save()
     }
 }
