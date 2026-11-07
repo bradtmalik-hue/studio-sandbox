@@ -132,9 +132,8 @@ struct AppPage1View: View {
         }
     }
 
-    func deleteBook(_ book: AppBook) {
+    private func deleteBook(_ book: AppBook) {
         store.books.removeAll { $0.id == book.id }
-        store.save()
     }
 }
 
@@ -282,6 +281,7 @@ struct AppPage1AddBookView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+                        let trimmedAuthor = author.trimmingCharacters(in: .whitespaces)
                         if trimmedTitle.isEmpty {
                             errorMessage = "书名不能为空"
                             showError = true
@@ -297,9 +297,16 @@ struct AppPage1AddBookView: View {
                             showError = true
                             return
                         }
-                        let book = AppBook(id: UUID(), title: trimmedTitle, author: author, currentPage: currentPage, totalPages: totalPages, startDate: startDate, lastReadAt: lastReadAt, fill: "")
+                        let book = AppBook(
+                            id: UUID(),
+                            title: trimmedTitle,
+                            author: trimmedAuthor,
+                            currentPage: currentPage,
+                            totalPages: totalPages,
+                            startDate: startDate,
+                            lastReadAt: lastReadAt
+                        )
                         store.books.append(book)
-                        store.save()
                         dismiss()
                     }
                 }
@@ -371,14 +378,7 @@ struct AppPage1AddExcerptView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        let bookTitle = selectedBookTitle.isEmpty ? bookTitleManual : selectedBookTitle
-                        let trimmedBookTitle = bookTitle.trimmingCharacters(in: .whitespaces)
-                        let trimmedContent = content.trimmingCharacters(in: .whitespaces)
-                        if trimmedBookTitle.isEmpty {
-                            errorMessage = "书名不能为空"
-                            showError = true
-                            return
-                        }
+                        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmedContent.isEmpty {
                             errorMessage = "摘录内容不能为空"
                             showError = true
@@ -386,13 +386,11 @@ struct AppPage1AddExcerptView: View {
                         }
                         let excerpt = AppExcerpt(
                             id: UUID(),
-                            bookTitle: trimmedBookTitle,
-                            pageNumber: pageNumber,
-                            content: trimmedContent,
+                            bookID: selectedBookID,
+                            text: trimmedContent,
                             createdAt: createdAt
                         )
                         store.excerpts.append(excerpt)
-                        store.save()
                         dismiss()
                     }
                 }
@@ -439,7 +437,7 @@ struct AppPage1BookDetailView: View {
         _lastReadAt = State(initialValue: book.lastReadAt)
     }
 
-    var progress: Double {
+    private var progress: Double {
         Double(currentPage) / Double(max(totalPages, 1))
     }
 
@@ -454,31 +452,31 @@ struct AppPage1BookDetailView: View {
         Form {
             Section("书籍信息") {
                 TextField("书名", text: $title)
+                    .onChange(of: title) { _ in hasChanges = true }
                 TextField("作者", text: $author)
+                    .onChange(of: author) { _ in hasChanges = true }
             }
             Section("进度") {
                 Stepper("当前页：\(currentPage)", value: $currentPage, in: 0...max(totalPages, currentPage))
+                    .onChange(of: currentPage) { _ in hasChanges = true }
                 Stepper("总页数：\(totalPages)", value: $totalPages, in: max(currentPage, 1)...9999)
-                ProgressView(value: progress)
-                Text("已读 \(Int(progress * 100))%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .onChange(of: totalPages) { _ in hasChanges = true }
+                HStack {
+                    Text("进度")
+                    Spacer()
+                    Text("\(Int(progress * 100))%")
+                        .foregroundStyle(progress >= 1 ? .green : .primary)
+                }
             }
             Section("日期") {
                 DatePicker("开始日期", selection: $startDate, displayedComponents: .date)
+                    .onChange(of: startDate) { _ in hasChanges = true }
                 DatePicker("最近阅读", selection: $lastReadAt, displayedComponents: [.date, .hourAndMinute])
-            }
-            Section {
-                Button(role: .destructive) {
-                    deleteBook()
-                } label: {
-                    Label("删除这本书", systemImage: "trash")
-                }
+                    .onChange(of: lastReadAt) { _ in hasChanges = true }
             }
         }
-        .navigationTitle("书详情")
+        .navigationTitle("书籍详情")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
@@ -491,49 +489,51 @@ struct AppPage1BookDetailView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    save()
+                    let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+                    let trimmedAuthor = author.trimmingCharacters(in: .whitespaces)
+                    if trimmedTitle.isEmpty {
+                        errorMessage = "书名不能为空"
+                        showError = true
+                        return
+                    }
+                    if totalPages <= 0 {
+                        errorMessage = "总页数必须大于 0"
+                        showError = true
+                        return
+                    }
+                    if currentPage > totalPages {
+                        errorMessage = "当前页不能超过总页数"
+                        showError = true
+                        return
+                    }
+                    if let index = store.books.firstIndex(where: { $0.id == book.id }) {
+                        store.books[index] = AppBook(
+                            id: book.id,
+                            title: trimmedTitle,
+                            author: trimmedAuthor,
+                            currentPage: currentPage,
+                            totalPages: totalPages,
+                            startDate: startDate,
+                            lastReadAt: lastReadAt
+                        )
+                    }
+                    dismiss()
                 }
-                .disabled(!isValid)
+                .disabled(!isValid || !hasChanges)
             }
         }
-        .alert("放弃修改？", isPresented: $showCancelAlert) {
+        .alert("放弃更改？", isPresented: $showCancelAlert) {
             Button("继续编辑", role: .cancel) { }
-            Button("放弃修改", role: .destructive) {
+            Button("放弃", role: .destructive) {
                 dismiss()
             }
         } message: {
-            Text("你有未保存的修改。")
+            Text("有未保存的更改。")
         }
         .alert("无法保存", isPresented: $showError) {
             Button("好", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
-        .onChange(of: title) { _ in hasChanges = true }
-        .onChange(of: author) { _ in hasChanges = true }
-        .onChange(of: currentPage) { _ in hasChanges = true }
-        .onChange(of: totalPages) { _ in hasChanges = true }
-        .onChange(of: startDate) { _ in hasChanges = true }
-        .onChange(of: lastReadAt) { _ in hasChanges = true }
-    }
-
-    func save() {
-        if !isValid {
-            errorMessage = "请检查书名、当前页和总页数是否填写正确"
-            showError = true
-            return
-        }
-        let updatedBook = AppBook(id: book.id, title: title.trimmingCharacters(in: .whitespaces), author: author, currentPage: currentPage, totalPages: totalPages, startDate: startDate, lastReadAt: lastReadAt, fill: "")
-        if let index = store.books.firstIndex(where: { $0.id == book.id }) {
-            store.books[index] = updatedBook
-            store.save()
-        }
-        dismiss()
-    }
-
-    func deleteBook() {
-        store.books.removeAll { $0.id == book.id }
-        store.save()
-        dismiss()
     }
 }
