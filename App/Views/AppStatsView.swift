@@ -1,173 +1,93 @@
 import SwiftUI
-import Combine
-import Foundation
 
 struct AppStatsView: View {
-    @EnvironmentObject var store: AppFilmStore
-    
-    private var yearStatistics: AppYearStatistics {
-        let calendar = Calendar.current
-        let currentYear = calendar.component(.year, from: Date())
-        let yearFilms = store.films.filter { calendar.component(.year, from: $0.watchDate) == currentYear }
-        let totalFilms = yearFilms.count
-        let averageRating = totalFilms > 0 ? yearFilms.map(\.rating).reduce(0.0, +) / Double(totalFilms) : 0
-        let monthlyCounts = (1...12).map { month in
-            yearFilms.filter { calendar.component(.month, from: $0.watchDate) == month }.count
-        }
-        let sortedByDateDescending = yearFilms.sorted { $0.watchDate > $1.watchDate }
-        let longestStreakWeeks = Self.longestStreakWeeks(in: sortedByDateDescending, calendar: calendar)
-        return AppYearStatistics(
-            year: currentYear,
-            totalFilms: totalFilms,
-            averageRating: averageRating,
-            longestStreakWeeks: longestStreakWeeks,
-            monthlyCounts: monthlyCounts
-        )
+    private struct StatItem: Identifiable {
+        let id = UUID()
+        let name: String
+        let amount: Double
+        let icon: String
+        let color: Color
     }
-    
+
+    private let items: [StatItem] = [
+        StatItem(name: "餐饮", amount: 1250.80, icon: "fork.knife", color: .orange),
+        StatItem(name: "交通", amount: 640.50, icon: "car.fill", color: .blue),
+        StatItem(name: "购物", amount: 2330.00, icon: "bag.fill", color: .purple),
+        StatItem(name: "居住", amount: 4200.00, icon: "house.fill", color: .green),
+        StatItem(name: "娱乐", amount: 880.00, icon: "gamecontroller.fill", color: .pink),
+        StatItem(name: "医疗", amount: 350.20, icon: "cross.case.fill", color: .red)
+    ]
+
+    private var totalAmount: Double {
+        items.reduce(0) { $0 + $1.amount }
+    }
+
+    private var averageAmount: Double {
+        items.isEmpty ? 0 : totalAmount / Double(items.count)
+    }
+
     var body: some View {
         NavigationStack {
-            Group {
-                if yearStatistics.totalFilms == 0 {
-                    emptyState
-                } else {
-                    statsContent
-                }
-            }
-            .navigationTitle("统计")
-        }
-    }
-    
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "film.stack")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-            Text("今年还没有观影记录")
-                .font(.headline)
-            Text("去「记一部」添加你看过的电影吧")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    private var statsContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Text("\(Calendar.current.component(.year, from: Date())) 年")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    Spacer()
-                }
-                
-                HStack(spacing: 16) {
-                    AppStatCard(title: "总片数", value: "\(yearStatistics.totalFilms)", icon: "film")
-                    AppStatCard(title: "平均星级", value: String(format: "%.1f", yearStatistics.averageRating), icon: "star.fill")
-                }
-                
-                streakCard
-                monthlyRhythmCard
-            }
-            .padding()
-        }
-    }
-    
-    private var streakCard: some View {
-        HStack {
-            Image(systemName: "flame.fill")
-                .foregroundColor(.primary)
-            Text("连续观影周")
-            Spacer()
-            Text("\(yearStatistics.longestStreakWeeks) 周")
-                .fontWeight(.semibold)
-        }
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(12)
-    }
-    
-    private var monthlyRhythmCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("月度观影节奏")
-                .font(.headline)
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(0..<12, id: \.self) { month in
-                    let count = yearStatistics.monthlyCounts[month]
-                    VStack {
-                        Text("\(count)")
-                            .font(.caption2)
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("本月总支出")
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
-                        Rectangle()
-                            .fill(count > 0 ? Color.primary : Color.secondary.opacity(0.3))
-                            .frame(height: height(for: count))
-                            .cornerRadius(4)
-                        Text("\(month + 1)月")
-                            .font(.caption2)
+
+                        Text("¥\(totalAmount, specifier: "%.2f")")
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+
+                        HStack(spacing: 16) {
+                            Label {
+                                Text("\(items.count) 个分类")
+                            } icon: {
+                                Image(systemName: "square.grid.2x2")
+                            }
+
+                            Label {
+                                Text("平均 ¥\(averageAmount, specifier: "%.2f")")
+                            } icon: {
+                                Image(systemName: "chart.bar.xaxis")
+                            }
+                        }
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                Section("分类统计") {
+                    ForEach(items) { item in
+                        HStack(spacing: 12) {
+                            Image(systemName: item.icon)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 36)
+                                .background(item.color.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.name)
+                                    .font(.body)
+                                Text("¥\(item.amount, specifier: "%.2f")")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            ProgressView(value: item.amount, total: totalAmount)
+                                .frame(width: 80)
+                                .tint(item.color)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
             }
-            .frame(height: 140, alignment: .bottom)
+            .navigationTitle("统计")
+            .contentMargins(.bottom, 96, for: .scrollContent)
         }
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(12)
-    }
-    
-    private func height(for count: Int) -> CGFloat {
-        let maxCount = max(yearStatistics.monthlyCounts.max() ?? 1, 1)
-        if count == 0 { return 8 }
-        return max(20, CGFloat(count) / CGFloat(maxCount) * 100)
-    }
-    
-    private static func longestStreakWeeks(in films: [AppFilmRecord], calendar: Calendar) -> Int {
-        let weekStarts = Set(films.compactMap { calendar.dateInterval(of: .weekOfYear, for: $0.watchDate)?.start })
-        let sortedWeeks = weekStarts.sorted()
-        guard let first = sortedWeeks.first else { return 0 }
-        
-        var longest = 1
-        var current = 1
-        var previous = first
-        
-        for week in sortedWeeks.dropFirst() {
-            if let next = calendar.date(byAdding: .weekOfYear, value: 1, to: previous),
-               calendar.isDate(next, inSameDayAs: week) {
-                current += 1
-                longest = max(longest, current)
-            } else {
-                current = 1
-            }
-            previous = week
-        }
-        
-        return longest
-    }
-}
-
-struct AppStatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(12)
-    }
-}
-
-struct AppStatsView_Previews: PreviewProvider {
-    static var previews: some View {
-        AppStatsView()
-            .environmentObject(AppFilmStore())
     }
 }
