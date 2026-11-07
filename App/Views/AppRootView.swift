@@ -1,21 +1,23 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 
 struct AppRootView: View {
-    @State private var selection: Int = AppRootView.initialTab()
+    @State private var selectedTab = AppRootView.initialTab()
 
     var body: some View {
-        TabView(selection: $selection) {
+        TabView(selection: $selectedTab) {
             AppPage1View()
                 .tabItem {
                     Label("今天", systemImage: "drop.fill")
                 }
                 .tag(0)
-            AppPage2()
+
+            AppPage2View()
                 .tabItem {
                     Label("历史", systemImage: "calendar")
                 }
                 .tag(1)
+
             AppPage3View()
                 .tabItem {
                     Label("设置", systemImage: "gearshape.fill")
