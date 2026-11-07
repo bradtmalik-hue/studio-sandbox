@@ -1,257 +1,466 @@
 import SwiftUI
 import Foundation
 
-struct AppPage2View: View {
-    @EnvironmentObject private var store: AppStore
-    @State private var showOnlyNonZero = false
-    @State private var selectedCategoryRaw: String?
-    @State private var showingExpenseList = false
+private enum AppPage2Format {
+    static let excerptDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter
+    }()
+}
 
-    private let categoryRawOrder = ["餐饮", "交通", "购物", "其它"]
+struct AppPage2View: View {
+    @EnvironmentObject var store: AppStore
+    @State private var searchText = ""
+    @State private var selectedBookID: UUID?
+    @State private var showingAddSheet = false
+    @State private var detailExcerpt: AppExcerpt?
+
+    private var sortedExcerpts: [AppExcerpt] {
+        store.excerpts.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private var filteredExcerpts: [AppExcerpt] {
+        sortedExcerpts.filter { excerpt in
+            let matchesSearch = searchText.isEmpty ||
+                excerpt.text.localizedCaseInsensitiveContains(searchText) ||
+                excerpt.bookTitle.localizedCaseInsensitiveContains(searchText) ||
+                excerpt.note.localizedCaseInsensitiveContains(searchText)
+            let matchesBook = selectedBookID == nil || excerpt.bookID == selectedBookID
+            return matchesSearch && matchesBook
+        }
+    }
+
+    private var recentDateText: String {
+        guard let first = filteredExcerpts.first else { return "暂无" }
+        return AppPage2Format.excerptDateFormatter.string(from: first.createdAt)
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                summarySection
-                if store.todayExpenses.isEmpty {
-                    emptySection
-                } else {
-                    categorySection
-                }
-            }
-            .contentMargins(.bottom, 96, for: .scrollContent)
-            .navigationTitle("分类")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Toggle(isOn: $showOnlyNonZero) {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                    }
-                    .toggleStyle(.button)
-                }
-            }
-            .sheet(isPresented: $showingExpenseList) {
-                if let raw = selectedCategoryRaw, let category = AppCategory(rawValue: raw) {
-                    AppPage2CategoryExpenseList(categoryRaw: raw, category: category)
-                        .environmentObject(store)
-                }
-            }
-        }
-    }
-
-    var summarySection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("今日分类合计")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(AppPage2Format.currency(store.todayTotal))
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                }
-                HStack {
-                    Label("\(store.todayExpenses.count) 笔", systemImage: "list.bullet")
-                    Spacer()
-                    Label(store.isOverBudget ? "已超预算" : "预算内", systemImage: store.isOverBudget ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundStyle(store.isOverBudget ? Color.red : Color.green)
-                }
-                .font(.footnote)
-            }
-            .padding(.vertical, 8)
-        }
-    }
-
-    var emptySection: some View {
-        Section {
-            AppPage2EmptyState()
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-        }
-    }
-
-    private var categorySection: some View {
-        Section("今天按分类") {
-            if filteredCategoryRawOrder.isEmpty {
-                HStack {
-                    Spacer()
-                    Text("没有非零分类")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-            } else {
-                ForEach(filteredCategoryRawOrder, id: \.self) { raw in
-                    AppPage2CategoryRow(
-                        categoryRaw: raw,
-                        amount: total(for: raw),
-                        count: count(for: raw),
-                        total: store.todayTotal,
-                        action: {
-                            selectedCategoryRaw = raw
-                            showingExpenseList = true
-                        }
+                Section {
+                    AppPage2SummaryCard(
+                        filteredCount: filteredExcerpts.count,
+                        totalCount: store.excerpts.count,
+                        recentDate: recentDateText
                     )
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
+
+                Section {
+                    AppPage2FilterChips(books: store.books)
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("搜索摘录、书名或笔记", text: $searchText)
+                            .textFieldStyle(.plain)
+                    }
+                }
+
+                if filteredExcerpts.isEmpty {
+                    ContentUnavailableView {
+                        Label("暂无摘录", systemImage: "text.quote")
+                    } description: {
+                        Text(searchText.isEmpty ? "把想记住的句子记下来。" : "没有符合当前筛选的摘录。")
+                    } actions: {
+                        Button("添加第一条摘录") {
+                            showingAddSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                } else {
+                    Section {
+                        ForEach(filteredExcerpts) { excerpt in
+                            Button {
+                                detailExcerpt = excerpt
+                            } label: {
+                                AppPage2Row(excerpt: excerpt)
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    delete(excerpt)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .navigationTitle("摘录列表")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("添加摘录", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(item: $detailExcerpt) { excerpt in
+                AppPage2DetailView(excerpt: excerpt)
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AppPage2AddSheet()
             }
         }
     }
 
-    private var filteredCategoryRawOrder: [String] {
-        showOnlyNonZero ? categoryRawOrder.filter { total(for: $0) > 0 } : categoryRawOrder
-    }
-
-    func total(for categoryRaw: String) -> Double {
-        store.todayExpenses
-            .filter { $0.category.rawValue == categoryRaw }
-            .reduce(0) { $0 + $1.amount }
-    }
-
-    private func count(for categoryRaw: String) -> Int {
-        store.todayExpenses
-            .filter { $0.category.rawValue == categoryRaw }
-            .count
+    private func delete(_ excerpt: AppExcerpt) {
+        store.excerpts.removeAll { $0.id == excerpt.id }
+        store.save()
     }
 }
 
-private struct AppPage2CategoryRow: View {
-    let categoryRaw: String
-    let amount: Double
-    let count: Int
-    let total: Double
-    let action: () -> Void
+struct AppPage2Row: View {
+    let excerpt: AppExcerpt
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: AppPage2CategoryIconProvider.icon(for: categoryRaw))
-                    .font(.title2)
-                    .foregroundStyle(AppPage2CategoryIconProvider.color(for: categoryRaw))
-                    .frame(width: 36, height: 36)
-                    .background(AppPage2CategoryIconProvider.color(for: categoryRaw).opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(excerpt.bookTitle)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(excerpt.text)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    Label("第\(excerpt.page)页", systemImage: "book.closed")
+                    Text(AppPage2Format.excerptDateFormatter.string(from: excerpt.createdAt))
+                    if !excerpt.note.isEmpty {
+                        Label(excerpt.note, systemImage: "pencil")
+                            .lineLimit(1)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct AppPage2SummaryCard: View {
+    let filteredCount: Int
+    let totalCount: Int
+    let recentDate: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(categoryRaw)
-                        .font(.headline)
-                    Text(count == 0 ? "今天无支出" : "\(count) 笔")
+                    Text("筛选结果")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("\(filteredCount) 条")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(AppPage2Format.currency(amount))
-                        .font(.headline)
-                        .monospacedDigit()
-                    if total > 0 {
-                        Text("\(Int((amount / total) * 100))%")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("0%")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("全部摘录")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(totalCount) 条")
+                        .font(.title3.weight(.semibold))
                 }
             }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+
+            Divider()
+
+            HStack {
+                Text("最近摘录")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(recentDate)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.primary)
+            }
         }
-        .buttonStyle(.plain)
+        .padding()
+        .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
-private struct AppPage2EmptyState: View {
+struct AppPage2FilterChips: View {
+    @Binding var selectedBookID: UUID?
+    let books: [AppBook]
+
     var body: some View {
-        ContentUnavailableView {
-            Label("今天还没有支出", systemImage: "tray")
-        } description: {
-            Text("去「今天」页记下第一笔，这里会按分类汇总。")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Button {
+                    selectedBookID = nil
+                } label: {
+                    Text("全部")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(selectedBookID == nil ? Color.accentColor : Color.secondary.opacity(0.1), in: Capsule())
+                        .foregroundStyle(selectedBookID == nil ? Color.white : Color.primary)
+                }
+                .buttonStyle(.plain)
+
+                ForEach(books) { book in
+                    Button {
+                        selectedBookID = book.id
+                    } label: {
+                        Text(book.title)
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(selectedBookID == book.id ? Color.accentColor : Color.secondary.opacity(0.1), in: Capsule())
+                            .foregroundStyle(selectedBookID == book.id ? Color.white : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 }
 
-private struct AppPage2CategoryExpenseList: View {
-    @EnvironmentObject private var store: AppStore
+struct AppPage2DetailView: View {
+    @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    let categoryRaw: String
-    let category: AppCategory
+    let originalID: UUID
+    @State private var text: String
+    @State private var pageText: String
+    @State private var note: String
+    @State private var selectedBookID: UUID?
+    @State private var createdAt: Date
 
-    var expenses: [AppExpense] {
-        store.todayExpenses
-            .filter { $0.category.rawValue == categoryRaw }
-            .sorted { $0.date > $1.date }
+    init(excerpt: AppExcerpt) {
+        self.originalID = excerpt.id
+        _text = State(initialValue: excerpt.text)
+        _pageText = State(initialValue: String(excerpt.page))
+        _note = State(initialValue: excerpt.note)
+        _selectedBookID = State(initialValue: excerpt.bookID)
+        _createdAt = State(initialValue: excerpt.createdAt)
+    }
+
+    private var pageValue: Int? {
+        Int(pageText)
+    }
+
+    var isValid: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        pageValue != nil && pageValue! > 0 &&
+        selectedBookID != nil &&
+        store.books.contains(where: { $0.id == selectedBookID })
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                if expenses.isEmpty {
-                    Section {
-                        AppPage2EmptyState()
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets())
-                    }
-                } else {
-                    Section("\(category.rawValue) · 今天") {
-                        ForEach(expenses, id: \.id) { expense in
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(expense.note.isEmpty ? category.rawValue : expense.note)
-                                        .font(.headline)
-                                    Text(AppPage2Format.time(expense.date))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+            Form {
+                Section("书籍") {
+                    Menu {
+                        ForEach(store.books) { book in
+                            Button {
+                                selectedBookID = book.id
+                            } label: {
+                                if selectedBookID == book.id {
+                                    Label(book.title, systemImage: "checkmark")
+                                } else {
+                                    Text(book.title)
                                 }
-                                Spacer()
-                                Text(AppPage2Format.currency(expense.amount))
-                                    .font(.headline)
-                                    .monospacedDigit()
                             }
-                            .padding(.vertical, 4)
+                        }
+                    } label: {
+                        HStack {
+                            Text(selectedBookID.flatMap { id in store.books.first(where: { $0.id == id })?.title } ?? "选择书籍")
+                                .foregroundStyle(selectedBookID == nil ? .secondary : .primary)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
+
+                Section("摘录内容") {
+                    TextField("摘录原文", text: $text)
+                }
+
+                Section("页码") {
+                    TextField("页码", text: $pageText)
+                        .keyboardType(.numberPad)
+                    if pageValue == nil || pageValue! <= 0 {
+                        Text("页码必须是大于 0 的数字")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("笔记") {
+                    TextField("补充笔记", text: $note)
+                }
+
+                Section("摘录时间") {
+                    DatePicker("摘录时间", selection: $createdAt)
+                }
             }
-            .navigationTitle(category.rawValue)
+            .navigationTitle("编辑摘录")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        save()
+                    }
+                    .disabled(!isValid)
                 }
             }
         }
     }
+
+    func save() {
+        guard let page = pageValue,
+              let book = store.books.first(where: { $0.id == selectedBookID }) else { return }
+        let updated = AppExcerpt(
+            id: originalID,
+            bookID: book.id,
+            bookTitle: book.title,
+            text: text,
+            page: page,
+            createdAt: createdAt,
+            note: note
+        )
+        if let index = store.excerpts.firstIndex(where: { $0.id == originalID }) {
+            store.excerpts[index] = updated
+        }
+        store.save()
+        dismiss()
+    }
 }
 
-private enum AppPage2Format {
-    static func currency(_ value: Double) -> String {
-        String(format: "¥%.2f", value)
+struct AppPage2AddSheet: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var text = ""
+    @State private var pageText = ""
+    @State private var note = ""
+    @State private var selectedBookID: UUID?
+    @State private var createdAt = Date()
+
+    private var pageValue: Int? {
+        Int(pageText)
     }
 
-    static func time(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+    var isValid: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        pageValue != nil && pageValue! > 0 &&
+        selectedBookID != nil &&
+        store.books.contains(where: { $0.id == selectedBookID })
     }
-}
 
-private enum AppPage2CategoryIconProvider {
-    static func icon(for raw: String) -> String {
-        switch raw {
-        case "餐饮": return "fork.knife"
-        case "交通": return "car.fill"
-        case "购物": return "bag.fill"
-        default: return "ellipsis.circle.fill"
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("书籍") {
+                    if store.books.isEmpty {
+                        Text("先在“正在读的书”里添加一本书")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Menu {
+                            ForEach(store.books) { book in
+                                Button {
+                                    selectedBookID = book.id
+                                } label: {
+                                    if selectedBookID == book.id {
+                                        Label(book.title, systemImage: "checkmark")
+                                    } else {
+                                        Text(book.title)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(selectedBookID.flatMap { id in store.books.first(where: { $0.id == id })?.title } ?? "选择书籍")
+                                    .foregroundStyle(selectedBookID == nil ? .secondary : .primary)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                Section("摘录内容") {
+                    TextField("摘录原文", text: $text)
+                }
+
+                Section("页码") {
+                    TextField("页码", text: $pageText)
+                        .keyboardType(.numberPad)
+                    if pageValue == nil || pageValue! <= 0 {
+                        Text("页码必须是大于 0 的数字")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section("笔记") {
+                    TextField("补充笔记", text: $note)
+                }
+
+                Section("摘录时间") {
+                    DatePicker("摘录时间", selection: $createdAt)
+                }
+            }
+            .navigationTitle("添加摘录")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        save()
+                    }
+                    .disabled(!isValid)
+                }
+            }
+            .onAppear {
+                if selectedBookID == nil {
+                    selectedBookID = store.books.first?.id
+                }
+            }
         }
     }
 
-    static func color(for raw: String) -> Color {
-        switch raw {
-        case "餐饮": return .orange
-        case "交通": return .blue
-        case "购物": return .purple
-        default: return .gray
-        }
+    func save() {
+        guard let page = pageValue,
+              let book = store.books.first(where: { $0.id == selectedBookID }) else { return }
+        let excerpt = AppExcerpt(
+            id: UUID(),
+            bookID: book.id,
+            bookTitle: book.title,
+            text: text,
+            page: page,
+            createdAt: createdAt,
+            note: note
+        )
+        store.excerpts.append(excerpt)
+        store.save()
+        dismiss()
     }
 }

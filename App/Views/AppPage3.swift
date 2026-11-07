@@ -1,176 +1,203 @@
 import SwiftUI
-import Combine
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var budgetText: String = ""
-    @State private var showingSavedAlert = false
-    @State private var showingResetAlert = false
+    @EnvironmentObject private var store: AppStore
+    @State private var goalText: String = ""
+    @State private var isGoalFocused = false
+    @State private var showSavedAlert = false
+    @State private var showResetConfirmation = false
+
+    private var isValidGoal: Bool {
+        guard let value = Int(goalText), value >= 0, value <= 999 else { return false }
+        return true
+    }
+
+    private var activeBooksCount: Int {
+        store.books.filter { $0.currentPage < $0.totalPages }.count
+    }
+
+    private var finishedBooksCount: Int {
+        store.books.filter { $0.currentPage >= $0.totalPages }.count
+    }
+
+    private var totalCurrentPages: Int {
+        store.books.reduce(0) { $0 + $1.currentPage }
+    }
+
+    var totalPages: Int {
+        store.books.reduce(0) { $0 + $1.totalPages }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    AppPage3BudgetCard(
-                        monthlyBudget: store.monthlyBudget,
-                        todayTotal: store.todayTotal
-                    )
-                } header: {
-                    Text("当前预算")
+                Section("目标") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("年度阅读目标", systemImage: "target")
+                            .font(.headline)
+                        Text("设定每年想读完的图书数量，首页将用这个目标来显示年度进度。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        HStack {
+                            TextField("例如 24", text: $goalText)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 120)
+                                .focused($isGoalFocused)
+                                .onChange(of: goalText) { _, newValue in
+                                    let filtered = newValue.filter { $0.isNumber }
+                                    if filtered != newValue {
+                                        goalText = String(filtered.prefix(3))
+                                    }
+                                    if let value = Int(filtered), value > 999 {
+                                        goalText = String(filtered.prefix(3))
+                                    }
+                                }
+
+                            Stepper("本", value: Binding(
+                                get: { Int(goalText) ?? 0 },
+                                set: { newValue in
+                                    let clamped = max(0, min(999, newValue))
+                                    goalText = String(clamped)
+                                }
+                            ), in: 0...999)
+                            .labelsHidden()
+                        }
+
+                        HStack {
+                            ForEach([12, 24, 36, 52], id: \.self) { value in
+                                Button("\(value)本") {
+                                    goalText = String(value)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+
+                        Text("当前目标：\(store.yearlyGoal) 本/年")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
                 }
 
-                Section {
-                    HStack {
-                        Text("每月预算")
-                        Spacer()
-                        TextField("3000", text: $budgetText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
-                        Text("元")
-                    }
+                Section("今年阅读概览") {
+                    if store.books.isEmpty {
+                        AppPage3EmptyReadingState()
+                    } else {
+                        AppPage3StatRow(
+                            title: "正在读",
+                            value: "\(activeBooksCount) 本",
+                            systemImage: "book.fill",
+                            color: .blue
+                        )
+                        AppPage3StatRow(
+                            title: "读完",
+                            value: "\(finishedBooksCount) 本",
+                            systemImage: "checkmark.circle.fill",
+                            color: .green
+                        )
+                        AppPage3StatRow(
+                            title: "总页数进度",
+                            value: "\(totalCurrentPages) / \(totalPages) 页",
+                            systemImage: "text.book.closed.fill",
+                            color: .orange
+                        )
+                        AppPage3StatRow(
+                            title: "摘录",
+                            value: "\(store.excerpts.count) 条",
+                            systemImage: "quote.bubble.fill",
+                            color: .purple
+                        )
 
-                    Stepper(
-                        value: Binding(
-                            get: { Double(budgetText) ?? 3000 },
-                            set: { budgetText = String(format: "%.0f", $0) }
-                        ),
-                        in: 100.0...100000.0,
-                        step: 100.0
-                    ) {
-                        Text("调整金额")
+                        if totalPages > 0 {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ProgressView(value: Double(totalCurrentPages), total: Double(totalPages))
+                                Text("已读 \(totalCurrentPages) / \(totalPages) 页")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
                     }
+                }
 
+                Section("保存与重置") {
                     Button {
-                        saveBudget()
+                        saveGoal()
                     } label: {
-                        Text("保存预算")
-                            .frame(maxWidth: .infinity)
+                        Label("保存目标", systemImage: "square.and.arrow.down.fill")
                     }
-                    .disabled(parsedBudget == nil || (parsedBudget ?? 0) <= 0)
-                } header: {
-                    Text("修改预算")
-                } footer: {
-                    Text("默认预算是 3000 元。超过后首页合计会显示为红色。")
-                }
+                    .disabled(!isValidGoal)
 
-                Section {
-                    AppPage3InfoRow(
-                        icon: "info.circle",
-                        text: "预算金额只影响首页合计的颜色提醒，不会阻止记录支出。"
-                    )
-                    AppPage3InfoRow(
-                        icon: "exclamationmark.triangle.fill",
-                        text: "当今日合计超过每月预算时，首页金额会变为红色。"
-                    )
-                }
-
-                Section {
                     Button(role: .destructive) {
-                        showingResetAlert = true
+                        showResetConfirmation = true
                     } label: {
-                        Text("恢复默认预算")
+                        Label("恢复默认目标", systemImage: "arrow.counterclockwise")
                     }
                 }
             }
             .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
-            .onAppear {
-                if budgetText.isEmpty {
-                    budgetText = String(format: "%.0f", store.monthlyBudget)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        isGoalFocused = false
+                    }
                 }
             }
-            .alert("预算已保存", isPresented: $showingSavedAlert) {
+            .onAppear {
+                goalText = String(store.yearlyGoal)
+            }
+            .alert("已保存", isPresented: $showSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("新的每月预算已生效。")
+                Text("年度目标已更新为 \(store.yearlyGoal) 本。")
             }
-            .alert("恢复默认预算？", isPresented: $showingResetAlert) {
-                Button("取消", role: .cancel) {}
-                Button("恢复", role: .destructive) {
-                    budgetText = "3000"
-                    saveBudget()
+            .confirmationDialog("恢复默认目标？", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+                Button("恢复为 24 本", role: .destructive) {
+                    goalText = "24"
+                    saveGoal()
                 }
-            } message: {
-                Text("预算将恢复为 3000 元。")
+                Button("取消", role: .cancel) {}
             }
         }
     }
 
-    private var parsedBudget: Double? {
-        Double(budgetText.replacingOccurrences(of: ",", with: ""))
-    }
-
-    private func saveBudget() {
-        guard let value = parsedBudget, value > 0 else { return }
-        store.monthlyBudget = value
+    private func saveGoal() {
+        guard let value = Int(goalText), value >= 0, value <= 999 else { return }
+        store.yearlyGoal = value
         store.save()
-        showingSavedAlert = true
+        isGoalFocused = false
+        showSavedAlert = true
     }
 }
 
-struct AppPage3BudgetCard: View {
-    let monthlyBudget: Double
-    let todayTotal: Double
-
-    private var overAmount: Double {
-        max(0, todayTotal - monthlyBudget)
-    }
+private struct AppPage3StatRow: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("每月预算", systemImage: "creditcard")
-                Spacer()
-                Text(String(format: "¥%.2f", monthlyBudget))
-                    .font(.title2.bold())
-            }
-
-            HStack {
-                Label("今日已花", systemImage: "yensign.circle")
-                Spacer()
-                Text(String(format: "¥%.2f", todayTotal))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(todayTotal > monthlyBudget ? Color.red : Color.primary)
-            }
-
-            if todayTotal > monthlyBudget {
-                Label(
-                    String(format: "已超过预算 ¥%.2f", overAmount),
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.footnote)
-                .foregroundStyle(.red)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct AppPage3InfoRow: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack {
+            Label(title, systemImage: systemImage)
+                .foregroundStyle(color)
             Spacer()
+            Text(value)
+                .fontWeight(.medium)
         }
-        .padding(.vertical, 4)
     }
 }
 
-struct AppPage3EmptyState: View {
+private struct AppPage3EmptyReadingState: View {
     var body: some View {
-        ContentUnavailableView(
-            "还没有设置",
-            systemImage: "gearshape",
-            description: Text("每月预算会显示在这里。")
-        )
+        ContentUnavailableView {
+            Label("还没有在读的书", systemImage: "books.vertical")
+        } description: {
+            Text("先到「正在读」页添加一本书，这里会显示你的阅读概览。")
+        }
     }
 }
