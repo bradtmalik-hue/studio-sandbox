@@ -1,176 +1,161 @@
 import SwiftUI
-import Combine
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var budgetText: String = ""
-    @State private var showingSavedAlert = false
-    @State private var showingResetAlert = false
+    @EnvironmentObject private var store: AppStore
+    @State private var petNameText: String = ""
+    @State private var targetText: String = ""
+    @State private var showSavedAlert = false
+
+    private let minTarget = 1
+    private let maxTarget = 20
+
+    private var trimmedPetName: String {
+        petNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var parsedTarget: Int? {
+        Int(targetText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private var isTargetValid: Bool {
+        guard let target = parsedTarget, target >= minTarget, target <= maxTarget else {
+            return false
+        }
+        return true
+    }
+
+    private var isFormValid: Bool {
+        !trimmedPetName.isEmpty && isTargetValid
+    }
 
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section {
-                    AppPage3BudgetCard(
-                        monthlyBudget: store.monthlyBudget,
-                        todayTotal: store.todayTotal
+                    AppPage3SummaryCard(
+                        petName: trimmedPetName.isEmpty ? "未填写" : trimmedPetName,
+                        dailyTarget: parsedTarget ?? 0
                     )
+                }
+
+                Section {
+                    TextField("例如：旺财", text: $petNameText)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .submitLabel(.done)
                 } header: {
-                    Text("当前预算")
+                    Text("宠物信息")
+                } footer: {
+                    if trimmedPetName.isEmpty {
+                        Text("请填写宠物名字")
+                            .foregroundStyle(Color.red)
+                    } else {
+                        Text("这个名字会显示在记录里")
+                    }
                 }
 
                 Section {
                     HStack {
-                        Text("每月预算")
+                        Text("每日目标")
                         Spacer()
-                        TextField("3000", text: $budgetText)
-                            .keyboardType(.decimalPad)
+                        TextField("1-20", text: $targetText)
+                            .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
-                        Text("元")
+                            .frame(width: 80)
+                        Text("次")
                     }
 
                     Stepper(
                         value: Binding(
-                            get: { Double(budgetText) ?? 3000 },
-                            set: { budgetText = String(format: "%.0f", $0) }
+                            get: { parsedTarget ?? store.dailyTarget },
+                            set: { newValue in
+                                let clamped = min(max(newValue, minTarget), maxTarget)
+                                targetText = String(clamped)
+                                store.dailyTarget = clamped
+                            }
                         ),
-                        in: 100.0...100000.0,
-                        step: 100.0
+                        in: minTarget...maxTarget
                     ) {
-                        Text("调整金额")
+                        Text("目标调整")
                     }
-
-                    Button {
-                        saveBudget()
-                    } label: {
-                        Text("保存预算")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .disabled(parsedBudget == nil || (parsedBudget ?? 0) <= 0)
                 } header: {
-                    Text("修改预算")
+                    Text("每天喂食次数目标")
                 } footer: {
-                    Text("默认预算是 3000 元。超过后首页合计会显示为红色。")
-                }
-
-                Section {
-                    AppPage3InfoRow(
-                        icon: "info.circle",
-                        text: "预算金额只影响首页合计的颜色提醒，不会阻止记录支出。"
-                    )
-                    AppPage3InfoRow(
-                        icon: "exclamationmark.triangle.fill",
-                        text: "当今日合计超过每月预算时，首页金额会变为红色。"
-                    )
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showingResetAlert = true
-                    } label: {
-                        Text("恢复默认预算")
+                    if !isTargetValid {
+                        Text("目标需在 \(minTarget)-\(maxTarget) 次之间")
+                            .foregroundStyle(Color.red)
+                    } else {
+                        Text("可选择或输入 \(minTarget)-\(maxTarget) 之间的数字")
                     }
+                }
+
+                Section {
+                    Button {
+                        store.petName = trimmedPetName
+                        store.dailyTarget = parsedTarget ?? store.dailyTarget
+                        store.save()
+                        showSavedAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Label("保存设置", systemImage: "checkmark.circle.fill")
+                            Spacer()
+                        }
+                    }
+                    .disabled(!isFormValid)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.brown)
+
+                    Button("恢复默认") {
+                        petNameText = "我的宠物"
+                        targetText = "3"
+                    }
+                    .foregroundStyle(Color.secondary)
                 }
             }
-            .contentMargins(.bottom, 96, for: .scrollContent)
             .navigationTitle("设置")
             .onAppear {
-                if budgetText.isEmpty {
-                    budgetText = String(format: "%.0f", store.monthlyBudget)
+                if petNameText.isEmpty {
+                    petNameText = store.petName
+                    targetText = String(store.dailyTarget)
                 }
             }
-            .alert("预算已保存", isPresented: $showingSavedAlert) {
+            .alert("设置已保存", isPresented: $showSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("新的每月预算已生效。")
-            }
-            .alert("恢复默认预算？", isPresented: $showingResetAlert) {
-                Button("取消", role: .cancel) {}
-                Button("恢复", role: .destructive) {
-                    budgetText = "3000"
-                    saveBudget()
-                }
-            } message: {
-                Text("预算将恢复为 3000 元。")
+                Text("宠物名字和每日目标已更新。")
             }
         }
     }
-
-    private var parsedBudget: Double? {
-        Double(budgetText.replacingOccurrences(of: ",", with: ""))
-    }
-
-    private func saveBudget() {
-        guard let value = parsedBudget, value > 0 else { return }
-        store.monthlyBudget = value
-        store.save()
-        showingSavedAlert = true
-    }
 }
 
-struct AppPage3BudgetCard: View {
-    let monthlyBudget: Double
-    let todayTotal: Double
-
-    private var overAmount: Double {
-        max(0, todayTotal - monthlyBudget)
-    }
+struct AppPage3SummaryCard: View {
+    let petName: String
+    let dailyTarget: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("每月预算", systemImage: "creditcard")
-                Spacer()
-                Text(String(format: "¥%.2f", monthlyBudget))
-                    .font(.title2.bold())
-            }
-
-            HStack {
-                Label("今日已花", systemImage: "yensign.circle")
-                Spacer()
-                Text(String(format: "¥%.2f", todayTotal))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(todayTotal > monthlyBudget ? Color.red : Color.primary)
-            }
-
-            if todayTotal > monthlyBudget {
-                Label(
-                    String(format: "已超过预算 ¥%.2f", overAmount),
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.footnote)
-                .foregroundStyle(.red)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct AppPage3InfoRow: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-            Text(text)
+        VStack(alignment: .leading, spacing: 8) {
+            Label("当前设置", systemImage: "pawprint.fill")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
+                .foregroundStyle(Color.secondary)
+
+            Text(petName)
+                .font(.title2.bold())
+
+            Text("每日目标：\(dailyTarget) 次")
+                .font(.subheadline)
+                .foregroundStyle(dailyTarget > 0 ? Color.primary : Color.secondary)
         }
         .padding(.vertical, 4)
     }
 }
 
-struct AppPage3EmptyState: View {
+struct AppPage3EmptyView: View {
     var body: some View {
         ContentUnavailableView(
-            "还没有设置",
-            systemImage: "gearshape",
-            description: Text("每月预算会显示在这里。")
+            "还没有宠物设置",
+            systemImage: "pawprint.circle",
+            description: Text("请先填写宠物名字和目标")
         )
     }
 }
