@@ -1,26 +1,26 @@
+import Foundation
 import SwiftUI
 
 struct AppRootView: View {
-    @State private var store = DemoSeed().store
-    @State private var selectedTab = AppRootView.initialTab()
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(store: store)
+            AppPage1View()
                 .tabItem {
-                    Label("今天", systemImage: "sun.max.fill")
+                    Label("在读", systemImage: "book.fill")
                 }
                 .tag(0)
 
             AppPage2View()
                 .tabItem {
-                    Label("历史", systemImage: "calendar")
+                    Label("摘录", systemImage: "quote.bubble")
                 }
                 .tag(1)
 
-            AppPage3View(store: store)
+            AppPage3View()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
+                    Label("设置", systemImage: "gearshape")
                 }
                 .tag(2)
         }
@@ -28,12 +28,17 @@ struct AppRootView: View {
     }
 
     private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return value
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-startTab"),
+           index + 1 < args.count,
+           let value = Int(args[index + 1]) {
+            return min(max(value, 0), 2)
         }
         return 0
     }
+}
+
+#Preview {
+    AppRootView()
+        .environmentObject(AppStore())
 }

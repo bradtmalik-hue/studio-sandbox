@@ -7,9 +7,9 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.dassospizzirri-hash.app
+        bundle_identifier: com.bradtmalik-hue.app
       vars:
-        BUNDLE_ID: com.dassospizzirri-hash.app
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Set up code signing
         script: |
@@ -60,7 +60,7 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: com.dassospizzirri-hash.app
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Build for simulator
         script: |
