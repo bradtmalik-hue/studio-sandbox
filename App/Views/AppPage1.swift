@@ -1,261 +1,385 @@
+import Foundation
 import SwiftUI
 
-private let appPage1TimeFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "zh_CN")
-    formatter.dateFormat = "M月d日 HH:mm"
-    return formatter
-}()
+struct AppPage1View: View {
+    @EnvironmentObject private var store: AppDataStore
+    @State private var selectedFilter: AppPage1Filter = .all
+    @State private var searchText = ""
+    @State private var editingRecord: AppWaterRecord?
+    @State private var showingEdit = false
 
-private let appPage1DayFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "zh_CN")
-    formatter.dateFormat = "yyyy年M月d日 HH:mm"
-    return formatter
-}()
+    private var todayRecords: [AppWaterRecord] {
+        store.records
+            .filter { Calendar.current.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
 
-private func appPage1KindDisplayName(_ kind: AppDrinkKind) -> String {
-    switch kind.rawValue {
-    case "water": return "水"
-    case "tea": return "茶"
-    case "coffee": return "咖啡"
-    case "juice": return "果汁"
-    case "milk": return "牛奶"
-    case "soda": return "汽水"
-    default: return kind.rawValue
+    var filteredRecords: [AppWaterRecord] {
+        todayRecords.filter { record in
+            if !searchText.isEmpty && !record.note.localizedCaseInsensitiveContains(searchText) {
+                return false
+            }
+
+            switch selectedFilter {
+            case .all:
+                return true
+            case .small:
+                return record.amountML < 300
+            case .large:
+                return record.amountML >= 300
+            }
+        }
+    }
+
+    private var totalToday: Int {
+        todayRecords.reduce(0) { $0 + $1.amountML }
+    }
+
+    private var progress: Double {
+        guard store.dailyGoalML > 0 else { return 0 }
+        return min(Double(totalToday) / Double(store.dailyGoalML), 1.0)
+    }
+
+    private var lastRecordText: String {
+        guard let latest = todayRecords.first else { return "" }
+        return AppPage1View.timeFormatter.string(from: latest.date)
+    }
+
+    static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                List {
+                    Section {
+                        AppPage1HeroCard(
+                            total: totalToday,
+                            goal: store.dailyGoalML,
+                            progress: progress,
+                            lastRecordText: lastRecordText,
+                            onAdd: addWater
+                        )
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+
+                    Section {
+                        Picker("筛选", selection: $selectedFilter) {
+                            ForEach(AppPage1Filter.allCases) { filter in
+                                Text(filter.rawValue).tag(filter)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    Section {
+                        ForEach(filteredRecords, id: \.id) { record in
+                            Button {
+                                editingRecord = record
+                                showingEdit = true
+                            } label: {
+                                AppPage1Row(record: record)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    delete(record)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text("今日记录")
+                            Spacer()
+                            Text("\(filteredRecords.count) 条")
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .contentMargins(.bottom, 96, for: .scrollContent)
+                .searchable(
+                    text: $searchText,
+                    placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "搜索备注"
+                )
+
+                if todayRecords.isEmpty {
+                    AppPage1EmptyState(onAdd: addWater)
+                } else if filteredRecords.isEmpty {
+                    ContentUnavailableView {
+                        Label("没有符合条件的记录", systemImage: "magnifyingglass")
+                    } description: {
+                        Text("试试调整筛选条件或搜索词")
+                    }
+                }
+            }
+            .navigationTitle("今天")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        addWater()
+                    } label: {
+                        Label("添加", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingEdit) {
+                if let editingRecord {
+                    AppPage1EditSheet(record: editingRecord, onSave: "") { updated in
+                        saveUpdated(updated)
+                    }
+                }
+            }
+        }
+    }
+
+    private func addWater() {
+        let newRecord = AppWaterRecord(
+            id: UUID(),
+            date: Date(),
+            amountML: 250,
+            note: "快速添加"
+        )
+        store.records.append(newRecord)
+        store.save()
+    }
+
+    func delete(_ record: AppWaterRecord) {
+        store.records.removeAll { $0.id == record.id }
+        store.save()
+    }
+
+    private func saveUpdated(_ updated: AppWaterRecord) {
+        if let index = store.records.firstIndex(where: { $0.id == updated.id }) {
+            store.records[index] = updated
+            store.save()
+        }
     }
 }
 
-private func appPage1KindDisplayNameFromRaw(_ rawValue: String) -> String {
-    switch rawValue {
-    case "water": return "水"
-    case "tea": return "茶"
-    case "coffee": return "咖啡"
-    case "juice": return "果汁"
-    case "milk": return "牛奶"
-    case "soda": return "汽水"
-    default: return rawValue
+struct AppPage1HeroCard: View {
+    let total: Int
+    let goal: Int
+    let progress: Double
+    let lastRecordText: String
+    let onAdd: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("今日饮水")
+                        .font(.title3.bold())
+                    Text("共 \(total) 毫升")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Image(systemName: "drop.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.blue)
+            }
+
+            HStack(spacing: 24) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 18)
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            Color.blue,
+                            style: StrokeStyle(lineWidth: 18, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 4) {
+                        Text("\(Int(progress * 100))%")
+                            .font(.title.bold())
+                        Text("目标 \(goal)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(width: 150, height: 150)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("目标 \(goal) 毫升")
+                        .font(.headline)
+                    Text("剩余 \(max(goal - total, 0)) 毫升")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    if !lastRecordText.isEmpty {
+                        Text("最近 \(lastRecordText)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Button(action: onAdd) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("快速添加 250 毫升")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+        .padding()
+        .background(Color.gray.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
 struct AppPage1Row: View {
     let record: AppWaterRecord
-    
+
     var body: some View {
         HStack(spacing: 12) {
-            Image("sample1")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
+            Image(systemName: "drop.circle.fill")
+                .font(.title2)
+                .foregroundColor(.blue)
+
             VStack(alignment: .leading, spacing: 4) {
-                Text(appPage1KindDisplayName(record.kind))
+                Text(record.note.isEmpty ? "喝水记录" : record.note)
                     .font(.headline)
-                Text(appPage1TimeFormatter.string(from: record.date))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text("每次 \(record.amount) 毫升")
+                    .lineLimit(1)
+                Text("\(record.amountML) 毫升")
+                    .font(.subheadline)
+                Text(AppPage1View.timeFormatter.string(from: record.date))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(record.amount)")
-                    .font(.title3.bold())
-                    .foregroundColor(.accentColor)
-                Text("毫升")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 
-struct AppPage1SummaryCard: View {
-    let total: Int
-    let goal: Int
-    let recordCount: Int
-    let lastDateText: String
+struct AppPage1EmptyState: View {
     let onAdd: () -> Void
-    
-    private var progress: Double {
-        guard goal > 0 else { return 0 }
-        return min(Double(total) / Double(goal), 1.0)
-    }
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 18)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 18, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut, value: progress)
-                VStack(spacing: 6) {
-                    Text("\(total)")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("毫升")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(width: 180, height: 180)
-            
-            HStack {
-                Label("目标 \(goal) 毫升", systemImage: "target")
-                Spacer()
-                Label("\(recordCount) 条", systemImage: "list.bullet")
-                Spacer()
-                Label(lastDateText, systemImage: "clock")
-            }
-            .font(.footnote)
-            .foregroundColor(.secondary)
-            
-            Button(action: onAdd) {
-                Label("加 250 毫升", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(Color.accentColor)
-        }
-        .padding(20)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .padding(.horizontal)
-    }
-}
 
-struct AppPage1EmptyView: View {
-    let onAdd: () -> Void
-    
     var body: some View {
         ContentUnavailableView {
             Label("今天还没有喝水记录", systemImage: "drop")
         } description: {
-            Text("点击下方按钮添加第一杯水")
+            Text("点击下方按钮添加今天第一杯水")
         } actions: {
             Button("添加 250 毫升", action: onAdd)
                 .buttonStyle(.borderedProminent)
-                .controlSize(.large)
         }
     }
 }
 
-struct AppPage1RecordDetailView: View {
+struct AppPage1EditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
     let record: AppWaterRecord
-    
-    var body: some View {
-        List {
-            Section {
-                LabeledContent("饮水量") { Text("\(record.amount) 毫升") }
-                LabeledContent("类型") { Text(appPage1KindDisplayName(record.kind)) }
-                LabeledContent("日期") { Text(appPage1DayFormatter.string(from: record.date)) }
-                LabeledContent("记录 ID") { Text(record.id.uuidString) }
-            }
-        }
-        .navigationTitle("记录详情")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
+    let onSave: (AppWaterRecord) -> Void
 
-struct AppPage1View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var filterKindRaw: String? = nil
-    
-    var todayRecords: [AppWaterRecord] {
-        store.todayRecords
+    @State private var amountText: String
+    @State private var note: String
+    @State private var date: Date
+    @State private var showValidationAlert = false
+
+    init(record: AppWaterRecord, onSave: @escaping (AppWaterRecord) -> Void) {
+        self.record = record
+        self.onSave = onSave
+        _amountText = State(initialValue: String(record.amountML))
+        _note = State(initialValue: record.note)
+        _date = State(initialValue: record.date)
     }
-    
-    private var uniqueKinds: [String] {
-        Array(Set(todayRecords.map { $0.kind.rawValue })).sorted()
+
+    private var amountValue: Int? {
+        Int(amountText)
     }
-    
-    var filteredRecords: [AppWaterRecord] {
-        guard let kindRaw = filterKindRaw else { return todayRecords }
-        return todayRecords.filter { $0.kind.rawValue == kindRaw }
+
+    private var isValid: Bool {
+        guard let amount = amountValue else { return false }
+        return amount > 0
     }
-    
-    var todayTotal: Int {
-        todayRecords.reduce(0) { $0 + $1.amount }
-    }
-    
-    private var lastDateText: String {
-        guard let lastDate = todayRecords.map(\.date).max() else {
-            return "暂无记录"
-        }
-        return appPage1TimeFormatter.string(from: lastDate)
-    }
-    
+
     var body: some View {
         NavigationStack {
-            Group {
-                if todayRecords.isEmpty {
-                    AppPage1EmptyView(onAdd: addWater)
-                        .background(Color(.systemGroupedBackground))
-                } else {
-                    List {
-                        Section {
-                            AppPage1SummaryCard(
-                                total: todayTotal,
-                                goal: store.dailyGoal,
-                                recordCount: todayRecords.count,
-                                lastDateText: lastDateText,
-                                onAdd: addWater
-                            )
-                        }
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        
-                        Section {
-                            Picker("筛选", selection: $filterKindRaw) {
-                                Text("全部").tag(String?.none)
-                                ForEach(uniqueKinds, id: \.self) { kindRaw in
-                                    Text(appPage1KindDisplayNameFromRaw(kindRaw)).tag(String?.some(kindRaw))
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                        
-                        Section {
-                            ForEach(filteredRecords) { record in
-                                NavigationLink {
-                                    AppPage1RecordDetailView(record: record)
-                                } label: {
-                                    AppPage1Row(record: record)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        delete(record)
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
-                                }
-                            }
-                        }
+            Form {
+                Section("毫升") {
+                    TextField("毫升", text: $amountText)
+                        .keyboardType(.numberPad)
+                }
+
+                Section("备注") {
+                    TextField("备注", text: $note)
+                }
+
+                Section("时间") {
+                    DatePicker(
+                        "时间",
+                        selection: $date,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                }
+
+                if let amount = amountValue, amount <= 0 {
+                    Section {
+                        Text("毫升数必须大于 0")
+                            .foregroundColor(.red)
                     }
-                    .contentMargins(.bottom, 96, for: .scrollContent)
                 }
             }
-            .navigationTitle("今天")
+            .navigationTitle("编辑记录")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        save()
+                    }
+                    .disabled(!isValid)
+                }
+            }
+            .alert("无效输入", isPresented: $showValidationAlert) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("请输入大于 0 的毫升数")
+            }
         }
     }
-    
-    func delete(_ record: AppWaterRecord) {
-        guard let index = store.records.firstIndex(where: { $0.id == record.id }) else { return }
-        store.records.remove(at: index)
-        store.save()
+
+    func save() {
+        guard let amount = amountValue, amount > 0 else {
+            showValidationAlert = true
+            return
+        }
+
+        let updated = AppWaterRecord(
+            id: record.id,
+            date: date,
+            amountML: amount,
+            note: note
+        )
+        onSave(updated)
+        dismiss()
     }
-    
-    private func addWater() {
-        let kind = AppDrinkKind(rawValue: "water")!
-        let record = AppWaterRecord(id: UUID(), amount: 250, date: Date(), kind: kind)
-        store.records.append(record)
-        store.save()
-    }
+}
+
+enum AppPage1Filter: String, CaseIterable, Identifiable, Hashable {
+    case all = "全部"
+    case small = "少于300"
+    case large = "300及以上"
+
+    var id: String { rawValue }
 }
