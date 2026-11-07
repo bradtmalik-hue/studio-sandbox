@@ -9,19 +9,19 @@ struct AppRootView: View {
         TabView(selection: $selectedTab) {
             AppPage1View()
                 .tabItem {
-                    Label("录摘录", systemImage: "square.and.pencil")
+                    Label("今天", systemImage: "sun.max")
                 }
                 .tag(0)
 
             AppPage2View()
                 .tabItem {
-                    Label("摘录", systemImage: "books.vertical")
+                    Label("已完成", systemImage: "checkmark.circle")
                 }
                 .tag(1)
 
             AppPage3View()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape")
+                    Label("设置", systemImage: "gear")
                 }
                 .tag(2)
         }
@@ -29,14 +29,12 @@ struct AppRootView: View {
     }
 
     private static func initialTab() -> Int {
-        let a = ProcessInfo.processInfo.arguments
-        if let i = a.firstIndex(of: "-startTab"), i + 1 < a.count, let v = Int(a[i + 1]) {
-            return v
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-startTab"),
+           i + 1 < args.count,
+           let v = Int(args[i + 1]) {
+            return min(max(v, 0), 2)
         }
         return 0
     }
-}
-
-#Preview {
-    AppRootView()
 }

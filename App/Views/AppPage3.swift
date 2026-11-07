@@ -1,169 +1,96 @@
 import SwiftUI
-import Foundation
-
-private struct AppPage3SummaryCard: View {
-    let goal: Int
-    let readCount: Int
-    let progress: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(readCount)")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                Text("/ \(goal) 本")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Image(systemName: "books.vertical.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(Color.accentColor)
-            }
-
-            ProgressView(value: progress)
-                .progressViewStyle(.linear)
-
-            HStack {
-                Text("已完成 \(Int(progress * 100))%")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(readCount >= goal ? "已达成年度目标" : "继续加油")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-    }
-}
-
-private struct AppPage3EmptyView: View {
-    var body: some View {
-        ContentUnavailableView(
-            "还没有读书记录",
-            systemImage: "book.closed",
-            description: Text("开始记录书摘后，这里会显示你的年度阅读进度。")
-        )
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-    }
-}
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppStore
-    @State private var showingResetAlert = false
+    let settings: AppSettings
+    let data: DemoSeed?
 
-    private var readBookCount: Int {
-        Set(store.quotes.map { $0.bookTitle }).count
+    var body: some View {
+        List {
+            AppPage3StepperRow(
+                title: "每日任务上限",
+                subtitle: String(settings.maxDailyTodos),
+                range: 1...10
+            )
+            AppPage3TextFieldRow(
+                title: "默认分类",
+                placeholder: "输入分类"
+            )
+            AppPage3ToggleRow(
+                title: "提醒",
+                subtitle: settings.reminderEnabled ? "已开启" : "已关闭"
+            )
+            AppPage3DateRow(
+                title: "提醒时间"
+            )
+        }
     }
+}
 
-    var goal: Binding<Int> {
-        Binding(
-            get: { store.settings.yearlyReadingGoal },
-            set: { newValue in
-                store.objectWillChange.send()
-                store.settings.yearlyReadingGoal = max(1, newValue)
-                store.settings.updatedAt = Date()
-                persistSettings()
-            }
-        )
-    }
+struct AppPage3StepperRow: View {
+    let title: String
+    let subtitle: String
+    let range: ClosedRange<Int>
 
-    private var progress: Double {
-        let goalValue = max(1, goal.wrappedValue)
-        return min(Double(readBookCount) / Double(goalValue), 1.0)
+    @State private var value: Int
+
+    init(title: String, subtitle: String, range: ClosedRange<Int>) {
+        self.title = title
+        self.subtitle = subtitle
+        self.range = range
+        _value = State(initialValue: range.lowerBound)
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    AppPage3SummaryCard(
-                        goal: goal.wrappedValue,
-                        readCount: readBookCount,
-                        progress: progress
-                    )
-                } header: {
-                    Text("年度阅读")
-                }
-
-                Section {
-                    HStack {
-                        Stepper(value: goal, in: 1...365, step: 1) {
-                            Label("每年读书目标", systemImage: "target")
-                        }
-                        Spacer()
-                        Text("\(goal.wrappedValue) 本")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack {
-                        Label("已读本数", systemImage: "books.vertical")
-                        Spacer()
-                        Text("\(readBookCount) 本")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack {
-                        Label("目标进度", systemImage: "chart.pie")
-                        Spacer()
-                        Text("\(Int(progress * 100))%")
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("目标与进度")
-                } footer: {
-                    Text("已读本数按书摘中出现的不同书名统计。")
-                }
-
-                if store.quotes.isEmpty {
-                    Section {
-                        AppPage3EmptyView()
-                    }
-                } else {
-                    Section {
-                        Button {
-                            showingResetAlert = true
-                        } label: {
-                            Label("重置目标", systemImage: "arrow.counterclockwise")
-                        }
-                        .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("设置")
-            .contentMargins(.bottom, 96, for: .scrollContent)
-            .alert("重置目标？", isPresented: $showingResetAlert) {
-                Button("取消", role: .cancel) { }
-                Button("重置") {
-                    goal.wrappedValue = 12
-                    persistSettings()
-                }
-            } message: {
-                Text("将年度目标恢复为 12 本。")
+        Stepper(value: $value, in: range) {
+            VStack(alignment: .leading) {
+                Text(title)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
+}
 
-    private var settingsFileURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("settings.json")
-    }
+struct AppPage3TextFieldRow: View {
+    let title: String
+    let placeholder: String
 
-    private func persistSettings() {
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(store.settings)
-            try data.write(to: settingsFileURL)
-        } catch {
+    @State private var text = ""
+
+    var body: some View {
+        HStack {
+            Text(title)
+            TextField(placeholder, text: $text)
+                .multilineTextAlignment(.trailing)
         }
+    }
+}
+
+struct AppPage3ToggleRow: View {
+    let title: String
+    let subtitle: String
+
+    @State private var isOn = false
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            VStack(alignment: .leading) {
+                Text(title)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+struct AppPage3DateRow: View {
+    let title: String
+
+    @State private var date = Date()
+
+    var body: some View {
+        DatePicker(title, selection: $date, displayedComponents: .hourAndMinute)
     }
 }
