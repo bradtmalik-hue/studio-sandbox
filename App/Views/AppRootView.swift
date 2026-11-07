@@ -1,41 +1,34 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @StateObject private var store = AppWaterStore()
-    @State private var selectedTab: Int
-
-    private let dailyGoal: Double = 2000
-
-    init() {
-        _selectedTab = State(initialValue: Self.initialTab())
-    }
+    @EnvironmentObject private var store: AppStore
+    @State private var selectedTab: Int = AppRootView.initialTab()
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View(store: store, dailyGoal: dailyGoal)
-                .tabItem { Label("今天", systemImage: "drop.fill") }
+            AppPage1View()
+                .tabItem {
+                    Label("今天", systemImage: "drop.fill")
+                }
                 .tag(0)
             AppPage2View()
-                .tabItem { Label("历史", systemImage: "calendar") }
+                .tabItem {
+                    Label("历史", systemImage: "calendar")
+                }
                 .tag(1)
-            AppPage3View(store: store)
-                .tabItem { Label("统计", systemImage: "chart.bar.fill") }
+            AppPage3View()
+                .tabItem {
+                    Label("统计", systemImage: "chart.bar.fill")
+                }
                 .tag(2)
         }
-        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "-startTab"),
-           index + 1 < arguments.count,
-           let value = Int(arguments[index + 1]) {
-            return value
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-startTab"), i + 1 < args.count, let v = Int(args[i + 1]) {
+            return min(max(v, 0), 2)
         }
         return 0
     }
-}
-
-#Preview {
-    AppRootView()
 }

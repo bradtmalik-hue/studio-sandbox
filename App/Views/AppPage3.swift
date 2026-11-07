@@ -1,191 +1,209 @@
 import SwiftUI
+import Foundation
 
 struct AppPage3View: View {
-    let store: AppWaterStore
-    @State private var selectedRange = 7
-    @State private var showAverageLine = true
-    @State private var showGoalLine = true
+    @EnvironmentObject var store: AppStore
+    @State private var displayMode: AppPage3DisplayMode = .chart
+    @State private var showInfo = false
+    @State private var showGoalEditor = false
 
-    private var hasData: Bool {
-        !store.records.isEmpty
-    }
-
-    private var dayStats: [AppPage3DayStat] {
+    var last7DaysStats: [AppPage3DayStat] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        guard let start = calendar.date(byAdding: .day, value: -(selectedRange - 1), to: today),
-              let end = calendar.date(byAdding: .day, value: 1, to: today) else {
-            return []
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
+        return days.map { day in
+            let dayRecords = store.records.filter { calendar.isDate($0.date, inSameDayAs: day) }
+            let total = dayRecords.reduce(0) { $0 + $1.amount }
+            return AppPage3DayStat(id: day, day: day, total: total, records: dayRecords)
         }
-        let recent = store.records.filter { $0.date >= start && $0.date < end }
-        let grouped = Dictionary(grouping: recent) { calendar.startOfDay(for: $0.date) }
-        return (0..<selectedRange).map { offset in
-            let date = calendar.date(byAdding: .day, value: offset, to: start) ?? start
-            let records = grouped[date] ?? []
-            let total = records.reduce(0.0) { $0 + $1.amount }
-            return AppPage3DayStat()
-        }
+        .sorted { $0.day < $1.day }
     }
 
-    private var average: Double {
-        guard !dayStats.isEmpty else { return 0 }
-        return dayStats.reduce(0.0) { $0 + $1.total } / Double(dayStats.count)
+    private var averageDaily: Int {
+        guard !last7DaysStats.isEmpty else { return 0 }
+        let total = last7DaysStats.reduce(0) { $0 + $1.total }
+        return total / last7DaysStats.count
     }
 
-    private var goalDays: Int {
-        dayStats.filter { $0.total >= 2000 }.count
+    private var achievedDays: Int {
+        last7DaysStats.filter { $0.total >= store.dailyGoal }.count
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if hasData {
-                    statisticsList
-                } else {
+                if last7DaysStats.isEmpty {
                     AppPage3EmptyState()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            HStack(spacing: 12) {
+                                AppPage3SummaryCard(
+                                    title: "平均每天",
+                                    value: averageDaily,
+                                    unit: "毫升",
+                                    icon: "drop.fill",
+                                    color: .blue
+                                )
+                                AppPage3SummaryCard(
+                                    title: "达标天数",
+                                    value: achievedDays,
+                                    unit: "天",
+                                    icon: "checkmark.circle.fill",
+                                    color: .green
+                                )
+                            }
+                            .padding(.horizontal)
+
+                            Picker("显示方式", selection: $displayMode) {
+                                Text("图表").tag(AppPage3DisplayMode.chart)
+                                Text("列表").tag(AppPage3DisplayMode.list)
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                            .padding(.horizontal)
+
+                            if displayMode == .chart {
+                                AppPage3BarChart(stats: last7DaysStats, dailyGoal: store.dailyGoal)
+                            } else {
+                                VStack(spacing: 0) {
+                                    ForEach(last7DaysStats) { stat in
+                                        AppPage3DayRow(stat: stat, dailyGoal: store.dailyGoal)
+                                        if stat.id != last7DaysStats.last?.id {
+                                            Divider()
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .padding(.horizontal)
+                            }
+                        }
+                        .padding(.vertical)
+                    }
                 }
             }
             .navigationTitle("统计")
-        }
-    }
-
-    private var statisticsList: some View {
-        List {
-            Section {
-                Picker("范围", selection: $selectedRange) {
-                    Text("最近 7 天").tag(7)
-                    Text("最近 14 天").tag(14)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
                 }
-                .pickerStyle(.segmented)
-
-                Toggle(isOn: $showAverageLine) {
-                    Label("显示平均线", systemImage: "line.horizontal.3")
-                }
-
-                Toggle(isOn: $showGoalLine) {
-                    Label("显示目标线", systemImage: "flag.fill")
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showGoalEditor = true
+                    } label: {
+                        Image(systemName: "target")
+                    }
                 }
             }
-
-            Section("概览") {
-                AppPage3SummaryCard(average: average, goalDays: goalDays)
+            .alert("统计说明", isPresented: $showInfo) {
+                Button("知道了", role: .cancel) { }
+            } message: {
+                Text("展示最近 7 天的饮水情况，目标为 \(store.dailyGoal) 毫升/天。")
             }
-
-            Section("最近\(selectedRange)天") {
-                AppPage3BarChart(dayStats: dayStats, showAverage: showAverageLine, showGoal: showGoalLine, average: average, goal: 2000, minHeight: 0)
-            }
-
-            Section("每日明细") {
-                ForEach(dayStats) { stat in
-                    AppPage3DayRow(stat: stat)
+            .sheet(isPresented: $showGoalEditor) {
+                AppPage3GoalEditor(goal: $store.dailyGoal) {
+                    store.save()
                 }
-            }
-
-            Section {
-                Color.clear.frame(height: 96)
             }
         }
-        .contentMargins(.bottom, 96, for: .scrollContent)
     }
 }
 
-struct AppPage3DayStat: Identifiable {
+private enum AppPage3DisplayMode: Hashable {
+    case chart
+    case list
+}
+
+private struct AppPage3DayStat: Identifiable {
     let id: Date
-    let date: Date
-    let total: Double
-    let count: Int
+    let day: Date
+    let total: Int
+    let records: [AppWaterRecord]
 }
 
-struct AppPage3SummaryCard: View {
-    let average: Double
-    let goalDays: Int
-
-    var body: some View {
-        HStack(spacing: 16) {
-            VStack(spacing: 4) {
-                Text("平均每天")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text("\(Int(average))")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                Text("毫升")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
-
-            VStack(spacing: 4) {
-                Text("达标天数")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text("\(goalDays)")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                Text("目标 2000 毫升")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
-        }
-    }
-}
-
-struct AppPage3BarChart: View {
-    let dayStats: [AppPage3DayStat]
-    let showAverage: Bool
-    let showGoal: Bool
-    let average: Double
-    let goal: Double
-    let minHeight: CGFloat
-
-    private var maxTotal: Double {
-        max(goal, dayStats.map(\.total).max() ?? 0)
-    }
+private struct AppPage3SummaryCard: View {
+    let title: String
+    let value: Int
+    let unit: String
+    let icon: String
+    let color: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    ForEach(dayStats) { stat in
-                        VStack(spacing: 4) {
-                            Text("\(Int(stat.total))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.blue.opacity(0.7))
-                                .frame(width: 22, height: barHeight(for: stat.total))
-                            Text(shortDay(for: stat.date))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.vertical, 8)
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-
-            if showAverage {
-                Text("平均每天 \(Int(average)) 毫升")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
-
-            if showGoal {
-                Text("目标 \(Int(goal)) 毫升")
-                    .font(.caption)
-                    .foregroundColor(.green)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(value)")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text(unit)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct AppPage3BarChart: View {
+    let stats: [AppPage3DayStat]
+    let dailyGoal: Int
+
+    private var maxTotal: Int {
+        max(stats.map(\.total).max() ?? 0, dailyGoal)
     }
 
-    private func barHeight(for total: Double) -> CGFloat {
-        let ratio = CGFloat(total / maxTotal)
-        return max(minHeight, ratio * 120)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("最近 7 天")
+                .font(.headline)
+                .padding(.horizontal)
+
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(stats) { stat in
+                    VStack(spacing: 4) {
+                        Text("\(stat.total)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Rectangle()
+                            .fill(stat.total >= dailyGoal ? Color.green : Color.blue)
+                            .frame(width: 24, height: barHeight(for: stat.total))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        Text(dayLabel(for: stat.day))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.vertical)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
     }
 
-    private func shortDay(for date: Date) -> String {
+    private func barHeight(for total: Int) -> CGFloat {
+        guard maxTotal > 0 else { return 0 }
+        let ratio = CGFloat(total) / CGFloat(maxTotal)
+        return max(4, ratio * 120)
+    }
+
+    private func dayLabel(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M/d"
@@ -193,40 +211,83 @@ struct AppPage3BarChart: View {
     }
 }
 
-struct AppPage3DayRow: View {
+private struct AppPage3DayRow: View {
     let stat: AppPage3DayStat
+    let dailyGoal: Int
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(fullDay(for: stat.date))
-                    .font(.headline)
-                Text("\(stat.count) 条记录")
+                Text(dayString)
+                    .font(.subheadline.weight(.medium))
+                Text("\(stat.records.count) 条记录")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("\(Int(stat.total)) 毫升")
-                .font(.title3.weight(.semibold))
-                .foregroundColor(stat.total >= 2000 ? Color.green : Color.blue)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(stat.total) 毫升")
+                    .font(.subheadline.weight(.semibold))
+                ProgressView(value: min(Double(stat.total) / Double(dailyGoal), 1.0))
+                    .progressViewStyle(LinearProgressViewStyle(tint: stat.total >= dailyGoal ? Color.green : Color.blue))
+                    .frame(width: 80)
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
 
-    private func fullDay(for date: Date) -> String {
+    private var dayString: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日"
-        return formatter.string(from: date)
+        formatter.dateFormat = "M月d日 EEEE"
+        return formatter.string(from: stat.day)
     }
 }
 
-struct AppPage3EmptyState: View {
+private struct AppPage3EmptyState: View {
     var body: some View {
-        ContentUnavailableView(
-            "还没有饮水记录",
-            systemImage: "drop.fill",
-            description: Text("记录几杯水后，这里会展示统计")
-        )
+        ContentUnavailableView {
+            Label("暂无饮水记录", systemImage: "drop.triangle")
+        } description: {
+            Text("请到“今天”页面添加饮水记录，统计信息将在这里显示。")
+        }
+    }
+}
+
+private struct AppPage3GoalEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var goal: Int
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("每日目标") {
+                    Stepper(value: $goal, in: 500...5000, step: 250) {
+                        HStack {
+                            Text("目标")
+                            Spacer()
+                            Text("\(goal) 毫升")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("调整目标")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        onSave()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.height(250)])
     }
 }
