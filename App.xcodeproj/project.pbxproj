@@ -14,10 +14,6 @@
 		AA0000000000000000000005 /* AppPage1.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* AppPage1.swift */; };
 		AA0000000000000000000006 /* AppPage2.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* AppPage2.swift */; };
 		AA0000000000000000000007 /* AppPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* AppPage3.swift */; };
-		AA0000000000000000000008 /* AppHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* AppHistoryView.swift */; };
-		AA0000000000000000000009 /* AppStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000009 /* AppStatsView.swift */; };
-		AA0000000000000000000010 /* AppTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* AppTodayView.swift */; };
-		AA0000000000000000000011 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* NavigationView.swift */; };
 		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
 		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -30,10 +26,6 @@
 		BB0000000000000000000005 /* AppPage1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage1.swift; sourceTree = "<group>"; };
 		BB0000000000000000000006 /* AppPage2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage2.swift; sourceTree = "<group>"; };
 		BB0000000000000000000007 /* AppPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPage3.swift; sourceTree = "<group>"; };
-		BB0000000000000000000008 /* AppHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistoryView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000009 /* AppStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatsView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000010 /* AppTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTodayView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000011 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB0000000000000000000099 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,10 +85,6 @@
 				BB0000000000000000000005 /* AppPage1.swift */,
 				BB0000000000000000000006 /* AppPage2.swift */,
 				BB0000000000000000000007 /* AppPage3.swift */,
-				BB0000000000000000000008 /* AppHistoryView.swift */,
-				BB0000000000000000000009 /* AppStatsView.swift */,
-				BB0000000000000000000010 /* AppTodayView.swift */,
-				BB0000000000000000000011 /* NavigationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -195,10 +183,6 @@
 				AA0000000000000000000005 /* AppPage1.swift in Sources */,
 				AA0000000000000000000006 /* AppPage2.swift in Sources */,
 				AA0000000000000000000007 /* AppPage3.swift in Sources */,
-				AA0000000000000000000008 /* AppHistoryView.swift in Sources */,
-				AA0000000000000000000009 /* AppStatsView.swift in Sources */,
-				AA0000000000000000000010 /* AppTodayView.swift in Sources */,
-				AA0000000000000000000011 /* NavigationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
