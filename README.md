@@ -1,7 +1,7 @@
 # App
 
-记下每本书里打动你的那句话
+管好每天那几件事
 
 Bundle ID: `com.dassospizzirri-hash.app`
 
-Screens: 录一条摘录, 摘录列表, 设置
+Screens: 今天, 已完成, 设置
