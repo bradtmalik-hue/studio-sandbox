@@ -35,7 +35,7 @@ struct AppPage1View: View {
         let totalQuantity = filteredMedicines.reduce(0) { $0 + $1.quantity }
         let nearest = filteredMedicines.map(\.expiryDate).min()
         if let nearest = nearest {
-            return "共 \(count) 盒 · 总数量 \(totalQuantity) · 最近到期 \(nearest.formatted(date: .numeric, time: .omitted))"
+            return "共 \(count) 盒 · 总数量 \(totalQuantity) · 最近到期 \(AppPage1Format.expiryShort(nearest))"
         }
         return "暂无可显示的药品"
     }
@@ -68,7 +68,7 @@ struct AppPage1View: View {
                                     Button {
                                         selectedMedicine = medicine
                                     } label: {
-                                        AppPage1MedicineRow(medicine: medicine)
+                                        AppPage1MedicineRow(medicine: medicine, expiryColor: "")
                                     }
                                     .buttonStyle(.plain)
                                     .swipeActions {
@@ -106,7 +106,7 @@ struct AppPage1View: View {
                 set: { if !$0 { selectedMedicine = nil } }
             )) {
                 if let medicine = selectedMedicine {
-                    AppPage1DetailView(originalMedicine: medicine)
+                    AppPage1DetailView(medicine: "")
                 }
             }
         }
@@ -182,7 +182,7 @@ struct AppPage1MedicineRow: View {
                 HStack(spacing: 4) {
                     Image(systemName: "calendar.badge.clock")
                         .font(.caption)
-                    Text(medicine.expiryDate.formatted(date: .long, time: .omitted))
+                    Text(AppPage1Format.expiryFull(medicine.expiryDate))
                         .font(.subheadline)
                 }
                 .foregroundStyle(expiryColor)
@@ -435,5 +435,21 @@ struct AppPage1AddMedicineSheet: View {
         store.medicines.append(newMedicine)
         store.save()
         dismiss()
+    }
+}
+
+enum AppPage1Format {
+    static func expiryFull(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年MM月dd日"
+        return formatter.string(from: date)
+    }
+
+    static func expiryShort(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "MM月dd日"
+        return formatter.string(from: date)
     }
 }

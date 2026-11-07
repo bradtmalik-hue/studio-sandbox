@@ -26,7 +26,7 @@ struct AppPage3View: View {
                                     enabledCount: filteredMedicines.filter(\.reminderEnabled).count)
                 List {
                     ForEach(filteredMedicines) { medicine in
-                        AppPage3Row(medicine: medicine)
+                        AppPage3Row(medicine: medicine, expiryColor: "")
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     delete(medicine)

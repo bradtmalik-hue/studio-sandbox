@@ -11,7 +11,7 @@ struct AppRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            AppPage1View()
+            AppPage1View(filteredMedicines: "")
                 .tabItem {
                     Label("药品列表", systemImage: "pills.fill")
                 }
@@ -23,7 +23,7 @@ struct AppRootView: View {
                 }
                 .tag(1)
 
-            AppPage3View()
+            AppPage3View(filteredMedicines: "")
                 .tabItem {
                     Label("临期提醒", systemImage: "clock.badge.exclamationmark.fill")
                 }
