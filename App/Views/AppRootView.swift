@@ -23,7 +23,7 @@ struct AppRootView: View {
             .tag(1)
 
             NavigationStack {
-                AppPage3View()
+                AppPage3View(id: "", calendar: "", startOfToday: Date())
             }
             .tabItem {
                 Label("统计", systemImage: "chart.bar.fill")
