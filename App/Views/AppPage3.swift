@@ -2,141 +2,154 @@ import SwiftUI
 
 struct AppPage3View: View {
     @EnvironmentObject var store: AppStore
-
-    @State private var goalInput: Int = 12
-    @State private var showSaveAlert = false
-    @State private var showResetAlert = false
-
-    private var completedCount: Int {
-        store.books.filter { $0.totalPages > 0 && $0.currentPage >= $0.totalPages }.count
-    }
-
-    private var readingCount: Int {
-        store.books.count - completedCount
-    }
-
-    var progress: Double {
-        let goal = max(store.settings.annualGoal, 1)
-        return min(Double(completedCount) / Double(goal), 1.0)
-    }
+    @State private var showResetConfirmation = false
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label("年度目标", systemImage: "target")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(goalInput) 本")
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                        }
-                        Stepper(value: $goalInput, in: 1...365, step: 1) {
-                            Text("每年读几本")
-                        }
-                        TextField("目标", value: $goalInput, format: .number)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 120)
-                    }
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("目标")
-                } footer: {
-                    Text("设定每年想读完的书籍数量，可在首页查看进度。")
+                    AppPage3SummaryCard(store: store)
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
 
-                Section {
-                    AppPage3StatRow(label: "已读完", value: "\(completedCount) 本", icon: "checkmark.circle.fill", color: .green)
-                    AppPage3StatRow(label: "正在读", value: "\(readingCount) 本", icon: "book.fill", color: .blue)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("年度进度")
-                            Spacer()
-                            Text("\(Int(progress * 100))%")
+                Section("默认参与人数") {
+                    HStack {
+                        Text("默认人数")
+                        Spacer()
+                        Stepper(value: $store.defaultParticipantCount, in: 1...100) {
+                            Text("\(store.defaultParticipantCount) 人")
+                                .frame(minWidth: 48, alignment: .trailing)
                         }
-                        ProgressView(value: progress)
-                            .progressViewStyle(.linear)
                     }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("当前进度")
-                }
-
-                Section {
+                    Picker("快速选择", selection: $store.defaultParticipantCount) {
+                        ForEach([2, 3, 4, 5, 6, 8, 10, 12], id: \.self) { count in
+                            Text("\(count) 人").tag(count)
+                        }
+                    }
                     Button {
-                        saveGoal()
+                        store.defaultParticipantCount = 4
+                        showResetConfirmation = true
                     } label: {
-                        HStack {
-                            Spacer()
-                            Label("保存目标", systemImage: "checkmark.circle")
-                            Spacer()
-                        }
+                        Label("恢复默认 4 人", systemImage: "arrow.counterclockwise")
                     }
-                    .disabled(goalInput < 1 || goalInput > 365)
+                }
 
-                    Button(role: .destructive) {
-                        goalInput = 12
-                        showResetAlert = true
-                    } label: {
+                Section("说明") {
+                    AppPage3InfoRow(icon: "person.2.fill", text: "记账时参与人数会自动填入这里设置的默认值")
+                    AppPage3InfoRow(icon: "checkmark.circle.fill", text: "可以在记账页手动修改单笔参与人数")
+                    AppPage3InfoRow(icon: "square.and.arrow.down.fill", text: "修改后立即生效，无需额外保存")
+                }
+
+                if store.expenses.isEmpty {
+                    Section {
+                        AppPage3EmptyView()
+                    }
+                } else {
+                    Section("数据概览") {
                         HStack {
+                            Text("账单总数")
                             Spacer()
-                            Label("恢复默认", systemImage: "arrow.counterclockwise")
+                            Text("\(store.expenses.count) 笔")
+                        }
+                        HStack {
+                            Text("合计金额")
                             Spacer()
+                            Text(currencyString(store.totalAmount))
+                        }
+                        HStack {
+                            Text("平均每笔")
+                            Spacer()
+                            Text(currencyString(store.averagePerExpense))
+                        }
+                        HStack {
+                            Text("最近一笔")
+                            Spacer()
+                            if let latest = store.expenses.sorted(by: { $0.date > $1.date }).first {
+                                Text(latest.title)
+                                    .lineLimit(1)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("无")
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("设置")
-            .alert("已保存", isPresented: $showSaveAlert) {
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .alert("已恢复默认参与人数", isPresented: $showResetConfirmation) {
                 Button("好", role: .cancel) { }
             } message: {
-                Text("年度目标已更新为 \(goalInput) 本")
-            }
-            .alert("已重置", isPresented: $showResetAlert) {
-                Button("好", role: .cancel) { }
-            } message: {
-                Text("年度目标已恢复为默认的 12 本，点击保存后生效")
-            }
-            .onAppear {
-                let saved = store.settings.annualGoal
-                goalInput = saved > 0 ? saved : 12
+                Text("新的账单将默认填入 4 人")
             }
         }
     }
 
-    private func saveGoal() {
-        store.settings = AppSettings(annualGoal: goalInput)
-        store.save()
-        showSaveAlert = true
+    private func currencyString(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "zh_CN")
+        return formatter.string(from: NSNumber(value: value)) ?? "¥0.00"
     }
 }
 
-struct AppPage3StatRow: View {
-    let label: String
-    let value: String
-    let icon: String
-    let color: Color
+struct AppPage3SummaryCard: View {
+    let store: AppStore
 
     var body: some View {
-        HStack {
-            Label {
-                Text(label)
-            } icon: {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("当前设置", systemImage: "gear")
+                    .font(.headline)
+                Spacer()
             }
-            Spacer()
-            Text(value)
-                .fontWeight(.medium)
+            HStack {
+                Text("默认参与人数")
+                Spacer()
+                Text("\(store.defaultParticipantCount) 人")
+                    .bold()
+            }
+            Divider()
+            if store.expenses.isEmpty {
+                Text("还没有账单，新增时会自动带入此人数")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("已有 \(store.expenses.count) 笔账单，最近使用 \(store.expenses.sorted(by: { $0.date > $1.date }).first?.title ?? "无")")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+}
+
+struct AppPage3InfoRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
         }
         .padding(.vertical, 4)
     }
 }
 
-#Preview {
-    AppPage3View()
-        .environmentObject(AppStore())
+struct AppPage3EmptyView: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("暂无账单", systemImage: "tray")
+        } description: {
+            Text("去「记一笔」添加第一笔聚会花费")
+        }
+    }
 }
