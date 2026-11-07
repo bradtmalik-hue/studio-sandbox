@@ -1,7 +1,7 @@
 # App
 
-每顿都记下来，宠物吃得好不好一眼看清
+正在读、摘录、年度目标一页看完
 
-Bundle ID: `com.dassospizzirri-hash.app`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 历史, 设置
+Screens: 正在读的书, 摘录列表, 设置
