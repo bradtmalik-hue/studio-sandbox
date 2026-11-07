@@ -1,39 +1,44 @@
 import SwiftUI
-import Foundation
 
 struct AppRootView: View {
-    @StateObject private var store = AppStore()
-    @State private var selectedTab = Self.initialTab()
+    @EnvironmentObject private var store: AppStore
+    @State private var selection: Int = AppRootView.initialTab()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            AppPage1View()
-                .tabItem {
-                    Label("今天", systemImage: "sun.max")
-                }
-                .tag(0)
+        TabView(selection: $selection) {
+            NavigationStack {
+                AppPage1View(matchesFilter: false)
+                    .navigationTitle("宠物档案")
+            }
+            .tabItem {
+                Label("宠物档案", systemImage: "pawprint.fill")
+            }
+            .tag(0)
 
-            AppPage2View()
-                .tabItem {
-                    Label("已完成", systemImage: "checkmark.circle")
-                }
-                .tag(1)
+            NavigationStack {
+                AppPage2View()
+                    .navigationTitle("疫苗记录")
+            }
+            .tabItem {
+                Label("疫苗记录", systemImage: "syringe.fill")
+            }
+            .tag(1)
 
-            AppPage3View()
-                .tabItem {
-                    Label("设置", systemImage: "gear")
-                }
-                .tag(2)
+            NavigationStack {
+                AppPage3View()
+                    .navigationTitle("提醒")
+            }
+            .tabItem {
+                Label("提醒", systemImage: "bell.badge.fill")
+            }
+            .tag(2)
         }
-        .environmentObject(store)
     }
 
     private static func initialTab() -> Int {
         let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-startTab"),
-           i + 1 < args.count,
-           let v = Int(args[i + 1]) {
-            return min(max(v, 0), 2)
+        if let index = args.firstIndex(of: "-startTab"), index + 1 < args.count, let value = Int(args[index + 1]) {
+            return min(max(value, 0), 2)
         }
         return 0
     }
