@@ -1,249 +1,169 @@
 import SwiftUI
-import Foundation
+import Combine
 
 struct AppPage2View: View {
     @EnvironmentObject var store: AppStore
-
-    private var balances: [String: Double] {
-        computeBalances(store.expenses)
-    }
-
-    private var personBalances: [AppPage2PersonBalance] {
-        balances.map { AppPage2PersonBalance(name: $0.key, netAmount: $0.value) }
-            .sorted { abs($0.netAmount) > abs($1.netAmount) }
-    }
-
-    private var transfers: [AppPage2Transfer] {
-        var creditors = personBalances.filter { $0.netAmount > 0.001 }
-        var debtors = personBalances.filter { $0.netAmount < -0.001 }
-        var result: [AppPage2Transfer] = []
-        while !creditors.isEmpty && !debtors.isEmpty {
-            creditors.sort { $0.netAmount > $1.netAmount }
-            debtors.sort { $0.netAmount < $1.netAmount }
-            let creditor = creditors[0]
-            let debtor = debtors[0]
-            let amount = min(creditor.netAmount, -debtor.netAmount)
-            result.append(AppPage2Transfer(from: debtor.name, to: creditor.name, amount: amount))
-            var updatedCreditor = creditor
-            var updatedDebtor = debtor
-            updatedCreditor.netAmount -= amount
-            updatedDebtor.netAmount += amount
-            creditors[0] = updatedCreditor
-            debtors[0] = updatedDebtor
-            if abs(creditors[0].netAmount) < 0.001 {
-                creditors.removeFirst()
-            }
-            if abs(debtors[0].netAmount) < 0.001 {
-                debtors.removeFirst()
-            }
-        }
-        return result
-    }
+    @State private var searchText = ""
+    @State private var selectedType = "全部"
 
     var body: some View {
         NavigationStack {
-            if store.expenses.isEmpty {
-                ContentUnavailableView {
-                    Label("还没有聚会账目", systemImage: "person.2.slash")
-                } description: {
-                    Text("记一笔聚会花费后，这里会显示每人应付多少和谁该转给谁。")
+            VStack(spacing: 0) {
+                if store.meals.isEmpty {
+                    AppPage2EmptyView(searchText: searchText)
+                } else {
+                    AppPage2FilterBar(options: typeOptions, selectedType: $selectedType)
+
+                    if groupedByDay.isEmpty {
+                        AppPage2EmptyView(searchText: searchText)
+                    } else {
+                        List {
+                            Section {
+                                AppPage2SummaryCard(
+                                    totalCount: filteredMeals.count,
+                                    totalAmount: filteredMeals.reduce(0) { $0 + $1.amount },
+                                    totalCalories: filteredMeals.reduce(0) { $0 + $1.calories },
+                                    averageCalories: filteredMeals.isEmpty ? 0 : filteredMeals.reduce(0) { $0 + $1.calories } / Double(filteredMeals.count),
+                                    lastDate: filteredMeals.map(\.date).max()
+                                )
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
+
+                            ForEach(groupedByDay, id: \.day) { group in
+                                Section {
+                                    ForEach(group.meals, id: \.id) { meal in
+                                        NavigationLink {
+                                            AppPage2MealDetailView(meal: meal)
+                                        } label: {
+                                            AppPage2MealRow(meal: meal)
+                                        }
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                delete(meal)
+                                            } label: {
+                                                Label("删除", systemImage: "trash")
+                                            }
+                                        }
+                                    }
+                                } header: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(dayString(group.day))
+                                            .font(.headline)
+                                        Text("\(group.meals.count) 次喂食 · \(group.meals.reduce(0) { $0 + $1.calories }, specifier: "%.0f") 千卡")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .listStyle(.insetGrouped)
+                        .contentMargins(.bottom, 96, for: .scrollContent)
+                    }
                 }
-            } else {
-                List {
-                    AppPage2SummaryCard(
-                        totalAmount: store.totalAmount,
-                        averagePerExpense: store.averagePerExpense,
-                        expenseCount: store.expenses.count
-                    )
-                    Section("每人应收/应付") {
-                        ForEach(personBalances) { person in
-                            AppPage2PersonRow(person: person)
-                        }
-                    }
-                    Section("转账建议") {
-                        ForEach(transfers) { transfer in
-                            AppPage2TransferRow(transfer: transfer)
-                        }
-                    }
-                    Section("开销明细") {
-                        ForEach(store.sortedExpenses) { expense in
-                            AppPage2ExpenseRow(expense: expense)
-                        }
-                    }
-                }
-                .contentMargins(.bottom, 96, for: .scrollContent)
             }
+            .navigationTitle("历史")
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索食物名称")
         }
-        .navigationTitle("结果")
     }
 
-    private func computeBalances(_ expenses: [AppExpense]) -> [String: Double] {
-        var balances: [String: Double] = [:]
-        for expense in expenses {
-            let share = expense.amount / Double(max(expense.participantCount, 1))
-            for participant in expense.participants {
-                if participant == expense.payer {
-                    balances[participant, default: 0] += share * Double(max(expense.participantCount - 1, 0))
-                } else {
-                    balances[participant, default: 0] -= share
-                }
+    var filteredMeals: [AppMeal] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return store.meals.filter { meal in
+            let matchesType = selectedType == "全部" || meal.mealType.rawValue == selectedType
+            let matchesSearch = query.isEmpty
+                || meal.foodName.localizedCaseInsensitiveContains(query)
+                || meal.note.localizedCaseInsensitiveContains(query)
+            return matchesType && matchesSearch
+        }
+    }
+
+    private var groupedByDay: [(day: Date, meals: [AppMeal])] {
+        let dict = Dictionary(grouping: filteredMeals) { Calendar.current.startOfDay(for: $0.date) }
+        return dict.keys.sorted(by: >).map { day in
+            (day: day, meals: dict[day]!.sorted(by: { $0.date > $1.date }))
+        }
+    }
+
+    private var typeOptions: [String] {
+        var seen = Set<String>()
+        var options = ["全部"]
+        for meal in store.meals {
+            let raw = meal.mealType.rawValue
+            if seen.insert(raw).inserted {
+                options.append(raw)
             }
         }
-        return balances
+        return options
+    }
+
+    func delete(_ meal: AppMeal) {
+        withAnimation {
+            store.meals.removeAll { $0.id == meal.id }
+            store.save()
+        }
+    }
+
+    private func dayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 EEEE"
+        return formatter.string(from: date)
     }
 }
 
-struct AppPage2SummaryCard: View {
+private struct AppPage2FilterBar: View {
+    let options: [String]
+    @Binding var selectedType: String
+
+    var body: some View {
+        Picker("筛选类型", selection: $selectedType) {
+            ForEach(options, id: \.self) { option in
+                Text(option).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+}
+
+private struct AppPage2SummaryCard: View {
+    let totalCount: Int
     let totalAmount: Double
-    let averagePerExpense: Double
-    let expenseCount: Int
+    let totalCalories: Double
+    let averageCalories: Double
+    let lastDate: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("总览")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("总花费")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(formatCurrency(totalAmount))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("平均每笔")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(formatCurrency(averagePerExpense))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Label("历史概览", systemImage: "calendar")
+                    .font(.headline)
+                Spacer()
             }
-            Text("共 \(expenseCount) 笔聚会花费")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack {
+                AppPage2SummaryMetric(title: "总次数", value: "\(totalCount)", unit: "次")
+                Spacer()
+                AppPage2SummaryMetric(title: "总份量", value: "\(totalAmount, specifier: "%.0f")", unit: "克")
+                Spacer()
+                AppPage2SummaryMetric(title: "总热量", value: "\(totalCalories, specifier: "%.0f")", unit: "千卡")
+            }
+            HStack {
+                AppPage2SummaryMetric(title: "平均每餐", value: "\(averageCalories, specifier: "%.0f")", unit: "千卡")
+                Spacer()
+                if let lastDate = lastDate {
+                    AppPage2SummaryMetric(title: "最近记录", value: shortTimeString(lastDate), unit: "")
+                }
+            }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
-        )
-        .listRowInsets(EdgeInsets())
-        .listRowSeparator(.hidden)
-        .padding(.vertical, 4)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func formatCurrency(_ value: Double) -> String {
-        String(format: "¥%.2f", value)
-    }
-}
-
-struct AppPage2PersonRow: View {
-    let person: AppPage2PersonBalance
-
-    var body: some View {
-        HStack {
-            Image(systemName: person.netAmount >= 0 ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                .foregroundColor(person.netAmount >= 0 ? .green : .red)
-                .font(.title2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(person.name)
-                    .font(.body)
-                Text(person.netAmount >= 0 ? "应收" : "应付")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            Text(formatCurrency(person.netAmount))
-                .font(.callout)
-                .fontWeight(.medium)
-                .foregroundColor(person.netAmount >= 0 ? .green : .red)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func formatCurrency(_ value: Double) -> String {
-        let absValue = abs(value)
-        let sign = value >= 0 ? "" : "-"
-        return sign + String(format: "¥%.2f", absValue)
-    }
-}
-
-struct AppPage2TransferRow: View {
-    let transfer: AppPage2Transfer
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(transfer.from)
-                    .font(.body)
-                Text("转给")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            Image(systemName: "arrow.right")
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(transfer.to)
-                    .font(.body)
-                Text(formatCurrency(transfer.amount))
-                    .font(.callout)
-                    .fontWeight(.medium)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func formatCurrency(_ value: Double) -> String {
-        String(format: "¥%.2f", value)
-    }
-}
-
-struct AppPage2ExpenseRow: View {
-    let expense: AppExpense
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(expense.title)
-                    .font(.body)
-                    .fontWeight(.medium)
-                Spacer()
-                Text(formatCurrency(expense.amount))
-                    .font(.body)
-                    .fontWeight(.semibold)
-            }
-            HStack {
-                Label(expense.payer, systemImage: "person.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(formatDate(expense.date))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            HStack {
-                Text("每人 \(formatCurrency(expense.perPersonAmount))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("\(expense.participantCount)人参与")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func formatCurrency(_ value: Double) -> String {
-        String(format: "¥%.2f", value)
-    }
-
-    private func formatDate(_ date: Date) -> String {
+    private func shortTimeString(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 HH:mm"
@@ -251,15 +171,105 @@ struct AppPage2ExpenseRow: View {
     }
 }
 
-struct AppPage2PersonBalance: Identifiable {
-    let name: String
-    var netAmount: Double
-    var id: String { name }
+private struct AppPage2SummaryMetric: View {
+    let title: String
+    let value: String
+    let unit: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.title3.monospacedDigit())
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
 }
 
-struct AppPage2Transfer: Identifiable {
-    let from: String
-    let to: String
-    let amount: Double
-    var id: String { "\(from)-\(to)-\(amount)" }
+private struct AppPage2MealRow: View {
+    let meal: AppMeal
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "fork.knife.circle.fill")
+                .font(.title2)
+                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meal.foodName)
+                    .font(.headline)
+                Text(meal.mealType.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(timeString(meal.date))
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(meal.amount, specifier: "%.0f") 克")
+                Text("\(meal.calories, specifier: "%.0f") 千卡")
+            }
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func timeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+}
+
+private struct AppPage2EmptyView: View {
+    let searchText: String
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(
+                searchText.isEmpty ? "还没有历史记录" : "没有搜索结果",
+                systemImage: searchText.isEmpty ? "clock.badge.xmark" : "magnifyingglass"
+            )
+        } description: {
+            Text(searchText.isEmpty ? "在“今天”页记录每一餐后，这里会按天整理。" : "没有找到与“\(searchText)”相符的记录。")
+        }
+    }
+}
+
+private struct AppPage2MealDetailView: View {
+    let meal: AppMeal
+
+    var body: some View {
+        List {
+            Section("食物信息") {
+                LabeledContent("食物名称", value: meal.foodName)
+                LabeledContent("餐次类型", value: meal.mealType.rawValue)
+                LabeledContent("份量", value: "\(meal.amount, specifier: "%.0f") 克")
+                LabeledContent("热量", value: "\(meal.calories, specifier: "%.0f") 千卡")
+            }
+            Section("备注与时间") {
+                LabeledContent("备注", value: meal.note.isEmpty ? "无" : meal.note)
+                LabeledContent("记录时间", value: fullDateString)
+            }
+        }
+        .navigationTitle("记录详情")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var fullDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm"
+        return formatter.string(from: meal.date)
+    }
 }
