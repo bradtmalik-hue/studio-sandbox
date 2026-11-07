@@ -64,7 +64,7 @@ enum AppCategory: String, CaseIterable {
 struct AppSummary: Codable {
     let items: [AppPage2Model]
 
-    static func firstItem() -> AppPage2Model? {
+    func firstItem() -> AppPage2Model? {
         guard !items.isEmpty else { return nil }
         return items[0]
     }
