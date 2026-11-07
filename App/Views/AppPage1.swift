@@ -35,7 +35,7 @@ struct AppPage1View: View {
         let totalQuantity = filteredMedicines.reduce(0) { $0 + $1.quantity }
         let nearest = filteredMedicines.map(\.expiryDate).min()
         if let nearest = nearest {
-            return "共 \(count) 盒 · 总数量 \(totalQuantity) · 最近到期 \(AppPage1Format.expiryShort(nearest))"
+            return "共 \(count) 盒 · 总数量 \(totalQuantity) · 最近到期 \(nearest.formatted(date: .numeric, time: .omitted))"
         }
         return "暂无可显示的药品"
     }
@@ -182,7 +182,7 @@ struct AppPage1MedicineRow: View {
                 HStack(spacing: 4) {
                     Image(systemName: "calendar.badge.clock")
                         .font(.caption)
-                    Text(AppPage1Format.expiryFull(medicine.expiryDate))
+                    Text(medicine.expiryDate.formatted(date: .long, time: .omitted))
                         .font(.subheadline)
                 }
                 .foregroundStyle(expiryColor)
