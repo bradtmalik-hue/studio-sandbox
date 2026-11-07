@@ -1,7 +1,7 @@
 # App
 
-每天三秒，记清今天花了多少
+一笔记清，谁该给谁多少
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 今天, 分类, 设置
+Screens: 记一笔, 结果, 设置

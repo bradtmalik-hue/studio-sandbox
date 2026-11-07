@@ -1,74 +1,74 @@
 import Foundation
 import Combine
 
-enum AppCategory: String, Codable, CaseIterable, Identifiable {
-    case dining = "餐饮"
-    case transport = "交通"
-    case shopping = "购物"
-    case other = "其它"
-
-    var id: String { rawValue }
-}
-
 struct AppExpense: Identifiable, Codable, Equatable {
-    var id: UUID
+    var id: UUID = UUID()
+    var title: String
     var amount: Double
-    var category: AppCategory
-    var note: String
+    var paidBy: String
+    var participants: [String]
     var date: Date
-
-    init(id: UUID = UUID(), amount: Double, category: AppCategory, note: String, date: Date = Date()) {
-        self.id = id
-        self.amount = amount
-        self.category = category
-        self.note = note
-        self.date = date
-    }
+    var note: String
 }
 
-struct AppExpenseStoreData: Codable {
+struct AppSettings: Codable, Equatable {
+    var defaultParticipantCount: Int
+    var defaultPayer: String
+    var currencyCode: String
+
+    static let defaultCurrency = "CNY"
+}
+
+struct AppBalance: Identifiable {
+    var id: String { name }
+    var name: String
+    var amount: Double
+}
+
+struct AppTransfer: Identifiable {
+    var id: String { "\(from)-\(to)" }
+    var from: String
+    var to: String
+    var amount: Double
+}
+
+struct AppPersistedData: Codable {
     var expenses: [AppExpense]
-    var monthlyBudget: Double
+    var settings: AppSettings
 }
 
 final class AppStore: ObservableObject {
     @Published var expenses: [AppExpense] = []
-    @Published var monthlyBudget: Double = 3000
+    @Published var settings = AppSettings(defaultParticipantCount: 4, defaultPayer: "我", currencyCode: AppSettings.defaultCurrency)
 
-    private let fileName = "expenses.json"
-    private var fileURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
-    }
+    private let fileURL: URL
 
     init() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        fileURL = docs.appendingPathComponent("SplitBillData.json")
         load()
-        if ProcessInfo.processInfo.arguments.contains("-demoData") {
+        if CommandLine.arguments.contains("-demoData") {
             DemoSeed.apply(into: self)
         }
     }
 
-    var todayExpenses: [AppExpense] {
-        expenses.filter { Calendar.current.isDateInToday($0.date) }
+    func load() {
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL),
+              let decoded = try? JSONDecoder().decode(AppPersistedData.self, from: data) else {
+            return
+        }
+        expenses = decoded.expenses
+        settings = decoded.settings
     }
 
-    var todayTotal: Double {
-        todayExpenses.reduce(0) { $0 + $1.amount }
-    }
-
-    var isOverBudget: Bool {
-        todayTotal > monthlyBudget
-    }
-
-    var monthExpenses: [AppExpense] {
-        expenses.filter { Calendar.current.isDate($0.date, equalTo: Date(), toGranularity: .month) }
-    }
-
-    var monthTotal: Double {
-        monthExpenses.reduce(0) { $0 + $1.amount }
-    }
-
-    func total(for category: AppCategory, on date: Date = Date()) -> Double {
-        expenses.filter { $0.category == category && Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.amount }
+    func save() {
+        do {
+            let container = AppPersistedData(expenses: expenses, settings: settings)
+            let data = try JSONEncoder().encode(container)
+            try data.write(to: fileURL)
+        } catch {
+        }
     }
 
     func addExpense(_ expense: AppExpense) {
@@ -76,78 +76,103 @@ final class AppStore: ObservableObject {
         save()
     }
 
+    func deleteExpense(id: UUID) {
+        expenses.removeAll { $0.id == id }
+        save()
+    }
+
     func updateExpense(_ expense: AppExpense) {
-        if let index = expenses.firstIndex(where: { $0.id == expense.id }) {
-            expenses[index] = expense
-            save()
-        }
-    }
-
-    func deleteExpense(at offsets: IndexSet) {
-        expenses.remove(atOffsets: offsets)
+        guard let index = expenses.firstIndex(where: { $0.id == expense.id }) else { return }
+        expenses[index] = expense
         save()
     }
 
-    func deleteExpense(_ expense: AppExpense) {
-        expenses.removeAll { $0.id == expense.id }
-        save()
+    var totalAmount: Double {
+        expenses.reduce(0) { $0 + $1.amount }
     }
 
-    func load() {
-        guard let data = try? Data(contentsOf: fileURL) else { return }
-        if let decoded = try? JSONDecoder().decode(AppExpenseStoreData.self, from: data) {
-            expenses = decoded.expenses
-            monthlyBudget = decoded.monthlyBudget
+    var latestExpenseDate: Date? {
+        expenses.map(\.date).max()
+    }
+
+    func balances() -> [AppBalance] {
+        var dict: [String: Double] = [:]
+        for expense in expenses {
+            let participantCount = max(expense.participants.count, 1)
+            let share = expense.amount / Double(participantCount)
+            dict[expense.paidBy, default: 0] += expense.amount - share
+            for participant in expense.participants where participant != expense.paidBy {
+                dict[participant, default: 0] -= share
+            }
         }
+        return dict
+            .map { AppBalance(name: $0.key, amount: $0.value) }
+            .sorted { $0.amount > $1.amount }
     }
 
-    func save() {
-        let storeData = AppExpenseStoreData(expenses: expenses, monthlyBudget: monthlyBudget)
-        if let data = try? JSONEncoder().encode(storeData) {
-            try? data.write(to: fileURL)
+    func transfers() -> [AppTransfer] {
+        let balances = balances()
+        var debtors = balances
+            .filter { $0.amount < 0 }
+            .map { (name: $0.name, amount: -$0.amount) }
+        var creditors = balances
+            .filter { $0.amount > 0 }
+            .map { (name: $0.name, amount: $0.amount) }
+
+        var result: [AppTransfer] = []
+        var i = 0
+        var j = 0
+
+        while i < debtors.count && j < creditors.count {
+            let payment = min(debtors[i].amount, creditors[j].amount)
+            if payment > 0.0001 {
+                result.append(AppTransfer(from: debtors[i].name, to: creditors[j].name, amount: payment))
+            }
+            debtors[i].amount -= payment
+            creditors[j].amount -= payment
+
+            if debtors[i].amount < 0.0001 {
+                i += 1
+            }
+            if creditors[j].amount < 0.0001 {
+                j += 1
+            }
         }
-    }
-}
 
-enum AppFormat {
-    static let zhDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 HH:mm"
-        return formatter
-    }()
-
-    static func date(_ date: Date) -> String {
-        zhDateFormatter.string(from: date)
-    }
-
-    static func currency(_ amount: Double) -> String {
-        String(format: "¥%.2f", amount)
+        return result
     }
 }
 
 enum DemoSeed {
     static func apply(into store: AppStore) {
-        guard ProcessInfo.processInfo.arguments.contains("-demoData") else { return }
+        guard CommandLine.arguments.contains("-demoData") else { return }
+
         let calendar = Calendar.current
         let now = Date()
-        let categories = AppCategory.allCases
-        let notes = ["早餐", "午餐", "咖啡", "地铁", "打车", "日用品", "超市", "外卖", "电影", "礼物", "充电", "晚餐"]
-        var seeded: [AppExpense] = []
-        for index in 0..<12 {
-            let category = categories[index % categories.count]
-            let amount = Double(15 + index * 8) + Double(index % 5) * 0.5
-            let date: Date
-            if index < 5 {
-                date = now
-            } else {
-                date = calendar.date(byAdding: .day, value: -(index - 2), to: now) ?? now
-            }
-            let note = notes[index % notes.count]
-            seeded.append(AppExpense(id: UUID(), amount: amount, category: category, note: note, date: date))
+
+        func date(daysAgo: Int, hour: Int, minute: Int) -> Date {
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
         }
-        store.expenses = seeded
-        store.monthlyBudget = 3000
+
+        let samples: [AppExpense] = [
+            AppExpense(id: UUID(), title: "川味火锅聚餐", amount: 428.50, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏"], date: date(daysAgo: 1, hour: 19, minute: 30), note: "部门小聚"),
+            AppExpense(id: UUID(), title: "周末桌游吧", amount: 168.00, paidBy: "李娜", participants: ["陈晨", "李娜", "王强"], date: date(daysAgo: 3, hour: 14, minute: 10), note: "三国杀包间"),
+            AppExpense(id: UUID(), title: "生日蛋糕", amount: 238.00, paidBy: "王强", participants: ["陈晨", "李娜", "王强", "赵敏", "刘洋"], date: date(daysAgo: 5, hour: 20, minute: 0), note: "给赵敏庆生"),
+            AppExpense(id: UUID(), title: "烧烤夜宵", amount: 312.40, paidBy: "刘洋", participants: ["刘洋", "陈晨", "李娜", "赵敏"], date: date(daysAgo: 7, hour: 23, minute: 15), note: "路边摊"),
+            AppExpense(id: UUID(), title: "KTV 欢唱", amount: 456.00, paidBy: "赵敏", participants: ["赵敏", "陈晨", "李娜", "王强", "刘洋"], date: date(daysAgo: 10, hour: 21, minute: 0), note: "周末包夜"),
+            AppExpense(id: UUID(), title: "团建午餐", amount: 680.00, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏", "刘洋", "孙悦"], date: date(daysAgo: 12, hour: 12, minute: 20), note: "团建日料"),
+            AppExpense(id: UUID(), title: "咖啡下午茶", amount: 96.50, paidBy: "孙悦", participants: ["孙悦", "陈晨", "李娜"], date: date(daysAgo: 15, hour: 15, minute: 45), note: "拿铁+蛋糕"),
+            AppExpense(id: UUID(), title: "羽毛球场地费", amount: 120.00, paidBy: "王强", participants: ["王强", "陈晨", "李娜", "赵敏"], date: date(daysAgo: 18, hour: 18, minute: 30), note: "两小时"),
+            AppExpense(id: UUID(), title: "外卖午餐", amount: 89.90, paidBy: "李娜", participants: ["李娜", "陈晨", "王强"], date: date(daysAgo: 20, hour: 12, minute: 5), note: "麻辣香锅"),
+            AppExpense(id: UUID(), title: "电影票", amount: 160.00, paidBy: "陈晨", participants: ["陈晨", "李娜", "王强", "赵敏"], date: date(daysAgo: 22, hour: 19, minute: 40), note: "IMAX"),
+            AppExpense(id: UUID(), title: "打车拼车", amount: 45.60, paidBy: "刘洋", participants: ["刘洋", "陈晨", "李娜"], date: date(daysAgo: 25, hour: 22, minute: 10), note: "回家"),
+            AppExpense(id: UUID(), title: "野餐食材", amount: 278.30, paidBy: "赵敏", participants: ["赵敏", "陈晨", "李娜", "王强", "刘洋"], date: date(daysAgo: 28, hour: 11, minute: 30), note: "公园野餐")
+        ]
+
+        store.expenses = samples
+        store.settings.defaultParticipantCount = 4
+        store.settings.defaultPayer = "陈晨"
         store.save()
     }
 }
