@@ -11,7 +11,7 @@ struct AppPage3View: View {
         NavigationStack {
             Form {
                 Section {
-                    AppPage3GoalCard(onSave: "") {
+                    AppPage3GoalCard(goalText: $goalText) {
                         saveGoal()
                     }
                 } header: {
