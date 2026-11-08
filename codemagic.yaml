@@ -1,0 +1,172 @@
+workflows:
+  # 真正出安装包的那条：签名 + 归档 + 导出 ipa（可选上传 TestFlight）
+  app-store:
+    name: App Store (signed ipa)
+    max_build_duration: 90
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.bradtmalik-hue.app
+      vars:
+        BUNDLE_ID: com.bradtmalik-hue.app
+    scripts:
+      - name: Set up code signing
+        script: |
+          set -e
+          xcode-project use-profiles
+      - name: Build signed ipa
+        script: |
+          set -e
+          xcode-project build-ipa             --project "App.xcodeproj"             --scheme "App"             --config Release
+      - name: Upload to TestFlight (only if key provided)
+        script: |
+          set -e
+          if [ -n "$ASC_KEY_CONTENT" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER" ]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            echo "$ASC_KEY_CONTENT" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+            IPA=$(ls build/ios/ipa/*.ipa | head -1)
+            xcrun altool --upload-app -f "$IPA" --type ios               --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER"
+            echo "已上传到 TestFlight"
+          else
+            echo "没有配置 App Store Connect 密钥，跳过上传（ipa 已生成）"
+          fi
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  compile-check:
+    name: Compile Check (no signing)
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Compile
+        script: |
+          xcodebuild \
+            -project "App.xcodeproj" \
+            -scheme "App" \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+    artifacts:
+      - build/Build/Products/Release-iphoneos/*.app
+
+  demo-capture:
+    name: Store Screenshots (simulator)
+    max_build_duration: 45
+    environment:
+      xcode: latest
+      vars:
+        BUNDLE_ID: com.bradtmalik-hue.app
+    scripts:
+      - name: Build for simulator
+        script: |
+          set -e
+          xcodebuild \
+            -project "App.xcodeproj" \
+            -scheme "App" \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Capture each screen
+        script: |
+          set -e
+          mkdir -p shots
+          DT=$(xcrun simctl list devicetypes | grep -o "iPhone 16 Pro Max" | head -1)
+          if [ -z "$DT" ]; then DT=$(xcrun simctl list devicetypes | grep -o "iPhone 16 Pro" | head -1); fi
+          if [ -z "$DT" ]; then DT=$(xcrun simctl list devicetypes | grep -o "iPhone 15 Pro Max" | head -1); fi
+          RT=$(xcrun simctl list runtimes | grep -o "com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]*" | tail -1)
+          DEV=$(xcrun simctl create Capture "$DT" "$RT")
+          xcrun simctl boot "$DEV" || true
+          xcrun simctl bootstatus "$DEV" -b
+          APP="build/Build/Products/Release-iphonesimulator/App.app"
+          xcrun simctl install "$DEV" "$APP"
+          xcrun simctl status_bar "$DEV" override --time "9:41" \
+            --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+          N=1
+          for T in 0 1 2; do
+            xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
+            xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/tmp/launch_$T.txt 2>&1 || true
+            # 等久一点：刚启动那几秒系统会弹通知/键盘提示，会盖住标题栏
+            sleep 9
+            xcrun simctl io "$DEV" screenshot "shots/shot_$N.png" || true
+
+            # 冒烟：还活着吗？崩了的话进程就没了，记一个 crash 文件回去
+            if xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              echo "tab $T alive"
+            else
+              echo "CRASH tab $T" > "shots/crash_$N.txt"
+              echo "tab $T CRASHED"
+            fi
+
+            # 崩了就再拉一次，把 App 自己的报错输出抓下来（这是定位崩溃的唯一线索）
+            if [ -f "shots/crash_$N.txt" ]; then
+              timeout 12 xcrun simctl launch --console-pty "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" > "shots/console_$N.txt" 2>&1 || true
+              if [ ! -s "shots/console_$N.txt" ]; then
+                timeout 12 xcrun simctl launch --console "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >> "shots/console_$N.txt" 2>&1 || true
+              fi
+              # 系统日志里才有真正的崩因（Fatal error / EXC_BAD_ACCESS / 断言）
+              xcrun simctl spawn "$DEV" log show --style compact --last 3m \
+                --predicate 'process == "App"' 2>/dev/null | tail -60 >> "shots/console_$N.txt" || true
+              echo "--- console_$N ---"
+              tail -30 "shots/console_$N.txt" || true
+            fi
+
+            # 再切一次前后台，很多崩溃只在恢复时出现
+            xcrun simctl launch "$DEV" "$BUNDLE_ID" -demoData -startTab "$T" >/dev/null 2>&1 || true
+            sleep 3
+            if ! xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              echo "CRASH on resume tab $T" >> "shots/crash_$N.txt"
+            fi
+
+            N=$((N+1))
+          done
+          # 持久化验证：不带 -demoData 重启，数据应该还在（说明真的写盘了）
+          xcrun simctl terminate "$DEV" "$BUNDLE_ID" || true
+          sleep 2
+          xcrun simctl launch "$DEV" "$BUNDLE_ID" -startTab "0" >/tmp/launch_persist.txt 2>&1 || true
+          sleep 9
+          xcrun simctl io "$DEV" screenshot "shots/persist_1.png" || true
+          if ! xcrun simctl spawn "$DEV" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+            echo "CRASH on relaunch (persistence check)" > "shots/crash_persist.txt"
+          fi
+
+          # 落盘取证：App 真的把数据写进沙盒了吗？（UserDefaults / Documents 两种都看）
+          CONT=$(xcrun simctl get_app_container "$DEV" "$BUNDLE_ID" data 2>/dev/null || echo "")
+          if [ -n "$CONT" ]; then
+            (
+              echo "=== container: $CONT"
+              echo "--- Preferences"
+              ls -la "$CONT/Library/Preferences" 2>/dev/null || echo "(没有 Preferences 目录)"
+              for P in "$CONT"/Library/Preferences/*.plist; do
+                [ -f "$P" ] || continue
+                echo "--- plist: $(basename "$P")"
+                plutil -p "$P" 2>/dev/null | head -40
+              done
+              echo "--- Documents"
+              ls -la "$CONT/Documents" 2>/dev/null || echo "(没有 Documents 目录)"
+              echo "--- Application Support"
+              find "$CONT/Library/Application Support" -type f 2>/dev/null | head -10 || true
+            ) > "shots/storage_1.txt" 2>&1
+          else
+            echo "NO_CONTAINER" > "shots/storage_1.txt"
+          fi
+          echo "--- storage_1 ---"; tail -20 "shots/storage_1.txt" || true
+
+          # 有崩溃就把系统崩溃日志一起带走，方便定位
+          if ls shots/crash_*.txt >/dev/null 2>&1; then
+            mkdir -p shots/crashlogs
+            find ~/Library/Logs/DiagnosticReports -name "*.ips" -mmin -10 2>/dev/null | head -3 | while read -r f; do cp "$f" shots/crashlogs/ 2>/dev/null || true; done
+          fi
+          ls -la shots
+          cat shots/crash_*.txt 2>/dev/null || echo "no crash"
+    artifacts:
+      - shots/*.png
+      - shots/crash_*.txt
+      - shots/console_*.txt
+      - shots/crashlogs/*.ips
