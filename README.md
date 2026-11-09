@@ -1,7 +1,7 @@
-# App
+# PlantCare
 
-看清每件宠物用品的余量和保质期
+别再忘记给家里的绿植浇水
 
-Bundle ID: `com.bradtmalik-hue.app`
+Bundle ID: `com.bradtmalik-hue.plantcare`
 
-Screens: 库存列表, 新增/编辑, 统计
+Screens: 今天该浇的, 所有植物, 单盆详情, 添加新植物
