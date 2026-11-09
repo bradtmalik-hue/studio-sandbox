@@ -1,7 +1,7 @@
-# PlantCare
+# BeanStock
 
-别再忘记给家里的绿植浇水
+记清每一袋豆子的存量、风味和消耗
 
-Bundle ID: `com.bradtmalik-hue.plantcare`
+Bundle ID: `com.bradtmalik-hue.beanstock`
 
-Screens: 今天该浇的, 所有植物, 单盆详情, 添加新植物
+Screens: 豆袋列表, 豆子详情, 记一笔, 统计

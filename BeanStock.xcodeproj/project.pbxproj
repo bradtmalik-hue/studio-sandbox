@@ -1,0 +1,300 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA0000000000000000000001 /* BeanStockApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* BeanStockApp.swift */; };
+		AA0000000000000000000002 /* BeanStockTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* BeanStockTheme.swift */; };
+		AA0000000000000000000003 /* BeanStockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* BeanStockModels.swift */; };
+		AA0000000000000000000004 /* BeanStockRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* BeanStockRootView.swift */; };
+		AA0000000000000000000005 /* BeanStockPage1.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000005 /* BeanStockPage1.swift */; };
+		AA0000000000000000000006 /* BeanStockPage2.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000006 /* BeanStockPage2.swift */; };
+		AA0000000000000000000007 /* BeanStockPage3.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000007 /* BeanStockPage3.swift */; };
+		AA0000000000000000000008 /* BeanStockPage4.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000008 /* BeanStockPage4.swift */; };
+		AA0000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000090 /* Assets.xcassets */; };
+		AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000091 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		BB0000000000000000000001 /* BeanStockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockApp.swift; sourceTree = "<group>"; };
+		BB0000000000000000000002 /* BeanStockTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockTheme.swift; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* BeanStockModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockModels.swift; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* BeanStockRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockRootView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000005 /* BeanStockPage1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockPage1.swift; sourceTree = "<group>"; };
+		BB0000000000000000000006 /* BeanStockPage2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockPage2.swift; sourceTree = "<group>"; };
+		BB0000000000000000000007 /* BeanStockPage3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockPage3.swift; sourceTree = "<group>"; };
+		BB0000000000000000000008 /* BeanStockPage4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeanStockPage4.swift; sourceTree = "<group>"; };
+		BB0000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BB0000000000000000000091 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BB0000000000000000000099 /* BeanStock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeanStock.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CC0000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DD0000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				DD0000000000000000000002 /* BeanStock */,
+				DD0000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000002 /* BeanStock */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000001 /* BeanStockApp.swift */,
+				DD0000000000000000000010 /* Models */,
+				DD0000000000000000000011 /* Views */,
+				DD0000000000000000000012 /* Support */,
+				DD0000000000000000000007 /* Resources */,
+			);
+			path = BeanStock;
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000099 /* BeanStock.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000010 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000003 /* BeanStockModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000011 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000004 /* BeanStockRootView.swift */,
+				BB0000000000000000000005 /* BeanStockPage1.swift */,
+				BB0000000000000000000006 /* BeanStockPage2.swift */,
+				BB0000000000000000000007 /* BeanStockPage3.swift */,
+				BB0000000000000000000008 /* BeanStockPage4.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000012 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000002 /* BeanStockTheme.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		DD0000000000000000000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000090 /* Assets.xcassets */,
+				BB0000000000000000000091 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		EE0000000000000000000001 /* BeanStock */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF0000000000000000000002 /* Build configuration list for PBXNativeTarget "BeanStock" */;
+			buildPhases = (
+				II0000000000000000000001 /* Sources */,
+				CC0000000000000000000001 /* Frameworks */,
+				JJ0000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BeanStock;
+			productName = BeanStock;
+			productReference = BB0000000000000000000099 /* BeanStock.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		HH0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					EE0000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = FF0000000000000000000001 /* Build configuration list for PBXProject "BeanStock" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DD0000000000000000000001;
+			productRefGroup = DD0000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EE0000000000000000000001 /* BeanStock */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		JJ0000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000090 /* Assets.xcassets in Resources */,
+				AA0000000000000000000091 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		II0000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000001 /* BeanStockApp.swift in Sources */,
+				AA0000000000000000000002 /* BeanStockTheme.swift in Sources */,
+				AA0000000000000000000003 /* BeanStockModels.swift in Sources */,
+				AA0000000000000000000004 /* BeanStockRootView.swift in Sources */,
+				AA0000000000000000000005 /* BeanStockPage1.swift in Sources */,
+				AA0000000000000000000006 /* BeanStockPage2.swift in Sources */,
+				AA0000000000000000000007 /* BeanStockPage3.swift in Sources */,
+				AA0000000000000000000008 /* BeanStockPage4.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		GG0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		GG0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		GG0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bradtmalik-hue.beanstock;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		GG0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bradtmalik-hue.beanstock;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FF0000000000000000000001 /* Build configuration list for PBXProject "BeanStock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				GG0000000000000000000001 /* Debug */,
+				GG0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FF0000000000000000000002 /* Build configuration list for PBXNativeTarget "BeanStock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				GG0000000000000000000003 /* Debug */,
+				GG0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = HH0000000000000000000001 /* Project object */;
+}
