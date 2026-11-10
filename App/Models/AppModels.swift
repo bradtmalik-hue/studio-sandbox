@@ -1,104 +1,55 @@
 import Foundation
-import SwiftUI
 import Combine
 
-enum AppMaintenanceType: String, Codable, CaseIterable, Identifiable {
-    case lubrication = "Lubrication"
-    case cleaning = "Cleaning"
-    case replacement = "Replacement"
-    case adjustment = "Adjustment"
-    case inspection = "Inspection"
-    
+enum AppWaterType: String, Codable, CaseIterable, Identifiable {
+    case freshwater
+    case saltwater
     var id: String { rawValue }
 }
 
-struct AppMaintenanceRecord: Identifiable, Codable, Hashable {
-    var id: UUID
-    var date: Date
-    var type: AppMaintenanceType
-    var component: String
+enum AppLogKind: String, Codable, CaseIterable, Identifiable {
+    case waterChange
+    case feeding
+    var id: String { rawValue }
+}
+
+struct AppTank: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var volumeLiters: Double
+    var waterType: AppWaterType
+    var createdAt: Date
     var notes: String
-    var odometerKm: Double
-    var cost: Double
-    var durationMinutes: Int
-    
-    init(
-        id: UUID = UUID(),
-        date: Date = Date(),
-        type: AppMaintenanceType = .lubrication,
-        component: String = "Chain",
-        notes: String = "",
-        odometerKm: Double = 0,
-        cost: Double = 0,
-        durationMinutes: Int = 15
-    ) {
-        self.id = id
-        self.date = date
-        self.type = type
-        self.component = component
-        self.notes = notes
-        self.odometerKm = odometerKm
-        self.cost = cost
-        self.durationMinutes = durationMinutes
-    }
+    var localizedCaseInsensitiveContains: String = ""
 }
 
-struct AppReminderSettings: Codable, Equatable {
-    var enabled: Bool
-    var intervalKm: Double
-    var lastServiceOdometerKm: Double
-    var remindBeforeKm: Double
-    
-    init(
-        enabled: Bool = true,
-        intervalKm: Double = 300,
-        lastServiceOdometerKm: Double = 0,
-        remindBeforeKm: Double = 20
-    ) {
-        self.enabled = enabled
-        self.intervalKm = intervalKm
-        self.lastServiceOdometerKm = lastServiceOdometerKm
-        self.remindBeforeKm = remindBeforeKm
-    }
+struct AppLogEntry: Identifiable, Codable, Hashable {
+    let id: UUID
+    var tankID: UUID
+    var kind: AppLogKind
+    var quantity: Double
+    var note: String
+    var date: Date
 }
 
-final class AppDataStore: ObservableObject {
-    @Published var records: [AppMaintenanceRecord] = []
-    @Published var reminderSettings: AppReminderSettings = AppReminderSettings(enabled: false, intervalKm: 0, lastServiceOdometerKm: 0, remindBeforeKm: 0)
-    
-    private let recordsFileName = "chain_guardian_records.json"
-    private let settingsFileName = "chain_guardian_settings.json"
-    
-    private var recordsURL: URL {
+class AppStore: ObservableObject {
+    @Published var tanks: [AppTank] = [] {
+        didSet { saveTanks() }
+    }
+    @Published var logs: [AppLogEntry] = [] {
+        didSet { saveLogs() }
+    }
+
+    private var tanksURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(recordsFileName)
+            .appendingPathComponent("tanks.json")
     }
-    
-    private var settingsURL: URL {
+
+    var logsURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(settingsFileName)
+            .appendingPathComponent("logs.json")
     }
-    
-    var totalCost: Double {
-        records.reduce(0) { $0 + $1.cost }
-    }
-    
-    var averageCost: Double {
-        records.isEmpty ? 0 : totalCost / Double(records.count)
-    }
-    
-    var latestRecord: AppMaintenanceRecord? {
-        records.max(by: { $0.date < $1.date })
-    }
-    
-    var currentOdometer: Double {
-        records.map(\.odometerKm).max() ?? 0
-    }
-    
-    var totalRecords: Int {
-        records.count
-    }
-    
+
     init() {
         load()
         #if DEBUG
@@ -107,126 +58,119 @@ final class AppDataStore: ObservableObject {
         }
         #endif
     }
-    
-    func addRecord(_ record: AppMaintenanceRecord) {
-        records.append(record)
-        sortRecords()
-        saveRecords()
-        updateReminderAfterServiceIfNeeded(record)
+
+    func addTank(_ tank: AppTank) {
+        tanks.append(tank)
     }
-    
-    func updateRecord(_ record: AppMaintenanceRecord) {
-        if let index = records.firstIndex(where: { $0.id == record.id }) {
-            records[index] = record
-            sortRecords()
-            saveRecords()
-            updateReminderAfterServiceIfNeeded(record)
-        }
+
+    func updateTank(_ tank: AppTank) {
+        guard let index = tanks.firstIndex(where: { $0.id == tank.id }) else { return }
+        tanks[index] = tank
     }
-    
-    func deleteRecord(at offsets: IndexSet) {
-        records.remove(atOffsets: offsets)
-        sortRecords()
-        saveRecords()
+
+    func deleteTank(id: UUID) {
+        tanks.removeAll { $0.id == id }
+        logs.removeAll { $0.tankID == id }
     }
-    
-    func deleteRecord(_ record: AppMaintenanceRecord) {
-        records.removeAll { $0.id == record.id }
-        sortRecords()
-        saveRecords()
+
+    func addLog(_ entry: AppLogEntry) {
+        logs.append(entry)
     }
-    
-    func saveSettings() {
-        saveSettingsToDisk()
+
+    func deleteLog(id: UUID) {
+        logs.removeAll { $0.id == id }
     }
-    
-    func load() {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        
-        do {
-            let data = try Data(contentsOf: recordsURL)
-            records = try decoder.decode([AppMaintenanceRecord].self, from: data)
-            sortRecords()
-        } catch {
-            records = []
-        }
-        
-        do {
-            let data = try Data(contentsOf: settingsURL)
-            reminderSettings = try decoder.decode(AppReminderSettings.self, from: data)
-        } catch {
-            reminderSettings = AppReminderSettings(enabled: false, intervalKm: 0, lastServiceOdometerKm: 0, remindBeforeKm: 0)
-        }
+
+    func logs(forTank tankID: UUID) -> [AppLogEntry] {
+        logs.filter { $0.tankID == tankID }.sorted { $0.date < $1.date }
     }
-    
-    func sortRecords() {
-        records.sort { $0.date > $1.date }
+
+    func logs(inMonth month: Date, calendar: Calendar = .current) -> [AppLogEntry] {
+        logs.filter { calendar.isDate($0.date, equalTo: month, toGranularity: .month) }
+            .sorted { $0.date < $1.date }
     }
-    
-    private func updateReminderAfterServiceIfNeeded(_ record: AppMaintenanceRecord) {
-        if record.type == .lubrication || record.type == .cleaning {
-            reminderSettings.lastServiceOdometerKm = max(reminderSettings.lastServiceOdometerKm, record.odometerKm)
-            saveSettingsToDisk()
-        }
-    }
-    
-    private func saveRecords() {
+
+    private func makeEncoder() -> JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+
+    private func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
+
+    private func saveTanks() {
         do {
-            let data = try encoder.encode(records)
-            try data.write(to: recordsURL)
+            let data = try makeEncoder().encode(tanks)
+            try data.write(to: tanksURL)
         } catch {
-            print("Failed to save records: \(error)")
         }
     }
-    
-    private func saveSettingsToDisk() {
-        let encoder = JSONEncoder()
+
+    private func saveLogs() {
         do {
-            let data = try encoder.encode(reminderSettings)
-            try data.write(to: settingsURL)
+            let data = try makeEncoder().encode(logs)
+            try data.write(to: logsURL)
         } catch {
-            print("Failed to save settings: \(error)")
+        }
+    }
+
+    private func load() {
+        let decoder = makeDecoder()
+        if let tankData = try? Data(contentsOf: tanksURL),
+           let decodedTanks = try? decoder.decode([AppTank].self, from: tankData) {
+            tanks = decodedTanks
+        }
+        if let logData = try? Data(contentsOf: logsURL),
+           let decodedLogs = try? decoder.decode([AppLogEntry].self, from: logData) {
+            logs = decodedLogs
         }
     }
 }
 
 #if DEBUG
 enum DemoSeed {
-    static func apply(into store: AppDataStore) {
+    static func apply(into store: AppStore) {
         guard CommandLine.arguments.contains("-demoData") else { return }
-        
         let calendar = Calendar.current
-        let today = Date()
-        func daysAgo(_ days: Int) -> Date {
-            calendar.date(byAdding: .day, value: -days, to: today) ?? today
+        let now = Date()
+        func daysAgo(_ days: Int, from date: Date = Date()) -> Date {
+            calendar.date(byAdding: .day, value: -days, to: date) ?? date
         }
-        
-        let samples: [AppMaintenanceRecord] = [
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(142), type: .replacement, component: "Chain", notes: "Replaced stretched chain with Shimano CN-HG701", odometerKm: 1850, cost: 42.50, durationMinutes: 25),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(118), type: .lubrication, component: "Chain", notes: "Applied wet lube after cleaning", odometerKm: 2140, cost: 3.80, durationMinutes: 15),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(96), type: .cleaning, component: "Drivetrain", notes: "Degreased chain, cassette and chainrings", odometerKm: 2415, cost: 6.20, durationMinutes: 40),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(81), type: .adjustment, component: "Rear Derailleur", notes: "Adjusted indexing after cable stretch", odometerKm: 2680, cost: 0, durationMinutes: 20),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(62), type: .inspection, component: "Chain", notes: "Measured wear at 0.5%, still serviceable", odometerKm: 2905, cost: 0, durationMinutes: 10),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(44), type: .replacement, component: "Brake Pads", notes: "Swapped front and rear pads with Shimano B05S", odometerKm: 3150, cost: 24.00, durationMinutes: 35),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(31), type: .lubrication, component: "Chain", notes: "Dry lube after wet ride", odometerKm: 3420, cost: 2.90, durationMinutes: 12),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(18), type: .cleaning, component: "Cassette", notes: "Deep cleaned cassette and jockey wheels", odometerKm: 3685, cost: 5.40, durationMinutes: 45),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(9), type: .adjustment, component: "Front Derailleur", notes: "Trim adjustment for small ring rub", odometerKm: 3910, cost: 0, durationMinutes: 15),
-            AppMaintenanceRecord(id: UUID(), date: daysAgo(1), type: .lubrication, component: "Chain", notes: "Quick top-up before weekend ride", odometerKm: 4155, cost: 1.75, durationMinutes: 8)
-        ]
-        
-        store.records = samples
-        store.sortRecords()
-        store.reminderSettings = AppReminderSettings(
-            enabled: true,
-            intervalKm: 300,
-            lastServiceOdometerKm: 4155,
-            remindBeforeKm: 20
-        )
-        store.saveRecords()
-        store.saveSettings()
+        func hoursAgo(_ hours: Int, from date: Date = Date()) -> Date {
+            calendar.date(byAdding: .hour, value: -hours, to: date) ?? date
+        }
+
+        let freshwater = AppWaterType.freshwater
+        let saltwater = AppWaterType.saltwater
+
+        let mainTank = AppTank(id: UUID(), name: "Main Display", volumeLiters: 120, waterType: freshwater, createdAt: daysAgo(45, from: now), notes: "Community tank", localizedCaseInsensitiveContains: "")
+        let nanoTank = AppTank(id: UUID(), name: "Nano Shrimp", volumeLiters: 30, waterType: freshwater, createdAt: daysAgo(20, from: now), notes: "Planted tank", localizedCaseInsensitiveContains: "")
+        let reefTank = AppTank(id: UUID(), name: "Reef", volumeLiters: 200, waterType: saltwater, createdAt: daysAgo(60, from: now), notes: "Soft corals", localizedCaseInsensitiveContains: "")
+        store.tanks = [mainTank, nanoTank, reefTank]
+
+        let mainID = mainTank.id
+        let nanoID = nanoTank.id
+        let reefID = reefTank.id
+
+        var entries: [AppLogEntry] = []
+        entries.append(AppLogEntry(id: UUID(), tankID: mainID, kind: .waterChange, quantity: 30, note: "Weekly 25%", date: daysAgo(14, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: mainID, kind: .feeding, quantity: 2, note: "Morning flakes", date: daysAgo(13, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: nanoID, kind: .waterChange, quantity: 8, note: "RO water", date: daysAgo(12, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: reefID, kind: .waterChange, quantity: 40, note: "Salt mix", date: daysAgo(10, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: mainID, kind: .feeding, quantity: 3, note: "Evening pellets", date: daysAgo(8, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: nanoID, kind: .feeding, quantity: 1, note: "Shrimp pellets", date: daysAgo(7, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: reefID, kind: .feeding, quantity: 2, note: "Frozen mysis", date: daysAgo(6, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: mainID, kind: .waterChange, quantity: 30, note: "Biweekly 25%", date: daysAgo(5, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: nanoID, kind: .feeding, quantity: 1, note: "Spirulina", date: daysAgo(3, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: reefID, kind: .waterChange, quantity: 35, note: "Trace elements", date: daysAgo(2, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: mainID, kind: .feeding, quantity: 2, note: "Fasting day skip", date: daysAgo(1, from: now)))
+        entries.append(AppLogEntry(id: UUID(), tankID: nanoID, kind: .waterChange, quantity: 8, note: "Top off", date: hoursAgo(5, from: now)))
+        store.logs = entries
     }
 }
 #endif

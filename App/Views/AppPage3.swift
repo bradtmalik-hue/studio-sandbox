@@ -1,10 +1,10 @@
 import SwiftUI
-import Charts
+import Combine
 
-private let AppPage3DateFormatter: DateFormatter = {
+private let AppPage3MonthFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US")
-    formatter.dateFormat = "MMM d"
+    formatter.dateFormat = "MMMM yyyy"
     return formatter
 }()
 
@@ -15,363 +15,612 @@ private let AppPage3TimeFormatter: DateFormatter = {
     return formatter
 }()
 
-enum AppPage3ChartMetric: String, CaseIterable {
-    case count = "Count"
-    case cost = "Cost"
-}
+enum AppPage3Filter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case waterChange = "Water Change"
+    case feeding = "Feeding"
 
-struct AppPage3ChartPoint: Identifiable {
-    let id = UUID()
-    let label: String
-    let value: Double
+    var id: String { rawValue }
 }
 
 struct AppPage3View: View {
-    @EnvironmentObject var store: AppDataStore
-    @State private var chartMetric: AppPage3ChartMetric = .count
-    @State private var showInfoAlert = false
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var scheme
+    @State private var searchText = ""
+    @State private var filter: AppPage3Filter = .all
+    @State private var visibleMonth = Date()
+    @State private var showingAdd = false
 
-    var sortedRecords: [AppMaintenanceRecord] {
-        store.records.sorted { $0.date > $1.date }
-    }
+    var dark: Bool { scheme == .dark }
+    private var contentBackground: Color { dark ? AppTheme.surfaceAlt : AppTheme.surface }
 
-    var currentOdometer: Double {
-        store.currentOdometer
-    }
-
-    private var totalOilingCount: Int {
-        store.records.count
-    }
-
-    private var nextOilRemaining: Double {
-        let interval = store.reminderSettings.intervalKm
-        guard interval > 0 else { return 0 }
-        let last = store.reminderSettings.lastServiceOdometerKm
-        let remaining = interval - (currentOdometer - last)
-        return max(0, remaining)
-    }
-
-    private var oilProgress: Double {
-        let interval = store.reminderSettings.intervalKm
-        guard interval > 0 else { return 0 }
-        return min(1, max(0, nextOilRemaining / interval))
-    }
-
-    private var bikeChainInfo: String {
-        if let comp = store.records.map(\.component).last {
-            return "Road Bike · \(comp)"
-        } else {
-            return "Road Bike · Chain A"
-        }
-    }
-
-    private var monthlyRideKm: Double {
+    var monthLogs: [AppLogEntry] {
         let calendar = Calendar.current
-        let now = Date()
-        let monthRecords = store.records.filter {
-            calendar.component(.month, from: $0.date) == calendar.component(.month, from: now) &&
-            calendar.component(.year, from: $0.date) == calendar.component(.year, from: now)
-        }
-        guard let first = monthRecords.min(by: { $0.date < $1.date }),
-              let last = monthRecords.max(by: { $0.date < $1.date }) else { return 0 }
-        return last.odometerKm - first.odometerKm
+        return store.logs.filter { calendar.isDate($0.date, equalTo: visibleMonth, toGranularity: .month) }
     }
 
-    private var monthlyOilingCount: Int {
-        let calendar = Calendar.current
-        let now = Date()
-        return store.records.filter {
-            calendar.component(.month, from: $0.date) == calendar.component(.month, from: now) &&
-            calendar.component(.year, from: $0.date) == calendar.component(.year, from: now)
-        }.count
+    private var displayedLogs: [AppLogEntry] {
+        monthLogs
+            .filter { entry in
+                let tank = tankName(for: entry)
+                let matchesSearch = searchText.isEmpty
+                    || entry.note.localizedCaseInsensitiveContains(searchText)
+                    || tank.localizedCaseInsensitiveContains(searchText)
+
+                let matchesFilter: Bool
+                switch filter {
+                case .all:
+                    matchesFilter = true
+                case .waterChange:
+                    matchesFilter = isWaterChange(entry)
+                case .feeding:
+                    matchesFilter = isFeeding(entry)
+                }
+
+                return matchesSearch && matchesFilter
+            }
+            .sorted { $0.date > $1.date }
     }
 
-    private var recentRecords: [AppMaintenanceRecord] {
-        Array(sortedRecords.prefix(5))
+    var monthTitle: String {
+        AppPage3MonthFormatter.string(from: visibleMonth)
+    }
+
+    private var waterCount: Int {
+        monthLogs.filter { isWaterChange($0) }.count
+    }
+
+    var feedingCount: Int {
+        monthLogs.filter { isFeeding($0) }.count
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: AppTheme.s2) {
-                    if store.records.isEmpty {
-                        AppPage3EmptyStateView()
-                    } else {
-                        header
-                        mileageCard
-                        nextOilCard
-                        rowCards
-                        chartSection
-                        recentSection
-                    }
+            VStack(spacing: AppTheme.s4) {
+                monthHeader
+                searchField
+                filterPicker
+                summaryTiles
+
+                if displayedLogs.isEmpty {
+                    emptyState
+                } else {
+                    list
                 }
-                .padding(.horizontal, AppTheme.s2)
-                .padding(.bottom, 96)
             }
-            .background(AppTheme.bg)
-            .navigationTitle("Statistics")
+            .padding(.horizontal, AppTheme.s4)
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("Records")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showInfoAlert = true
+                        showingAdd = true
                     } label: {
-                        Image(systemName: "info.circle")
+                        Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Add Record")
                 }
             }
-            .alert("Statistics", isPresented: $showInfoAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("All data is stored locally.")
+            .sheet(isPresented: $showingAdd) {
+                AppPage3EditorView(entry: "")
             }
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Statistics")
-                .font(AppTheme.fontTitle)
-                .foregroundColor(AppTheme.text)
+    private var monthHeader: some View {
+        HStack(spacing: AppTheme.s4) {
+            Button {
+                moveMonth(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .frame(width: AppTheme.s6, height: AppTheme.s6)
+                    .background(contentBackground)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Previous Month")
+
             Spacer()
-            Text(bikeChainInfo)
-                .font(AppTheme.fontLabel)
-                .foregroundColor(AppTheme.dim)
-        }
-    }
 
-    private var mileageCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.s2) {
-            Text("Chain Total Mileage")
-                .font(AppTheme.fontLabel)
-                .foregroundColor(AppTheme.dim)
-            HStack(alignment: .lastTextBaseline, spacing: 0) {
-                Text(String(format: "%.0f", currentOdometer))
-                    .font(AppTheme.fontNumber)
-                    .foregroundColor(AppTheme.text)
-                Text(" km")
-                    .font(AppTheme.fontSection)
-                    .foregroundColor(AppTheme.dim)
-            }
-            Text("Since last chain replacement, \(totalOilingCount) oiling records")
-                .font(AppTheme.fontCaption)
-                .foregroundColor(AppTheme.dim)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppTheme.s3)
-        .background(AppTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
-    }
-
-    private var nextOilCard: some View {
-        VStack(alignment: .leading, spacing: AppTheme.s2) {
-            HStack {
-                Text("Next Oiling Due")
-                    .font(AppTheme.fontLabel)
-                    .foregroundColor(AppTheme.dim)
-                Spacer()
-                Text("\(String(format: "%.0f", nextOilRemaining)) km left")
-                    .font(AppTheme.fontLabel)
-                    .foregroundColor(AppTheme.text)
-            }
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(AppTheme.surfaceAlt)
-                    Capsule().fill(AppTheme.accent)
-                        .frame(width: geometry.size.width * oilProgress)
-                }
-                .frame(height: 10)
-            }
-            HStack {
-                if let latest = store.latestRecord {
-                    Text("Last oiling \(AppPage3DateFormatter.string(from: latest.date)) · Ridden \(String(format: "%.0f", currentOdometer - store.reminderSettings.lastServiceOdometerKm)) km")
-                        .font(AppTheme.fontCaption)
-                        .foregroundColor(AppTheme.dim)
-                    Spacer()
-                    Text("Target \(String(format: "%.0f", store.reminderSettings.intervalKm)) km")
-                        .font(AppTheme.fontCaption)
-                        .foregroundColor(AppTheme.dim)
-                }
-            }
-        }
-        .padding(AppTheme.s3)
-        .background(AppTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
-    }
-
-    private var rowCards: some View {
-        HStack(spacing: AppTheme.s2) {
-            AppPage3SmallStatTile(title: "This Month Ride", value: String(format: "%.0f", monthlyRideKm), unit: "km")
-            AppPage3SmallStatTile(title: "This Month Oiling", value: "\(monthlyOilingCount)", unit: "times")
-        }
-    }
-
-    private var chartSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.s2) {
-            HStack {
-                Text("6-Month Trend")
-                    .font(AppTheme.fontSection)
-                    .foregroundColor(AppTheme.text)
-                Spacer()
-                Picker("Metric", selection: $chartMetric) {
-                    ForEach(AppPage3ChartMetric.allCases, id: \.self) { metric in
-                        Text(metric.rawValue).tag(metric)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-            }
-            AppPage3MonthlyChart(records: store.records, metric: chartMetric, points: "", value: 0)
-        }
-        .padding(AppTheme.s3)
-        .background(AppTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
-    }
-
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.s2) {
-            Text("Recent Maintenance")
-                .font(AppTheme.fontSection)
-                .foregroundColor(AppTheme.text)
-            VStack(spacing: 0) {
-                ForEach(recentRecords) { record in
-                    AppPage3RecordRow(record: record)
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                if let idx = store.records.firstIndex(where: { $0.id == record.id }) {
-                                    store.records.remove(at: idx)
-                                }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    if record.id != recentRecords.last?.id {
-                        Divider()
-                    }
-                }
-            }
-            .background(AppTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
-        }
-    }
-}
-
-struct AppPage3SmallStatTile: View {
-    let title: String
-    let value: String
-    let unit: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(AppTheme.fontLabel)
-                .foregroundColor(AppTheme.dim)
-            HStack(alignment: .lastTextBaseline, spacing: 0) {
-                Text(value)
+            VStack(spacing: AppTheme.s2) {
+                Text(monthTitle)
                     .font(AppTheme.fontTitle)
                     .foregroundColor(AppTheme.text)
-                Text(" \(unit)")
-                    .font(AppTheme.fontSection)
+                Text("\(displayedLogs.count) records")
+                    .font(AppTheme.fontCaption)
                     .foregroundColor(AppTheme.dim)
             }
+
+            Spacer()
+
+            Button {
+                moveMonth(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .frame(width: AppTheme.s6, height: AppTheme.s6)
+                    .background(contentBackground)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Next Month")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppTheme.s3)
-        .background(AppTheme.surface)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: AppTheme.s3) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(AppTheme.dim)
+
+            TextField("Search tank or note", text: $searchText)
+                .font(AppTheme.fontBody)
+                .foregroundColor(AppTheme.text)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(AppTheme.dim)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(AppTheme.s4)
+        .background(contentBackground)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.rCard)
+                .stroke(AppTheme.stroke, lineWidth: 1)
+        )
+    }
+
+    private var filterPicker: some View {
+        Picker("Filter", selection: $filter) {
+            ForEach(AppPage3Filter.allCases) { filter in
+                Text(filter.rawValue).tag(filter)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var summaryTiles: some View {
+        HStack(spacing: AppTheme.s4) {
+            AppStatTile(title: "Total", value: "\(monthLogs.count)", icon: "chart.bar.fill")
+            AppStatTile(title: "Water Changes", value: "\(waterCount)", icon: "drop.fill")
+            AppStatTile(title: "Feedings", value: "\(feedingCount)", icon: "fish.fill")
+        }
+    }
+
+    var list: some View {
+        List {
+            ForEach(displayedLogs) { entry in
+                NavigationLink(destination: AppPage3DetailView(entry: entry)) {
+                    AppPage3Row(
+                        entry: entry,
+                        tankName: tankName(for: entry),
+                        timeText: AppPage3TimeFormatter.string(from: entry.date)
+                    )
+                }
+                .swipeActions {
+                    Button(role: .destructive) {
+                        deleteEntry(entry)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .contentMargins(.bottom, 96, for: .scrollContent)
+    }
+
+    private var emptyState: some View {
+        AppPage3EmptyStateView {
+            showingAdd = true
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func moveMonth(by value: Int) {
+        let calendar = Calendar.current
+        if let newDate = calendar.date(byAdding: .month, value: value, to: visibleMonth) {
+            visibleMonth = newDate
+        }
+    }
+
+    func tankName(for entry: AppLogEntry) -> String {
+        store.tanks.first(where: { $0.id == entry.tankID })?.name ?? "Unknown Tank"
+    }
+
+    private func isWaterChange(_ entry: AppLogEntry) -> Bool {
+        entry.kind.rawValue.lowercased().contains("water")
+    }
+
+    private func isFeeding(_ entry: AppLogEntry) -> Bool {
+        entry.kind.rawValue.lowercased().contains("feed")
+    }
+
+    private func deleteEntry(_ entry: AppLogEntry) {
+        withAnimation {
+            store.logs.removeAll { $0.id == entry.id }
+            persistLogs()
+        }
+    }
+
+    private func persistLogs() {
+        guard let data = try? JSONEncoder().encode(store.logs) else { return }
+        try? data.write(to: store.logsURL)
     }
 }
 
-struct AppPage3RecordRow: View {
-    let record: AppMaintenanceRecord
+struct AppPage3Row: View {
+    let entry: AppLogEntry
+    let tankName: String
+    let timeText: String
+
+    @Environment(\.colorScheme) private var scheme
+
+    var dark: Bool { scheme == .dark }
 
     var body: some View {
-        HStack(spacing: AppTheme.s2) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.type.rawValue)
+        HStack(spacing: AppTheme.s4) {
+            Image(systemName: iconName)
+                .font(AppTheme.fontTitle)
+                .foregroundColor(iconColor)
+                .frame(width: AppTheme.s6, height: AppTheme.s6)
+                .padding(AppTheme.s2)
+                .background(iconColor.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: AppTheme.s2) {
+                Text(tankName)
                     .font(AppTheme.fontBody)
                     .foregroundColor(AppTheme.text)
-                Text(record.component)
+                    .lineLimit(1)
+
+                Text(kindTitle)
                     .font(AppTheme.fontCaption)
                     .foregroundColor(AppTheme.dim)
             }
+
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(String(format: "%.0f km", record.odometerKm))
-                    .font(AppTheme.fontLabel)
+
+            VStack(alignment: .trailing, spacing: AppTheme.s2) {
+                Text(String(format: "%.1f", entry.quantity))
+                    .font(AppTheme.fontNumber)
                     .foregroundColor(AppTheme.text)
-                Text(AppPage3TimeFormatter.string(from: record.date))
+
+                Text(timeText)
                     .font(AppTheme.fontCaption)
                     .foregroundColor(AppTheme.dim)
             }
         }
-        .padding(AppTheme.s2)
+        .padding(.vertical, AppTheme.s3)
+        .frame(minHeight: 56)
+    }
+
+    private var iconName: String {
+        isWaterChange ? "drop.fill" : "fish.fill"
+    }
+
+    private var iconColor: Color {
+        isWaterChange ? AppTheme.accent : AppTheme.accentSoft
+    }
+
+    private var kindTitle: String {
+        isWaterChange ? "Water Change" : "Feeding"
+    }
+
+    private var isWaterChange: Bool {
+        entry.kind.rawValue.lowercased().contains("water")
     }
 }
 
 struct AppPage3EmptyStateView: View {
+    let action: () -> Void
+
     var body: some View {
         VStack(spacing: AppTheme.s4) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.largeTitle)
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(AppTheme.fontTitle)
                 .foregroundColor(AppTheme.dim)
-            Text("No maintenance records yet")
-                .font(AppTheme.fontSection)
+                .padding(.bottom, AppTheme.s3)
+
+            Text("No Records")
+                .font(AppTheme.fontTitle)
                 .foregroundColor(AppTheme.text)
-            Text("Add your first service record to see statistics.")
+
+            Text("No entries for this month. Adjust the filter or add your first log.")
                 .font(AppTheme.fontBody)
                 .foregroundColor(AppTheme.dim)
                 .multilineTextAlignment(.center)
+                .lineSpacing(AppTheme.s2)
+
+            AppPrimaryButton(title: "Add Record", action: action)
         }
-        .frame(maxWidth: .infinity)
         .padding(AppTheme.s6)
-        .background(AppTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-struct AppPage3MonthlyChart: View {
-    let records: [AppMaintenanceRecord]
-    let metric: AppPage3ChartMetric
+struct AppPage3EditorView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
 
-    var data: [AppPage3ChartPoint] {
-        let calendar = Calendar.current
-        let now = Date()
-        var points: [AppPage3ChartPoint] = []
-        for offset in 0..<6 {
-            guard let monthDate = calendar.date(byAdding: .month, value: -offset, to: now) else { continue }
-            let month = calendar.component(.month, from: monthDate)
-            let year = calendar.component(.year, from: monthDate)
-            let monthRecords = records.filter {
-                calendar.component(.month, from: $0.date) == month &&
-                calendar.component(.year, from: $0.date) == year
-            }
-            let value: Double
-            switch metric {
-            case .count:
-                value = Double(monthRecords.count)
-            case .cost:
-                value = monthRecords.reduce(0) { $0 + $1.cost }
-            }
-            let shortMonthSymbols = calendar.shortMonthSymbols
-            let label = month >= 1 && month <= shortMonthSymbols.count ? shortMonthSymbols[month - 1] : "\(month)"
-            points.append(AppPage3ChartPoint(label: "", value: 0))
+    let entry: AppLogEntry?
+
+    @State private var selectedTankID: UUID?
+    @State private var kindRaw: String
+    @State private var quantityText: String
+    @State private var noteText: String
+    @State private var date: Date
+    @State private var useNow: Bool
+
+    init(entry: AppLogEntry? = nil) {
+        self.entry = entry
+        _selectedTankID = State(initialValue: entry?.tankID)
+        _kindRaw = State(initialValue: entry?.kind.rawValue ?? "waterChange")
+        _quantityText = State(initialValue: entry.map { String(format: "%.1f", $0.quantity) } ?? "")
+        _noteText = State(initialValue: entry?.note ?? "")
+        _date = State(initialValue: entry?.date ?? Date())
+        _useNow = State(initialValue: entry == nil)
+    }
+
+    var dark: Bool { scheme == .dark }
+    private var contentBackground: Color { dark ? AppTheme.surfaceAlt : AppTheme.surface }
+
+    private var availableKinds: [String] {
+        ["waterChange", "feeding"]
+    }
+
+    private var quantityValid: Bool {
+        guard let value = Double(quantityText.replacingOccurrences(of: ",", with: ".")) else {
+            return false
         }
-        return points.reversed()
+        return value > 0
+    }
+
+    private var noteValid: Bool {
+        !noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var canSave: Bool {
+        selectedTankID != nil && quantityValid && noteValid
     }
 
     var body: some View {
-        Chart(data) { point in
-            BarMark(
-                x: .value("Month", point.label),
-                y: .value("Value", point.value)
-            )
-            .foregroundStyle(AppTheme.accent)
-            .annotation(position: .top) {
-                Text(String(format: "%.0f", point.value))
-                    .font(AppTheme.fontCaption)
-                    .foregroundColor(AppTheme.dim)
+        NavigationStack {
+            Form {
+                Section("Tank") {
+                    Picker("Tank", selection: $selectedTankID) {
+                        ForEach(store.tanks) { tank in
+                            Text(tank.name).tag(Optional(tank.id))
+                        }
+                    }
+                }
+
+                Section("Type") {
+                    Picker("Type", selection: $kindRaw) {
+                        ForEach(availableKinds, id: \.self) { kind in
+                            Text(kindLabel(for: kind)).tag(kind)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Quantity") {
+                    TextField("Quantity", text: $quantityText)
+                        .keyboardType(.decimalPad)
+
+                    if !quantityValid && !quantityText.isEmpty {
+                        Text("Enter a quantity greater than 0.")
+                            .font(AppTheme.fontCaption)
+                            .foregroundColor(AppTheme.dim)
+                    }
+                }
+
+                Section("Note") {
+                    TextField("Note", text: $noteText)
+                }
+
+                Section("Date") {
+                    Toggle("Use current time", isOn: $useNow)
+
+                    if !useNow {
+                        DatePicker(
+                            "Date",
+                            selection: $date,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                    }
+                }
+
+                Section {
+                    AppPrimaryButton(title: "Save Record", action: save)
+                        .disabled(!canSave)
+                        .opacity(canSave ? 1 : 0.5)
+                }
+            }
+            .navigationTitle(entry == nil ? "Add Record" : "Edit Record")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
             }
         }
-        .frame(height: 200)
+    }
+
+    private func kindLabel(for kind: String) -> String {
+        kind.lowercased().contains("water") ? "Water Change" : "Feeding"
+    }
+
+    func save() {
+        guard canSave,
+              let tankID = selectedTankID,
+              let quantity = Double(quantityText.replacingOccurrences(of: ",", with: ".")),
+              let kind = AppLogKind(rawValue: kindRaw) else {
+            return
+        }
+
+        let log = AppLogEntry(
+            id: entry?.id ?? UUID(),
+            tankID: tankID,
+            kind: kind,
+            quantity: quantity,
+            note: noteText,
+            date: useNow ? Date() : date
+        )
+
+        if let index = store.logs.firstIndex(where: { $0.id == log.id }) {
+            store.logs[index] = log
+        } else {
+            store.logs.append(log)
+        }
+
+        persistLogs()
+        dismiss()
+    }
+
+    private func persistLogs() {
+        guard let data = try? JSONEncoder().encode(store.logs) else { return }
+        try? data.write(to: store.logsURL)
+    }
+}
+
+struct AppPage3DetailView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+
+    let entry: AppLogEntry
+
+    @State private var showingEdit = false
+
+    var dark: Bool { scheme == .dark }
+    private var contentBackground: Color { dark ? AppTheme.surfaceAlt : AppTheme.surface }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: AppTheme.s4) {
+                header
+                stats
+                detailsCard
+                bottomActions
+            }
+            .padding(AppTheme.s4)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Record Details")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingEdit) {
+            AppPage3EditorView(entry: entry)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: AppTheme.s2) {
+            Text(kindTitle)
+                .font(AppTheme.fontTitle)
+                .foregroundColor(AppTheme.text)
+
+            Text(AppPage3TimeFormatter.string(from: entry.date))
+                .font(AppTheme.fontCaption)
+                .foregroundColor(AppTheme.dim)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var stats: some View {
+        HStack(spacing: AppTheme.s4) {
+            AppStatTile(title: "Quantity", value: String(format: "%.1f", entry.quantity), icon: "number")
+            AppStatTile(title: "Tank", value: tankName, icon: "shippingbox.fill")
+            AppStatTile(title: "Type", value: kindTitle, icon: iconName)
+        }
+    }
+
+    private var detailsCard: some View {
+        AppCard {
+            VStack(spacing: AppTheme.s4) {
+                AppPage3DetailRow(label: "Type", value: kindTitle)
+                AppPage3DetailRow(label: "Tank", value: tankName)
+                AppPage3DetailRow(label: "Quantity", value: String(format: "%.1f", entry.quantity))
+                AppPage3DetailRow(label: "Note", value: entry.note.isEmpty ? "—" : entry.note)
+                AppPage3DetailRow(label: "Date", value: AppPage3TimeFormatter.string(from: entry.date))
+            }
+        }
+    }
+
+    private var bottomActions: some View {
+        VStack(spacing: AppTheme.s3) {
+            AppPrimaryButton(title: "Edit Record", action: {
+                showingEdit = true
+            })
+
+            Button(role: .destructive) {
+                deleteAndDismiss()
+            } label: {
+                Text("Delete Record")
+                    .font(AppTheme.fontBody)
+                    .foregroundColor(AppTheme.dim)
+                    .frame(maxWidth: .infinity)
+                    .padding(AppTheme.s4)
+            }
+            .background(contentBackground)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.rCard))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.rCard)
+                    .stroke(AppTheme.stroke, lineWidth: 1)
+            )
+        }
+    }
+
+    var tankName: String {
+        store.tanks.first(where: { $0.id == entry.tankID })?.name ?? "Unknown Tank"
+    }
+
+    private var kindTitle: String {
+        entry.kind.rawValue.lowercased().contains("water") ? "Water Change" : "Feeding"
+    }
+
+    private var iconName: String {
+        entry.kind.rawValue.lowercased().contains("water") ? "drop.fill" : "fish.fill"
+    }
+
+    private func deleteAndDismiss() {
+        withAnimation {
+            store.logs.removeAll { $0.id == entry.id }
+            persistLogs()
+        }
+        dismiss()
+    }
+
+    private func persistLogs() {
+        guard let data = try? JSONEncoder().encode(store.logs) else { return }
+        try? data.write(to: store.logsURL)
+    }
+}
+
+struct AppPage3DetailRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(AppTheme.fontLabel)
+                .foregroundColor(AppTheme.dim)
+
+            Spacer()
+
+            Text(value)
+                .font(AppTheme.fontBody)
+                .foregroundColor(AppTheme.text)
+                .multilineTextAlignment(.trailing)
+        }
     }
 }

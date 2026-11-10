@@ -1,7 +1,7 @@
 # App
 
-记下每次保养，算清链条跑了多少公里
+换水喂食，一点就记
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 记一笔, 保养记录, 统计, 提醒设置
+Screens: 首页, 鱼缸, 记录, 统计

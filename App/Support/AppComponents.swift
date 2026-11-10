@@ -1,4 +1,4 @@
-// 基础组件：本 App 的版式骨架（grid / 圆角 20 / both / 标题 large / 行 index）。
+// 基础组件：本 App 的版式骨架（timeline / 圆角 24 / shadow / 标题 large / 行 avatar）。
 // 页面只用这些拼，不要从零画卡片和按钮。命名带 App 前缀，避免多个 App 出现同名符号。
 import SwiftUI
 
@@ -88,10 +88,11 @@ struct AppRowItem: View {
 
     var body: some View {
         HStack(spacing: AppTheme.s3) {
-            Text(leading ?? "")
-                .font(AppTheme.fontLabel)
-                .foregroundStyle(AppTheme.dim)
-                .frame(width: 24, alignment: .leading)
+            Text(String(title.prefix(1)))
+                .font(AppTheme.fontSection)
+                .frame(width: 40, height: 40)
+                .background((tint ?? AppTheme.accent).opacity(0.16), in: Circle())
+                .foregroundStyle(tint ?? AppTheme.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(AppTheme.fontBody).foregroundStyle(AppTheme.text)
                 if let subtitle {
