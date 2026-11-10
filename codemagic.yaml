@@ -7,9 +7,9 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.bradtmalik-hue.beanstock
+        bundle_identifier: com.bradtmalik-hue.app
       vars:
-        BUNDLE_ID: com.bradtmalik-hue.beanstock
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Set up code signing
         script: |
@@ -18,7 +18,7 @@ workflows:
       - name: Build signed ipa
         script: |
           set -e
-          xcode-project build-ipa             --project "BeanStock.xcodeproj"             --scheme "BeanStock"             --config Release
+          xcode-project build-ipa             --project "App.xcodeproj"             --scheme "App"             --config Release
       - name: Upload to TestFlight
         script: |
           set -e
@@ -56,8 +56,8 @@ workflows:
       - name: Compile
         script: |
           xcodebuild \
-            -project "BeanStock.xcodeproj" \
-            -scheme "BeanStock" \
+            -project "App.xcodeproj" \
+            -scheme "App" \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -72,16 +72,17 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: com.bradtmalik-hue.beanstock
+        BUNDLE_ID: com.bradtmalik-hue.app
     scripts:
       - name: Build for simulator
         script: |
           set -e
           xcodebuild \
-            -project "BeanStock.xcodeproj" \
-            -scheme "BeanStock" \
+            -project "App.xcodeproj" \
+            -scheme "App" \
+          # 截图用 Debug：-demoData / -startTab 只存在于 Debug，Release 包不能带（苹果判 5.6）
             -sdk iphonesimulator \
-            -configuration Release \
+            -configuration Debug \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
@@ -96,7 +97,7 @@ workflows:
           DEV=$(xcrun simctl create Capture "$DT" "$RT")
           xcrun simctl boot "$DEV" || true
           xcrun simctl bootstatus "$DEV" -b
-          APP="build/Build/Products/Release-iphonesimulator/BeanStock.app"
+          APP="build/Build/Products/Debug-iphonesimulator/App.app"
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl status_bar "$DEV" override --time "9:41" \
             --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
@@ -131,7 +132,7 @@ workflows:
               sleep 12
               kill $LPID 2>/dev/null || true
               # 系统日志里才有真正的崩因（Fatal error / EXC_BAD_ACCESS / 断言）
-              xcrun simctl spawn "$DEV" log show --style compact --last 3m                 --predicate 'process == "BeanStock"' 2>/dev/null | tail -60 >> "shots/console_$N.txt" || true
+              xcrun simctl spawn "$DEV" log show --style compact --last 3m                 --predicate 'process == "App"' 2>/dev/null | tail -60 >> "shots/console_$N.txt" || true
               echo "--- console_$N ---"
               tail -30 "shots/console_$N.txt" || true
             fi
@@ -202,10 +203,10 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: ad_hoc
-        bundle_identifier: com.bradtmalik-hue.beanstock
+        bundle_identifier: com.bradtmalik-hue.app
       vars:
-        BUNDLE_ID: com.bradtmalik-hue.beanstock
-        APP_NAME: BeanStock
+        BUNDLE_ID: com.bradtmalik-hue.app
+        APP_NAME: App
     scripts:
       - name: Set up code signing
         script: |
@@ -214,7 +215,7 @@ workflows:
       - name: Build ad hoc ipa
         script: |
           set -e
-          xcode-project build-ipa --project "BeanStock.xcodeproj" --scheme "BeanStock" --config Release
+          xcode-project build-ipa --project "App.xcodeproj" --scheme "App" --config Release
       - name: Publish install page
         script: |
           set -e

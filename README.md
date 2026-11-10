@@ -1,7 +1,7 @@
-# BeanStock
+# App
 
-记清每一袋豆子的存量、风味和消耗
+每一条鱼都记下来，趋势一眼看清
 
-Bundle ID: `com.bradtmalik-hue.beanstock`
+Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 豆袋列表, 豆子详情, 记一笔, 统计
+Screens: 记一笔, 收获记录, 趋势, 钓点
