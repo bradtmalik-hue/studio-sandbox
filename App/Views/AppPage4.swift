@@ -1,265 +1,208 @@
 import SwiftUI
-import Charts
+import Combine
 
 struct AppPage4View: View {
-    @EnvironmentObject var store: AppFishingStore
-    @State private var searchText = ""
-    @State private var sortOption: SortOption = .count
-    @State private var selectedMethod: String? = nil
-    @State private var selectedSpot: AppPage4SpotSummary? = nil
-    @State private var showDetail = false
-
-    enum SortOption: String, CaseIterable {
-        case count = "按条数"
-        case maxWeight = "按最大个体"
-    }
-
-    var filteredRecords: [AppCatchRecord] {
-        store.records.filter { selectedMethod == nil || $0.method == selectedMethod }
-    }
-
-    private var summarizedSpots: [AppPage4SpotSummary] {
-        let grouped = Dictionary(grouping: filteredRecords, by: { $0.spot })
-        var summaries: [AppPage4SpotSummary] = []
-        for (spotName, records) in grouped {
-            let totalCount = records.count
-            let maxWeight = records.map { $0.weightKg }.max() ?? 0
-            let totalWeight = records.reduce(0) { $0 + $1.weightKg }
-            summaries.append(AppPage4SpotSummary(spotName: spotName, totalCount: totalCount, maxWeight: maxWeight, totalWeight: totalWeight, averageWeight: totalWeight / Double(totalCount)))
-        }
-        if !searchText.isEmpty {
-            summaries = summaries.filter { $0.spotName.localizedCaseInsensitiveContains(searchText) }
-        }
-        switch sortOption {
-        case .count:
-            summaries.sort { $0.totalCount > $1.totalCount }
-        case .maxWeight:
-            summaries.sort { $0.maxWeight > $1.maxWeight }
-        }
-        return summaries
-    }
-
-    private var hasData: Bool {
-        !store.records.isEmpty
-    }
-
-    private var maxWeightOverall: Double {
-        filteredRecords.map { $0.weightKg }.max() ?? 0
-    }
-
-    private var methodOptions: [String?] {
-        [nil] + Array(Set(store.records.map { $0.method })).sorted()
-    }
+    @EnvironmentObject var store: AppDataStore
+    @State private var reminderEnabled: Bool = true
+    @State private var intervalKm: Double = 1000
+    @State private var lastOdometer: Double = 0
+    @State private var remindBeforeKm: Double = 100
+    @State private var errorMessage: String? = nil
+    @State private var showSaveConfirmation: Bool = false
 
     var body: some View {
         NavigationStack {
-            AppScreen {
-                VStack(spacing: AppTheme.spacing.s6) {
-                    summaryTiles
-                    controls
-                    if hasData {
-                        chart
-                        list
-                    } else {
-                        AppPage4Empty()
+            List {
+                summarySection
+                settingsSection
+                actionSection
+            }
+            .navigationTitle("Reminder Settings")
+            .contentMargins(.bottom, 96, for: .scrollContent)
+            .alert("Settings Saved", isPresented: $showSaveConfirmation) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Your oil reminder has been updated.")
+            }
+            .alert(item: $errorMessage) { message in
+                Alert(
+                    title: Text("Invalid Input"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+        }
+        .onAppear(perform: loadSettings)
+    }
+
+    private var summarySection: some View {
+        Section {
+            AppCard {
+                VStack(alignment: .leading, spacing: AppTheme.s3) {
+                    Text("Maintenance Summary")
+                        .font(AppTheme.fontSection)
+                        .foregroundColor(AppTheme.text)
+                    HStack(spacing: AppTheme.s3) {
+                        AppStatTile(
+                            title: "Current Odometer",
+                            value: formatNumber(store.currentOdometer),
+                            unit: "km"
+                        )
+                        AppStatTile(
+                            title: "Next Oil In",
+                            value: formatNumber(nextOilDistance),
+                            unit: "km"
+                        )
                     }
+                    Text("Last oil service: \(formatNumber(store.reminderSettings.lastServiceOdometerKm)) km")
+                        .font(AppTheme.fontLabel)
+                        .foregroundColor(AppTheme.dim)
                 }
-            }
-            .navigationTitle("钓点")
-            .sheet(isPresented: $showDetail) {
-                if let spot = selectedSpot {
-                    AppPage4DetailSheet(spot: spot, records: recordsForSpot(spotName: spot.spotName))
-                }
+                .padding(AppTheme.s3)
             }
         }
     }
 
-    var summaryTiles: some View {
-        HStack(spacing: AppTheme.spacing.s4) {
-            AppStatTile(title: "钓点数量", value: "\(summarizedSpots.count)", unit: "个")
-            AppStatTile(title: "最大个体", value: String(format: "%.2f", maxWeightOverall), unit: "kg")
-            AppStatTile(title: "总条数", value: "\(filteredRecords.count)", unit: "条")
+    private var settingsSection: some View {
+        Section("Oil Reminder") {
+            AppFieldRow(label: "Enable oil change reminder") {
+                Toggle("", isOn: $reminderEnabled)
+                    .labelsHidden()
+            }
+            AppFieldRow(label: "Remind every") {
+                Stepper(value: $intervalKm, in: 100...5000, step: 100) {
+                    Text("\(Int(intervalKm)) km")
+                        .foregroundColor(AppTheme.text)
+                }
+            }
+            AppFieldRow(label: "Last service odometer") {
+                TextField("km", value: $lastOdometer, format: .number)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+            }
+            AppFieldRow(label: "Remind before") {
+                Stepper(value: $remindBeforeKm, in: 0...500, step: 10) {
+                    Text("\(Int(remindBeforeKm)) km")
+                        .foregroundColor(AppTheme.text)
+                }
+            }
         }
+        .listRowBackground(AppTheme.surface)
     }
 
-    private var controls: some View {
-        VStack(spacing: AppTheme.spacing.s4) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(AppTheme.colors.dim)
-                TextField("搜索钓点", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(AppTheme.fontBody)
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(AppTheme.colors.dim)
-                    }
-                    .buttonStyle(.plain)
-                }
+    private var actionSection: some View {
+        Section {
+            AppPrimaryButton("Save Settings") {
+                saveSettings()
             }
-            .padding(AppTheme.spacing.s3)
-            .background(AppTheme.colors.surfaceAlt)
-            .cornerRadius(AppTheme.rSmall)
-
-            Picker("排序", selection: $sortOption) {
-                ForEach(SortOption.allCases, id: \.self) { option in
-                    Text(option.rawValue).tag(option)
-                }
+            Button("Reset to Defaults") {
+                resetToDefaults()
             }
-            .pickerStyle(.segmented)
-
-            Picker("方法", selection: $selectedMethod) {
-                ForEach(methodOptions, id: \.self) { method in
-                    Text(method ?? "全部方法").tag(method)
-                }
-            }
-            .pickerStyle(.menu)
+            .foregroundColor(AppTheme.accent)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, AppTheme.spacing.s4)
+        .listRowBackground(AppTheme.surface)
     }
 
-    var chart: some View {
+    private var nextOilDistance: Double {
+        let last = store.reminderSettings.lastServiceOdometerKm
+        let interval = store.reminderSettings.intervalKm
+        return max(0, last + interval - store.currentOdometer)
+    }
+
+    private func loadSettings() {
+        reminderEnabled = store.reminderSettings.enabled
+        intervalKm = store.reminderSettings.intervalKm
+        lastOdometer = store.reminderSettings.lastServiceOdometerKm
+        remindBeforeKm = store.reminderSettings.remindBeforeKm
+    }
+
+    func saveSettings() {
+        guard intervalKm > 0 else {
+            errorMessage = "Interval must be greater than 0."
+            return
+        }
+        guard lastOdometer >= 0 else {
+            errorMessage = "Odometer cannot be negative."
+            return
+        }
+        guard remindBeforeKm >= 0 else {
+            errorMessage = "Remind before cannot be negative."
+            return
+        }
+        let newSettings = AppReminderSettings(
+            enabled: reminderEnabled,
+            intervalKm: intervalKm,
+            lastServiceOdometerKm: lastOdometer,
+            remindBeforeKm: remindBeforeKm
+        )
+        store.reminderSettings = newSettings
+        store.save()
+        showSaveConfirmation = true
+    }
+
+    private func resetToDefaults() {
+        let defaultSettings = AppReminderSettings(
+            enabled: true,
+            intervalKm: 1000,
+            lastServiceOdometerKm: store.currentOdometer,
+            remindBeforeKm: 100
+        )
+        store.reminderSettings = defaultSettings
+        store.save()
+        loadSettings()
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+    }
+}
+
+struct AppPage4SummaryCard: View {
+    let title: String
+    let value: String
+    let unit: String
+
+    var body: some View {
         AppCard {
-            VStack(alignment: .leading, spacing: AppTheme.spacing.s4) {
-                Text("各钓点条数")
-                    .font(AppTheme.fontSection)
-                    .foregroundColor(AppTheme.colors.text)
-                Chart(summarizedSpots.map { AppPage4ChartPoint(spot: $0.spotName, count: $0.totalCount) }) { point in
-                    BarMark(
-                        x: .value("钓点", point.spot),
-                        y: .value("条数", point.count)
-                    )
-                    .foregroundStyle(AppTheme.colors.accent)
-                    .annotation(position: .top) {
-                        Text("\(point.count)")
-                            .font(AppTheme.fontCaption)
-                            .foregroundColor(AppTheme.colors.dim)
-                    }
-                }
-                .frame(height: 220)
-            }
-            .padding(AppTheme.spacing.s4)
-        }
-        .padding(.horizontal, AppTheme.spacing.s4)
-    }
-
-    var list: some View {
-        List {
-            ForEach(summarizedSpots) { spot in
-                Button {
-                    selectedSpot = spot
-                    showDetail = true
-                } label: {
-                    AppPage4Row(spot: spot)
-                }
-                .buttonStyle(.plain)
-                .listRowBackground(AppTheme.colors.surface)
-            }
-        }
-        .listStyle(.insetGrouped)
-        .contentMargins(.bottom, 96, for: .scrollContent)
-    }
-
-    private func recordsForSpot(spotName: String) -> [AppCatchRecord] {
-        store.records.filter { $0.spot == spotName }
-    }
-}
-
-struct AppPage4Row: View {
-    let spot: AppPage4SpotSummary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.spacing.s2) {
-            HStack {
-                Text(spot.spotName)
-                    .font(AppTheme.fontBody)
-                    .foregroundColor(AppTheme.colors.text)
-                Spacer()
-                AppBadge(text: "最大 \(String(format: "%.2f", spot.maxWeight)) kg")
-            }
-            HStack {
-                Text("条数：\(spot.totalCount)")
+            VStack(alignment: .leading, spacing: AppTheme.s2) {
+                Text(title)
                     .font(AppTheme.fontLabel)
-                    .foregroundColor(AppTheme.colors.dim)
-                Spacer()
-                Text("总重：\(String(format: "%.2f", spot.totalWeight)) kg")
-                    .font(AppTheme.fontLabel)
-                    .foregroundColor(AppTheme.colors.dim)
-            }
-        }
-        .padding(AppTheme.spacing.s3)
-        .background(AppTheme.colors.surface)
-        .cornerRadius(AppTheme.rCard)
-    }
-}
-
-struct AppPage4Empty: View {
-    var body: some View {
-        AppEmptyState(icon: "fish", title: "还没有钓点记录", message: "去记一笔吧，鱼获会自动汇总到这里")
-    }
-}
-
-struct AppPage4DetailSheet: View {
-    let spot: AppPage4SpotSummary
-    let records: [AppCatchRecord]
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if records.isEmpty {
-                    AppEmptyState(icon: "tray", title: "没有记录", message: "该钓点暂无收获")
-                } else {
-                    List(records) { record in
-                        VStack(alignment: .leading, spacing: AppTheme.spacing.s2) {
-                            Text(record.species)
-                                .font(AppTheme.fontBody)
-                            Text("\(record.date, formatter: AppPage4DateFormatter)")
-                                .font(AppTheme.fontLabel)
-                                .foregroundColor(AppTheme.colors.dim)
-                            HStack {
-                                Text("\(record.weightKg, specifier: "%.2f") kg")
-                                Spacer()
-                                Text("\(record.lengthCm, specifier: "%.1f") cm")
-                            }
-                            .font(AppTheme.fontLabel)
-                            .foregroundColor(AppTheme.colors.dim)
-                        }
-                        .padding(AppTheme.spacing.s2)
-                    }
+                    .foregroundColor(AppTheme.dim)
+                HStack(alignment: .firstTextBaseline, spacing: AppTheme.s2) {
+                    Text(value)
+                        .font(AppTheme.fontNumber)
+                        .foregroundColor(AppTheme.text)
+                    Text(unit)
+                        .font(AppTheme.fontCaption)
+                        .foregroundColor(AppTheme.dim)
                 }
             }
-            .navigationTitle(spot.spotName)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
-                }
-            }
+            .padding(AppTheme.s3)
         }
     }
 }
 
-private let AppPage4DateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "zh_CN")
-    formatter.dateFormat = "M月d日 HH:mm"
-    return formatter
-}()
+struct AppPage4FieldRow<Content: View>: View {
+    let label: String
+    let content: Content
 
-struct AppPage4SpotSummary: Identifiable {
-    let id = UUID()
-    let spotName: String
-    let totalCount: Int
-    let maxWeight: Double
-    let totalWeight: Double
-    let averageWeight: Double
-}
+    init(label: String, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.content = content()
+    }
 
-struct AppPage4ChartPoint: Identifiable {
-    let id = UUID()
-    let spot: String
-    let count: Int
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(AppTheme.fontBody)
+                .foregroundColor(AppTheme.text)
+            Spacer()
+            content
+        }
+        .padding(.vertical, AppTheme.s2)
+    }
 }

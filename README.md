@@ -1,7 +1,7 @@
 # App
 
-每一条鱼都记下来，趋势一眼看清
+记下每次保养，算清链条跑了多少公里
 
 Bundle ID: `com.bradtmalik-hue.app`
 
-Screens: 记一笔, 收获记录, 趋势, 钓点
+Screens: 记一笔, 保养记录, 统计, 提醒设置

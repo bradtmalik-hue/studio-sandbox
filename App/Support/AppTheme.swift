@@ -40,16 +40,16 @@ enum AppTheme {
     static let s8: CGFloat = 32
     static let s10: CGFloat = 40
 
-    static let rSmall: CGFloat = 18
-    static let rCard: CGFloat = 24
+    static let rSmall: CGFloat = 14
+    static let rCard: CGFloat = 20
     static let rPill: CGFloat = 999
 
     static let shadowColor = Color.black.opacity(0.34)
     static let shadowRadius: CGFloat = 22
     static let shadowY: CGFloat = 10
 
-    static let titleFont = fontTitle
-    static let hasShadow = false
+    static let titleFont = fontDisplay
+    static let hasShadow = true
     static let hasStroke = true
     static let isDark = true
     static let colorScheme: ColorScheme = .dark

@@ -1,4 +1,4 @@
-// 基础组件：本 App 的版式骨架（cards / 圆角 24 / stroke / 标题 inline / 行 index）。
+// 基础组件：本 App 的版式骨架（grid / 圆角 20 / both / 标题 large / 行 index）。
 // 页面只用这些拼，不要从零画卡片和按钮。命名带 App 前缀，避免多个 App 出现同名符号。
 import SwiftUI
 
@@ -14,13 +14,15 @@ struct AppScreen<Content: View>: View {
             AppTheme.bg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.s5) {
-                    HStack(spacing: AppTheme.s3) {
-                        Text(title).font(AppTheme.fontTitle).foregroundStyle(AppTheme.text)
-                        Spacer(minLength: AppTheme.s2)
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: AppTheme.s1) {
+                            Text(title).font(AppTheme.titleFont).foregroundStyle(AppTheme.text)
+                            if let subtitle {
+                                Text(subtitle).font(AppTheme.fontLabel).foregroundStyle(AppTheme.dim)
+                            }
+                        }
+                        Spacer(minLength: AppTheme.s3)
                         if let trailing { trailing }
-                    }
-                    if let subtitle {
-                        Text(subtitle).font(AppTheme.fontCaption).foregroundStyle(AppTheme.dim)
                     }
                     content()
                 }
